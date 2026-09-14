@@ -164,6 +164,13 @@ export function FrameProfileSelector({
             </div>
           )}
 
+          {profiles.length === 0 && !allowNoneOption && (
+            <div className={`p-4 text-center text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+              <p className="font-semibold mb-1">Veritabanında kayıtlı profil bulunamadı.</p>
+              <p className="text-[11px] opacity-80">Aşağıdaki butona tıklayarak yeni profil ve kamera çekimi ekleyebilirsiniz.</p>
+            </div>
+          )}
+
           {profiles.map((prof) => {
             const isSelected = prof.id === selectedProfileId;
             return (

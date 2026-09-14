@@ -91,7 +91,9 @@ export const DEFAULT_UNIT_PRICES: UnitPricesSettings = {
   defaultShippingCost: 150, // ₺150 Varsayılan kargo ücreti
 };
 
-export const INITIAL_FRAME_PROFILES: FrameProfileItem[] = [
+export const INITIAL_FRAME_PROFILES: FrameProfileItem[] = [];
+
+export const SAMPLE_FRAME_PROFILES: FrameProfileItem[] = [
   {
     id: "prof_1",
     name: "Altın Varak Klasik Oymalı",
@@ -391,79 +393,7 @@ export interface OrderArchiveItem {
   authorUser?: string;
 }
 
-export const DEFAULT_ARCHIVE_ORDERS: OrderArchiveItem[] = [
-  {
-    id: "ord_101",
-    orderNumber: "NK-2026-84192",
-    createdAt: "12.09.2026 11:20",
-    customerName: "Ahmet Çerçeve & Galeri",
-    customerPhone: "0532 555 12 34",
-    deliveryDate: "15.09.2026",
-    artworkWidthCm: 50,
-    artworkHeightCm: 70,
-    innerFrameTitle: "Altın Varak Klasik Oymalı (5.0 cm)",
-    outerFrameTitle: "Yok",
-    matInfo: "5.0 cm Krem / Beyaz Paspartu",
-    totalAmount: 2450,
-    currency: "₺",
-    status: "approved",
-    deliveryMethod: "store",
-    authorUser: "Sarı Şen (Yönetici)"
-  },
-  {
-    id: "ord_102",
-    orderNumber: "NK-2026-73620",
-    createdAt: "11.09.2026 16:45",
-    customerName: "Mimar Selin Korkmaz",
-    customerPhone: "0544 333 44 55",
-    deliveryDate: "18.09.2026",
-    artworkWidthCm: 80,
-    artworkHeightCm: 120,
-    innerFrameTitle: "Siyah Mat Modern Profil (3.5 cm)",
-    outerFrameTitle: "Gümüş Varak Barok Lüks (6.0 cm)",
-    matInfo: "6.0 cm Mat Siyah + Şeffaf Cam Paspartu",
-    totalAmount: 6850,
-    currency: "₺",
-    status: "production",
-    deliveryMethod: "shipping",
-    authorUser: "Ahmet Yılmaz"
-  },
-  {
-    id: "ord_103",
-    orderNumber: "NK-2026-62180",
-    createdAt: "10.09.2026 09:15",
-    customerName: "Artisan Lounge Cafe & Bar",
-    customerPhone: "0212 290 80 70",
-    deliveryDate: "12.09.2026",
-    artworkWidthCm: 40,
-    artworkHeightCm: 60,
-    innerFrameTitle: "Ceviz Ağacı Rustik Çerçeve (4.5 cm)",
-    outerFrameTitle: "Yok",
-    matInfo: "4.0 cm Şampanya / Vizon Paspartu",
-    totalAmount: 1820,
-    currency: "₺",
-    status: "delivered",
-    deliveryMethod: "store",
-    authorUser: "Sarı Şen (Yönetici)"
-  },
-  {
-    id: "ord_104",
-    orderNumber: "NK-2026-51904",
-    createdAt: "09.09.2026 14:05",
-    customerName: "Av. Murat Eren",
-    customerPhone: "0533 111 22 33",
-    deliveryDate: "14.09.2026",
-    artworkWidthCm: 60,
-    artworkHeightCm: 90,
-    innerFrameTitle: "Beyaz Lamine Minimalist (3.0 cm)",
-    outerFrameTitle: "Yok",
-    matInfo: "5.0 cm Krem / Beyaz Paspartu",
-    totalAmount: 3100,
-    currency: "₺",
-    status: "quote",
-    deliveryMethod: "shipping",
-    authorUser: "Ahmet Yılmaz"
-  }
-];
+export const DEFAULT_ARCHIVE_ORDERS: OrderArchiveItem[] = [];
+
 
 

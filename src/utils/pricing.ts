@@ -67,12 +67,19 @@ export function loadProfilesFromStorage(): FrameProfileItem[] {
   try {
     const saved = localStorage.getItem(PROFILES_STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed: FrameProfileItem[] = JSON.parse(saved);
+      // If the storage contains the old initial mock data, purge it
+      const hasMockOnly = parsed.length > 0 && parsed.every(p => p.id && /^prof_[1-5]$/.test(p.id));
+      if (hasMockOnly) {
+        localStorage.removeItem(PROFILES_STORAGE_KEY);
+        return [];
+      }
+      return parsed;
     }
   } catch (e) {
     console.error("Error loading frame profiles from localStorage", e);
   }
-  return INITIAL_FRAME_PROFILES;
+  return [];
 }
 
 export function saveProfilesToStorage(profiles: FrameProfileItem[]): void {
@@ -174,12 +181,19 @@ export function loadArchiveOrdersFromStorage(): OrderArchiveItem[] {
   try {
     const saved = localStorage.getItem(ARCHIVE_STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed: OrderArchiveItem[] = JSON.parse(saved);
+      // If the storage contains the old initial mock orders, purge it
+      const hasMockOnly = parsed.length > 0 && parsed.every(o => o.id && /^ord_10[1-4]$/.test(o.id));
+      if (hasMockOnly) {
+        localStorage.removeItem(ARCHIVE_STORAGE_KEY);
+        return [];
+      }
+      return parsed;
     }
   } catch (e) {
     console.error("Error loading order archive from localStorage", e);
   }
-  return DEFAULT_ARCHIVE_ORDERS;
+  return [];
 }
 
 export const loadOrdersArchiveFromStorage = loadArchiveOrdersFromStorage;
