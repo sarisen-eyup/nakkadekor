@@ -1,0 +1,6 @@
+{
+  "name": "Nakka Decor",
+  "description": "Premium tablo ve çerçeve simülasyonu, gerçekçi ölçeklendirme, ortam entegrasyonu ve miter-cut birleştirme uygulaması.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
