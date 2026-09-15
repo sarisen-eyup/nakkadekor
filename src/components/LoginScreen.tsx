@@ -18,17 +18,13 @@ import {
   Receipt, 
   Send, 
   Sparkles,
-  Loader2,
-  Database,
-  Key
+  Loader2
 } from "lucide-react";
 import { CompanyProfile, UserAccount } from "../types/pricing";
 import { 
   supabase, 
   signInWithGoogle, 
   isSupabaseConfigured, 
-  getSupabaseCredentials, 
-  saveSupabaseCustomCredentials, 
   ensureTenantAndUserExist, 
   setAuthenticatedTenantId 
 } from "../lib/supabase";
@@ -57,12 +53,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   
   // Google OAuth & Supabase Loading State
   const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
-
-  // Supabase Manual Configuration Modal State
-  const [isDbModalOpen, setIsDbModalOpen] = useState<boolean>(false);
-  const [dbUrl, setDbUrl] = useState<string>(() => getSupabaseCredentials().url);
-  const [dbKey, setDbKey] = useState<string>(() => getSupabaseCredentials().anonKey);
-  const [dbSaveNotice, setDbSaveNotice] = useState<string | null>(null);
 
   // Register Form State (Mali & Fatura Bilgileri)
   const [regForm, setRegForm] = useState({
@@ -170,7 +160,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const handleGoogleLogin = async () => {
     setErrorMessage(null);
     if (!isSupabaseConfigured()) {
-      setIsDbModalOpen(true);
+      setErrorMessage("Supabase ortam değişkenleri (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) tanımlanmamış. Lütfen sunucu veya .env yapılandırmasını kontrol edin.");
       return;
     }
 
@@ -252,15 +242,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       setIsSubmitting(false);
       setErrorMessage("Kayıtlı kullanıcı bulunamadı. Lütfen 'Google ile Giriş Yap' butonunu kullanın veya kayıt oluşturun.");
     }
-  };
-
-  const handleSaveDbSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    saveSupabaseCustomCredentials(dbUrl.trim(), dbKey.trim());
-    setDbSaveNotice("Supabase bağlantı bilgileri kaydedildi! Sayfa yenileniyor...");
-    setTimeout(() => {
-      window.location.reload();
-    }, 800);
   };
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
@@ -1058,20 +1039,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </div>
             )}
 
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => setIsDbModalOpen(true)}
-                className={`text-[11px] font-mono flex items-center gap-1.5 hover:underline cursor-pointer ${
-                  isSupabaseConfigured() 
-                    ? "text-emerald-400/90 hover:text-emerald-300" 
-                    : "text-amber-400/90 hover:text-amber-300"
-                }`}
-              >
-                <div className={`w-1.5 h-1.5 rounded-full ${isSupabaseConfigured() ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
-                <span>{isSupabaseConfigured() ? "Supabase Bulut Aktif" : "Supabase Bağlantısı Kur"}</span>
-              </button>
-
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setIsContactModalOpen(true)}
@@ -1193,102 +1161,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </button>
               </form>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Supabase Database Configuration Modal */}
-      {isDbModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 relative ${
-            isDarkMode ? "bg-[#161920] border-white/15 text-white" : "bg-white border-slate-200 text-slate-900"
-          }`}>
-            <button
-              onClick={() => {
-                setIsDbModalOpen(false);
-                setDbSaveNotice(null);
-              }}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <Database className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold uppercase tracking-wider">
-                  Supabase Bulut Veritabanı
-                </h3>
-                <p className="text-xs text-neutral-400">
-                  Canlı veritabanı ve Google OAuth entegrasyonu
-                </p>
-              </div>
-            </div>
-
-            {dbSaveNotice && (
-              <div className="mb-4 p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>{dbSaveNotice}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveDbSettings} className="space-y-4">
-              <div>
-                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${
-                  isDarkMode ? "text-neutral-300" : "text-slate-700"
-                }`}>
-                  Supabase Project URL
-                </label>
-                <input
-                  type="url"
-                  required
-                  value={dbUrl}
-                  onChange={(e) => setDbUrl(e.target.value)}
-                  placeholder="https://your-project.supabase.co"
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-mono focus:outline-none ${
-                    isDarkMode ? "bg-[#0e1014] border-white/15 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900"
-                  }`}
-                />
-              </div>
-
-              <div>
-                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${
-                  isDarkMode ? "text-neutral-300" : "text-slate-700"
-                }`}>
-                  Supabase Anon Public Key
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={dbKey}
-                  onChange={(e) => setDbKey(e.target.value)}
-                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-mono focus:outline-none ${
-                    isDarkMode ? "bg-[#0e1014] border-white/15 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900"
-                  }`}
-                />
-              </div>
-
-              <div className="pt-2 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsDbModalOpen(false)}
-                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase border cursor-pointer ${
-                    isDarkMode ? "border-white/15 text-neutral-300 hover:bg-white/5" : "border-slate-300 text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  Kapat
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#FAE2B3] via-[#E5C17B] to-[#C5A059] text-black font-black uppercase text-xs tracking-wider cursor-pointer shadow-md hover:opacity-95"
-                >
-                  Kaydet &amp; Bağlan
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

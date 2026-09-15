@@ -156,25 +156,33 @@ export async function ensureTenantAndUserExist(user: any) {
       user.email?.split("@")[0] || 
       "Atölye Sahibi";
 
-    // 1. Tenants tablosunda kaydı garantiye al
-    await supabase.from("tenants").upsert({
-      id: tenantId,
-      name: `${fullName} Çerçeve Atölyesi`,
-      slug: `tenant-${tenantId.slice(0, 8)}`,
-      status: "active"
-    }, { onConflict: "id" });
+    // 1. Tenants tablosunda kaydı garantiye al (hem subscription_status hem status destekler)
+    try {
+      await supabase.from("tenants").upsert({
+        id: tenantId,
+        name: `${fullName} Çerçeve Atölyesi`,
+        slug: `tenant-${tenantId.slice(0, 8)}`,
+        subscription_status: "active"
+      }, { onConflict: "id" });
+    } catch (tErr) {
+      console.warn("Tenant kaydı bilgisi:", tErr);
+    }
 
-    // 2. Users tablosunda kaydı garantiye al
-    await supabase.from("users").upsert({
-      id: tenantId,
-      auth_user_id: tenantId,
-      tenant_id: tenantId,
-      email: user.email || "",
-      full_name: fullName,
-      role: "admin",
-      status: "active"
-    }, { onConflict: "id" });
+    // 2. Users tablosunda kullanıcı profilini garantiye al
+    try {
+      await supabase.from("users").upsert({
+        id: tenantId,
+        auth_user_id: tenantId,
+        tenant_id: tenantId,
+        email: user.email || "",
+        full_name: fullName,
+        role: "owner",
+        status: "active"
+      }, { onConflict: "id" });
+    } catch (uErr) {
+      console.warn("User kaydı bilgisi:", uErr);
+    }
   } catch (err) {
-    console.warn("Tenant/User upsert notifikasyonu (şema veya RLS kaynaklı opsiyonel):", err);
+    console.warn("Tenant/User upsert bilgisi:", err);
   }
 }

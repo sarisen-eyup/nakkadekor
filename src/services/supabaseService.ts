@@ -92,17 +92,18 @@ export async function createFrameProfileInSupabase(
 
   const insertPayload: any = {
     tenant_id: tenantId,
-    code: profile.code.toUpperCase(),
-    name: profile.name,
+    code: (profile.code || "P-" + Date.now().toString().slice(-4)).toUpperCase(),
+    name: profile.name || "Yeni Profil",
     material_type: profile.materialType || "wood",
-    width_cm: profile.widthCm,
-    unit_price_per_meter: profile.unitPricePerMeter,
+    width_cm: Number(profile.widthCm || 4),
+    unit_price_per_meter: Number(profile.unitPricePerMeter || 120),
+    unit_cost_per_meter: (profile as any).unitCostPerMeter || 0,
     image_url: profile.imageUrl || "",
     texture_url: profile.textureUrl || profile.imageUrl || "",
     is_repeating_pattern: profile.isRepeatingPattern ?? true,
     layout_mode: profile.layoutMode || (profile.isRepeatingPattern ? "repeat" : "miter-stretch"),
     category: profile.category || "both",
-    in_stock: profile.inStock ?? true
+    is_active: profile.inStock ?? true
   };
 
   // Only pass UUID if it looks like a valid UUID, otherwise let postgres generate one
@@ -112,30 +113,49 @@ export async function createFrameProfileInSupabase(
   }
 
   try {
-    const { data, error } = await supabase
+    let res = await supabase
       .from("frame_profiles")
       .insert([insertPayload])
       .select()
       .single();
 
-    if (error) {
-      console.error("Error creating frame profile in Supabase:", error);
-      return { data: null, error };
+    // If PostgreSQL schema cache complains of missing column (PGRST204)
+    if (res.error && res.error.code === "PGRST204") {
+      console.warn("Retrying frame_profile creation with minimal core columns:", res.error.message);
+      const minimalPayload: any = {
+        tenant_id: tenantId,
+        code: insertPayload.code,
+        name: insertPayload.name,
+        material_type: insertPayload.material_type,
+        width_cm: insertPayload.width_cm,
+        unit_price_per_meter: insertPayload.unit_price_per_meter,
+        image_url: insertPayload.image_url,
+        texture_url: insertPayload.texture_url,
+        is_active: true
+      };
+      if (isUuid) minimalPayload.id = profile.id;
+      res = await supabase.from("frame_profiles").insert([minimalPayload]).select().single();
     }
 
+    if (res.error) {
+      console.error("Error creating frame profile in Supabase:", res.error);
+      return { data: null, error: res.error };
+    }
+
+    const data = res.data;
     const created: FrameProfileItem = {
       id: String(data.id),
       code: data.code,
       name: data.name,
       materialType: data.material_type || "wood",
-      widthCm: Number(data.width_cm),
-      unitPricePerMeter: Number(data.unit_price_per_meter),
+      widthCm: Number(data.width_cm || 4),
+      unitPricePerMeter: Number(data.unit_price_per_meter || 120),
       imageUrl: data.image_url || "",
       textureUrl: data.texture_url || data.image_url || "",
       isRepeatingPattern: data.is_repeating_pattern ?? true,
       layoutMode: data.layout_mode || "miter-stretch",
       category: data.category || "both",
-      inStock: data.in_stock ?? true
+      inStock: data.is_active ?? data.in_stock ?? true
     };
 
     return { data: created, error: null };
@@ -167,7 +187,9 @@ export async function updateFrameProfileInSupabase(
   if (updates.isRepeatingPattern !== undefined) payload.is_repeating_pattern = updates.isRepeatingPattern;
   if (updates.layoutMode !== undefined) payload.layout_mode = updates.layoutMode;
   if (updates.category !== undefined) payload.category = updates.category;
-  if (updates.inStock !== undefined) payload.in_stock = updates.inStock;
+  if (updates.inStock !== undefined) {
+    payload.is_active = updates.inStock;
+  }
 
   try {
     const { error } = await supabase
@@ -628,12 +650,21 @@ export async function fetchVisualizationsFromSupabase(): Promise<{ data: SavedVi
 
 export async function createVisualizationInSupabase(
   visual: {
-    artworkUrl: string;
-    artworkName: string;
-    artworkWidthCm: number;
-    artworkHeightCm: number;
+    artworkUrl?: string;
+    artworkName?: string;
+    artworkWidthCm?: number;
+    artworkHeightCm?: number;
     innerFrameProfileId?: string | null;
     renderedPreviewUrl?: string | null;
+    image_url?: string;
+    imageUrl?: string;
+    artwork_url?: string;
+    title?: string;
+    artwork_name?: string;
+    artwork_width_cm?: number;
+    artwork_height_cm?: number;
+    inner_frame_profile_id?: string | null;
+    rendered_preview_url?: string | null;
   }
 ): Promise<{ data: SavedVisualizationItem | null; error: any }> {
   if (!isSupabaseConfigured()) {
@@ -642,14 +673,25 @@ export async function createVisualizationInSupabase(
 
   const tenantId = getTenantId();
 
+  const artworkUrl = visual.artworkUrl || visual.artwork_url || visual.imageUrl || visual.image_url || "";
+  const artworkName = visual.artworkName || visual.artwork_name || visual.title || "Yeni Eser";
+  const artworkWidth = Number(visual.artworkWidthCm || visual.artwork_width_cm || 50);
+  const artworkHeight = Number(visual.artworkHeightCm || visual.artwork_height_cm || 70);
+  const innerFrameId = visual.innerFrameProfileId || visual.inner_frame_profile_id || null;
+  const previewUrl = visual.renderedPreviewUrl || visual.rendered_preview_url || null;
+
+  if (!artworkUrl) {
+    return { data: null, error: new Error("Artwork URL is required") };
+  }
+
   const payload: any = {
     tenant_id: tenantId,
-    artwork_url: visual.artworkUrl,
-    artwork_name: visual.artworkName || "Yeni Eser",
-    artwork_width_cm: visual.artworkWidthCm || 50,
-    artwork_height_cm: visual.artworkHeightCm || 70,
-    inner_frame_profile_id: visual.innerFrameProfileId || null,
-    rendered_preview_url: visual.renderedPreviewUrl || null,
+    artwork_url: artworkUrl,
+    artwork_name: artworkName,
+    artwork_width_cm: artworkWidth,
+    artwork_height_cm: artworkHeight,
+    inner_frame_profile_id: innerFrameId,
+    rendered_preview_url: previewUrl,
     updated_at: new Date().toISOString()
   };
 

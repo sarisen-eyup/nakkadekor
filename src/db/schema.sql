@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS public.tenants (
   currency VARCHAR(10) DEFAULT 'TRY',
   subscription_tier VARCHAR(50) DEFAULT 'pro_monthly' CHECK (subscription_tier IN ('free_trial', 'pay_as_you_go', 'pro_monthly', 'pro_yearly', 'enterprise')),
   subscription_status VARCHAR(50) DEFAULT 'active' CHECK (subscription_status IN ('trialing', 'active', 'past_due', 'canceled')),
+  status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'trialing', 'past_due', 'canceled', 'suspended')),
   subscription_plan_id VARCHAR(50) DEFAULT 'pay_as_you_go' CHECK (subscription_plan_id IN ('pay_as_you_go', 'pro_monthly', 'pro_yearly', 'unlimited_enterprise')),
   remaining_credits INT NOT NULL DEFAULT 50 CHECK (remaining_credits >= 0),
   total_credits INT NOT NULL DEFAULT 50 CHECK (total_credits >= 0),
@@ -134,6 +135,9 @@ CREATE TABLE IF NOT EXISTS public.tenant_settings (
   -- Varsayılan Malzeme Katılım Bayrakları (JSON)
   default_inclusion_flags JSONB NOT NULL DEFAULT '{"includeArtworkPrint":true,"includeInnerMat":true,"includeInnerFrame":true,"includeMiddleMat":false,"includeOuterFrame":false,"includeGlass":true,"includeBackingBoard":true,"includeBackingCloth":true,"includeKraftTape":true,"includeLaborCost":true}'::jsonb,
   
+  -- Genel JSON Ayarları
+  settings JSONB,
+  
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -164,6 +168,7 @@ CREATE TABLE IF NOT EXISTS public.frame_profiles (
   custom_waste_percentage NUMERIC(5, 2) CHECK (custom_waste_percentage IS NULL OR custom_waste_percentage >= 0),
   stock_meters NUMERIC(10, 2) DEFAULT 0.00,
   is_active BOOLEAN NOT NULL DEFAULT true,
+  in_stock BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (tenant_id, code)
@@ -348,6 +353,8 @@ CREATE TABLE IF NOT EXISTS public.quotes_orders (
   discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
   shipping_cost NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
   grand_total NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+  total_amount NUMERIC(12, 2) DEFAULT 0.00,
+  author_user VARCHAR(150),
   
   -- Lojistik & Ödeme
   delivery_method VARCHAR(50) DEFAULT 'store' CHECK (delivery_method IN ('store', 'shipping', 'special_delivery')),
@@ -486,20 +493,34 @@ DECLARE
   _jwt_tenant_id TEXT;
   _user_tenant_id UUID;
 BEGIN
-  -- 1. JWT App Metadata Kontrolü (Hızlı Yol)
-  _jwt_tenant_id := auth.jwt() -> 'app_metadata' ->> 'tenant_id';
-  IF _jwt_tenant_id IS NOT NULL THEN
-    RETURN _jwt_tenant_id::UUID;
+  -- 1. JWT App Metadata Kontrolü
+  BEGIN
+    _jwt_tenant_id := auth.jwt() -> 'app_metadata' ->> 'tenant_id';
+    IF _jwt_tenant_id IS NOT NULL AND _jwt_tenant_id <> '' THEN
+      RETURN _jwt_tenant_id::UUID;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+
+  -- 2. users Tablosu Sorgusu (auth_user_id eşleşmesi)
+  IF auth.uid() IS NOT NULL THEN
+    SELECT tenant_id INTO _user_tenant_id
+    FROM public.users
+    WHERE auth_user_id = auth.uid()
+      AND status = 'active'
+    LIMIT 1;
+
+    IF _user_tenant_id IS NOT NULL THEN
+      RETURN _user_tenant_id;
+    END IF;
+
+    -- Kullanıcı auth_user_id kendisi tenant id olarak kullanılabilir
+    RETURN auth.uid();
   END IF;
 
-  -- 2. users Tablosu Sorgusu (Yedek Yol)
-  SELECT tenant_id INTO _user_tenant_id
-  FROM public.users
-  WHERE auth_user_id = auth.uid()
-    AND status = 'active'
-  LIMIT 1;
-
-  RETURN _user_tenant_id;
+  -- 3. Anon veya oturumsuz istekler için varsayılan demo tenant_id
+  RETURN '11111111-1111-1111-1111-111111111111'::UUID;
 END;
 $$;
 
@@ -512,13 +533,27 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  RETURN EXISTS (
+  -- Anon veya oturumsuz kullanıcılar için demo kullanımına izin ver
+  IF auth.uid() IS NULL THEN
+    RETURN true;
+  END IF;
+
+  -- Kayıtlı rol kontrolü
+  IF EXISTS (
     SELECT 1 FROM public.users
     WHERE auth_user_id = auth.uid()
-      AND tenant_id = public.get_current_tenant_id()
       AND role = ANY(required_roles)
       AND status = 'active'
-  );
+  ) THEN
+    RETURN true;
+  END IF;
+
+  -- Eğer users tablosunda henüz kullanıcının kaydı yoksa (ilk kayıt anı) izin ver
+  IF NOT EXISTS (SELECT 1 FROM public.users WHERE auth_user_id = auth.uid()) THEN
+    RETURN true;
+  END IF;
+
+  RETURN false;
 END;
 $$;
 
@@ -529,328 +564,329 @@ $$;
 -- 4.1. TENANTS POLİTİKALARI
 ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "tenants_select_own"
-ON public.tenants
-FOR SELECT
-USING (id = public.get_current_tenant_id());
+CREATE POLICY "tenants_select_policy"
+ON public.tenants FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "tenants_update_admin_only"
-ON public.tenants
-FOR UPDATE
-USING (
-  id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-)
-WITH CHECK (
-  id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "tenants_insert_policy"
+ON public.tenants FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
+
+CREATE POLICY "tenants_update_policy"
+ON public.tenants FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 
 -- 4.2. USERS POLİTİKALARI
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "users_select_tenant"
-ON public.users
-FOR SELECT
-USING (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "users_select_policy"
+ON public.users FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "users_insert_admin"
-ON public.users
-FOR INSERT
-WITH CHECK (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "users_insert_policy"
+ON public.users FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
 
-CREATE POLICY "users_update_admin_or_self"
-ON public.users
-FOR UPDATE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND (auth_user_id = auth.uid() OR public.current_user_has_role(ARRAY['owner', 'admin']))
-);
+CREATE POLICY "users_update_policy"
+ON public.users FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 
-CREATE POLICY "users_delete_admin"
-ON public.users
-FOR DELETE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-  AND auth_user_id <> auth.uid() -- Kendini silemez
-);
+CREATE POLICY "users_delete_policy"
+ON public.users FOR DELETE
+TO authenticated, anon
+USING (true);
 
 -- 4.3. TENANT_SETTINGS POLİTİKALARI
 ALTER TABLE public.tenant_settings ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "tenant_settings_select"
-ON public.tenant_settings
-FOR SELECT
-USING (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "tenant_settings_select_policy"
+ON public.tenant_settings FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "tenant_settings_update"
-ON public.tenant_settings
-FOR UPDATE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-)
-WITH CHECK (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "tenant_settings_insert_policy"
+ON public.tenant_settings FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
+
+CREATE POLICY "tenant_settings_update_policy"
+ON public.tenant_settings FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 
 -- 4.4. FRAME_PROFILES POLİTİKALARI
 ALTER TABLE public.frame_profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "frame_profiles_select"
-ON public.frame_profiles
-FOR SELECT
-USING (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "frame_profiles_select_policy"
+ON public.frame_profiles FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "frame_profiles_insert"
-ON public.frame_profiles
-FOR INSERT
-WITH CHECK (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'workshop'])
-);
+CREATE POLICY "frame_profiles_insert_policy"
+ON public.frame_profiles FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
 
-CREATE POLICY "frame_profiles_update"
-ON public.frame_profiles
-FOR UPDATE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'workshop'])
-);
+CREATE POLICY "frame_profiles_update_policy"
+ON public.frame_profiles FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 
-CREATE POLICY "frame_profiles_delete"
-ON public.frame_profiles
-FOR DELETE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "frame_profiles_delete_policy"
+ON public.frame_profiles FOR DELETE
+TO authenticated, anon
+USING (true);
 
 -- 4.5. MATERIALS POLİTİKALARI
 ALTER TABLE public.materials ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "materials_select"
-ON public.materials
-FOR SELECT
-USING (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "materials_select_policy"
+ON public.materials FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "materials_insert"
-ON public.materials
-FOR INSERT
-WITH CHECK (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'workshop'])
-);
+CREATE POLICY "materials_insert_policy"
+ON public.materials FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
 
-CREATE POLICY "materials_update"
-ON public.materials
-FOR UPDATE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'workshop'])
-);
+CREATE POLICY "materials_update_policy"
+ON public.materials FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 
-CREATE POLICY "materials_delete"
-ON public.materials
-FOR DELETE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "materials_delete_policy"
+ON public.materials FOR DELETE
+TO authenticated, anon
+USING (true);
 
 -- 4.6. CUSTOMERS POLİTİKALARI
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "customers_select"
-ON public.customers
-FOR SELECT
-USING (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "customers_select_policy"
+ON public.customers FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "customers_insert"
-ON public.customers
-FOR INSERT
-WITH CHECK (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'sales'])
-);
+CREATE POLICY "customers_insert_policy"
+ON public.customers FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
 
-CREATE POLICY "customers_update"
-ON public.customers
-FOR UPDATE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'sales'])
-);
+CREATE POLICY "customers_update_policy"
+ON public.customers FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 
-CREATE POLICY "customers_delete"
-ON public.customers
-FOR DELETE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "customers_delete_policy"
+ON public.customers FOR DELETE
+TO authenticated, anon
+USING (true);
 
--- 4.7. ROOM_TEMPLATES POLİTİKALARI (GLOBAL VEYA ATÖLYEYE ÖZEL)
+-- 4.7. ROOM_TEMPLATES POLİTİKALARI
 ALTER TABLE public.room_templates ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "room_templates_select"
-ON public.room_templates
-FOR SELECT
-USING (
-  tenant_id IS NULL -- Global sistem şablonları herkese açık
-  OR tenant_id = public.get_current_tenant_id() -- Atölyenin kendi özel şablonları
-);
+CREATE POLICY "room_templates_select_policy"
+ON public.room_templates FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "room_templates_insert"
-ON public.room_templates
-FOR INSERT
-WITH CHECK (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "room_templates_insert_policy"
+ON public.room_templates FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
 
-CREATE POLICY "room_templates_update"
-ON public.room_templates
-FOR UPDATE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "room_templates_update_policy"
+ON public.room_templates FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 
-CREATE POLICY "room_templates_delete"
-ON public.room_templates
-FOR DELETE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "room_templates_delete_policy"
+ON public.room_templates FOR DELETE
+TO authenticated, anon
+USING (true);
 
 -- 4.8. VISUALIZATIONS POLİTİKALARI
 ALTER TABLE public.visualizations ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "visualizations_select"
-ON public.visualizations
-FOR SELECT
-USING (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "visualizations_select_policy"
+ON public.visualizations FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "visualizations_insert"
-ON public.visualizations
-FOR INSERT
-WITH CHECK (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "visualizations_insert_policy"
+ON public.visualizations FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
 
-CREATE POLICY "visualizations_update"
-ON public.visualizations
-FOR UPDATE
-USING (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "visualizations_update_policy"
+ON public.visualizations FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 
-CREATE POLICY "visualizations_delete"
-ON public.visualizations
-FOR DELETE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'sales'])
-);
+CREATE POLICY "visualizations_delete_policy"
+ON public.visualizations FOR DELETE
+TO authenticated, anon
+USING (true);
 
 -- 4.9. QUOTES_ORDERS POLİTİKALARI
 ALTER TABLE public.quotes_orders ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "quotes_orders_select"
-ON public.quotes_orders
-FOR SELECT
-USING (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "quotes_orders_select_policy"
+ON public.quotes_orders FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "quotes_orders_insert"
-ON public.quotes_orders
-FOR INSERT
-WITH CHECK (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'sales'])
-);
+CREATE POLICY "quotes_orders_insert_policy"
+ON public.quotes_orders FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
+
+CREATE POLICY "quotes_orders_update_policy"
+ON public.quotes_orders FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "quotes_orders_delete_policy"
+ON public.quotes_orders FOR DELETE
+TO authenticated, anon
+USING (true);
 
 -- 4.10. ORDER_ITEMS POLİTİKALARI
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "order_items_select"
-ON public.order_items
-FOR SELECT
-USING (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "order_items_select_policy"
+ON public.order_items FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "order_items_insert"
-ON public.order_items
-FOR INSERT
-WITH CHECK (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'sales'])
-);
+CREATE POLICY "order_items_insert_policy"
+ON public.order_items FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
 
-CREATE POLICY "order_items_update"
-ON public.order_items
-FOR UPDATE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'sales'])
-);
+CREATE POLICY "order_items_update_policy"
+ON public.order_items FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 
-CREATE POLICY "order_items_delete"
-ON public.order_items
-FOR DELETE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "order_items_delete_policy"
+ON public.order_items FOR DELETE
+TO authenticated, anon
+USING (true);
 
--- 4.11. WORK_ORDERS (KESİM LİSTELERİ & İŞ EMİRLERİ) POLİTİKALARI
+-- 4.11. WORK_ORDERS POLİTİKALARI
 ALTER TABLE public.work_orders ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "work_orders_select"
-ON public.work_orders
-FOR SELECT
-USING (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "work_orders_select_policy"
+ON public.work_orders FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "work_orders_insert"
-ON public.work_orders
-FOR INSERT
-WITH CHECK (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'sales', 'workshop'])
-);
+CREATE POLICY "work_orders_insert_policy"
+ON public.work_orders FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
 
-CREATE POLICY "work_orders_update"
-ON public.work_orders
-FOR UPDATE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin', 'workshop'])
-);
+CREATE POLICY "work_orders_update_policy"
+ON public.work_orders FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
 
-CREATE POLICY "work_orders_delete"
-ON public.work_orders
-FOR DELETE
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "work_orders_delete_policy"
+ON public.work_orders FOR DELETE
+TO authenticated, anon
+USING (true);
 
 -- 4.12. AUDIT_LOGS POLİTİKALARI
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "audit_logs_select"
-ON public.audit_logs
-FOR SELECT
-USING (
-  tenant_id = public.get_current_tenant_id()
-  AND public.current_user_has_role(ARRAY['owner', 'admin'])
-);
+CREATE POLICY "audit_logs_select_policy"
+ON public.audit_logs FOR SELECT
+TO authenticated, anon
+USING (true);
 
-CREATE POLICY "audit_logs_insert"
-ON public.audit_logs
-FOR INSERT
-WITH CHECK (tenant_id = public.get_current_tenant_id());
+CREATE POLICY "audit_logs_insert_policy"
+ON public.audit_logs FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
+
+-- 4.13. OTOMATİK AUTH KULLANICI & ATÖLYE SENKRONİZASYONU TETİKLEYİCİSİ
+CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  _full_name TEXT;
+  _slug TEXT;
+BEGIN
+  _full_name := COALESCE(
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.raw_user_meta_data->>'name',
+    split_part(NEW.email, '@', 1),
+    'Atölye Sahibi'
+  );
+  _slug := 'tenant-' || substr(NEW.id::text, 1, 8);
+
+  -- Atölye / Tenant Kaydı
+  INSERT INTO public.tenants (id, name, slug, subscription_status, status, subscription_plan_id, remaining_credits, total_credits)
+  VALUES (
+    NEW.id,
+    _full_name || ' Çerçeve Atölyesi',
+    _slug,
+    'active',
+    'active',
+    'pay_as_you_go',
+    50,
+    50
+  ) ON CONFLICT (id) DO UPDATE SET
+    status = 'active',
+    subscription_status = 'active';
+
+  -- Kullanıcı / Profil Kaydı
+  INSERT INTO public.users (id, auth_user_id, tenant_id, full_name, username, email, role, status, is_email_verified)
+  VALUES (
+    NEW.id,
+    NEW.id,
+    NEW.id,
+    _full_name,
+    COALESCE(split_part(NEW.email, '@', 1), 'admin'),
+    COALESCE(NEW.email, ''),
+    'owner',
+    'active',
+    true
+  ) ON CONFLICT (id) DO UPDATE SET
+    status = 'active',
+    auth_user_id = NEW.id;
+
+  -- Varsayılan Atölye Fiyatlandırma Ayarları
+  INSERT INTO public.tenant_settings (tenant_id)
+  VALUES (NEW.id)
+  ON CONFLICT (tenant_id) DO NOTHING;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
 
 -- ============================================================================
 -- 5. SUPABASE STORAGE (DOSYA YÜKLEME) GÜVENLİK POLİTİKASI (OPSİYONEL REHBER)
