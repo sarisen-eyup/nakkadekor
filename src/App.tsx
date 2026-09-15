@@ -77,8 +77,19 @@ import {
   UserAccount,
   SubscriptionData,
   OrderArchiveItem,
+  OrderStatus,
   isProPlan
 } from "./types/pricing";
+import { 
+  fetchFrameProfilesFromSupabase, 
+  fetchOrdersFromSupabase, 
+  fetchTenantSettingsFromSupabase,
+  createOrderInSupabase,
+  deleteOrderFromSupabase,
+  updateOrderStatusInSupabase,
+  saveTenantSettingsToSupabase
+} from "./services/supabaseService";
+import { isSupabaseConfigured } from "./lib/supabase";
 import { 
   loadSettingsFromStorage, 
   saveSettingsToStorage, 
@@ -487,7 +498,70 @@ export default function App() {
   const handleDeleteArchiveOrder = (orderId: string) => {
     const updated = deleteOrderFromArchive(orderId);
     setArchiveOrders(updated);
+    if (isSupabaseConfigured()) {
+      deleteOrderFromSupabase(orderId).catch(err => {
+        console.warn("Supabase deleteOrder warning:", err);
+      });
+    }
   };
+
+  const handleUpdateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
+    setArchiveOrders(prev => {
+      const updated = prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
+      try {
+        localStorage.setItem("nakka_order_archive_v1", JSON.stringify(updated));
+      } catch (e) {
+        console.error("Failed to save updated orders to localStorage", e);
+      }
+      return updated;
+    });
+    if (isSupabaseConfigured()) {
+      updateOrderStatusInSupabase(orderId, newStatus).catch(err => {
+        console.warn("Supabase updateOrderStatus warning:", err);
+      });
+    }
+  };
+
+  // Initial Supabase Cloud Sync
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    let isMounted = true;
+
+    // 1. Fetch Cloud Frame Profiles
+    fetchFrameProfilesFromSupabase().then(({ data, error }) => {
+      if (!isMounted) return;
+      if (data && !error && data.length > 0) {
+        setFrameProfiles(data);
+        saveProfilesToStorage(data);
+      }
+    });
+
+    // 2. Fetch Cloud Orders Archive
+    fetchOrdersFromSupabase().then(({ data, error }) => {
+      if (!isMounted) return;
+      if (data && !error && data.length > 0) {
+        setArchiveOrders(data);
+        try {
+          localStorage.setItem("nakka_order_archive_v1", JSON.stringify(data));
+        } catch (e) {
+          console.error("Failed to save cloud orders to localStorage", e);
+        }
+      }
+    });
+
+    // 3. Fetch Tenant Settings
+    fetchTenantSettingsFromSupabase().then(({ data, error }) => {
+      if (!isMounted) return;
+      if (data && !error) {
+        setUnitPricesSettings(data);
+        saveSettingsToStorage(data);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleLoadOrderToWorkspace = (order: OrderArchiveItem) => {
     if (order.artworkWidthCm) setWidthInput(String(order.artworkWidthCm));
@@ -563,6 +637,11 @@ export default function App() {
   const handleSaveSettings = (newSettings: UnitPricesSettings) => {
     setUnitPricesSettings(newSettings);
     saveSettingsToStorage(newSettings);
+    if (isSupabaseConfigured()) {
+      saveTenantSettingsToSupabase(newSettings).catch(err => {
+        console.warn("Supabase saveTenantSettings warning:", err);
+      });
+    }
   };
 
   const handleSaveProfiles = (newProfiles: FrameProfileItem[]) => {
@@ -1468,6 +1547,12 @@ Durum: Onaylandi / Uretime Hazir`;
     };
     const updatedArchive = addOrderToArchive(newArchiveItem);
     setArchiveOrders(updatedArchive);
+
+    if (isSupabaseConfigured()) {
+      createOrderInSupabase(newArchiveItem).catch(err => {
+        console.warn("Supabase createOrder sync warning:", err);
+      });
+    }
 
     // Deduct 1 credit from subscription
     const updatedSub = deductSubscriptionCredit();
@@ -2452,6 +2537,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         onDeleteOrder={handleDeleteArchiveOrder}
         onLoadOrderToWorkspace={handleLoadOrderToWorkspace}
         companyProfile={companyProfile}
+        onUpdateStatus={handleUpdateOrderStatus}
       />
 
       <CostBreakdownModal

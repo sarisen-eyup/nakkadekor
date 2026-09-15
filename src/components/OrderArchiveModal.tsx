@@ -38,6 +38,7 @@ interface OrderArchiveModalProps {
   onDeleteOrder: (orderId: string) => void;
   onLoadOrderToWorkspace: (order: OrderArchiveItem) => void;
   companyProfile: CompanyProfile;
+  onUpdateStatus?: (orderId: string, status: OrderStatus) => void;
 }
 
 export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
@@ -47,7 +48,8 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
   orders,
   onDeleteOrder,
   onLoadOrderToWorkspace,
-  companyProfile
+  companyProfile,
+  onUpdateStatus
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -458,7 +460,29 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
 
                       {/* Durum */}
                       <td className="py-3.5 px-4 align-top text-center">
-                        {getStatusBadge(order.status)}
+                        {onUpdateStatus ? (
+                          <select
+                            value={order.status}
+                            onChange={(e) => onUpdateStatus(order.id, e.target.value as OrderStatus)}
+                            className={`text-[10px] font-bold uppercase font-mono px-2 py-1 rounded border cursor-pointer focus:outline-none transition-colors ${
+                              order.status === "approved"
+                                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                                : order.status === "production"
+                                ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                                : order.status === "delivered"
+                                ? "bg-purple-500/15 text-purple-400 border-purple-500/30"
+                                : "bg-blue-500/15 text-blue-400 border-blue-500/30"
+                            }`}
+                            title="Sipariş durumunu değiştirmek için seçiniz"
+                          >
+                            <option value="quote" className="bg-neutral-900 text-blue-400">TEKLİF</option>
+                            <option value="approved" className="bg-neutral-900 text-emerald-400">ONAYLANDI</option>
+                            <option value="production" className="bg-neutral-900 text-amber-400">ÜRETİMDE</option>
+                            <option value="delivered" className="bg-neutral-900 text-purple-400">TESLİM EDİLDİ</option>
+                          </select>
+                        ) : (
+                          getStatusBadge(order.status)
+                        )}
                       </td>
 
                       {/* Islemler */}

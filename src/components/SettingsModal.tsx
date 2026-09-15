@@ -11,9 +11,15 @@ import {
   CompanyProfile,
   DEFAULT_COMPANY_PROFILE,
   SubscriptionData,
+  SAMPLE_FRAME_PROFILES,
   isProPlan
 } from "../types/pricing";
 import { ImageCropModal } from "./ImageCropModal";
+import { 
+  createFrameProfileInSupabase,
+  deleteFrameProfileFromSupabase
+} from "../services/supabaseService";
+import { isSupabaseConfigured } from "../lib/supabase";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -117,6 +123,18 @@ export function SettingsModal({
   const [bulkUndoStack, setBulkUndoStack] = useState<FrameProfileItem[][]>([]);
   const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
 
+  const handleLoadSampleProfiles = () => {
+    setLocalProfiles(SAMPLE_FRAME_PROFILES);
+    onSaveProfiles(SAMPLE_FRAME_PROFILES);
+    if (isSupabaseConfigured()) {
+      SAMPLE_FRAME_PROFILES.forEach((prof) => {
+        createFrameProfileInSupabase(prof).catch(() => {});
+      });
+    }
+    setBulkSuccessMsg("5 adet klasik çerçeve profili başarıyla yüklendi!");
+    setTimeout(() => setBulkSuccessMsg(null), 3500);
+  };
+
   if (!isOpen) return null;
 
   const handleProfileImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isNew: boolean, profileId?: string) => {
@@ -196,6 +214,11 @@ export function SettingsModal({
     };
 
     setLocalProfiles((prev) => [created, ...prev]);
+    if (isSupabaseConfigured()) {
+      createFrameProfileInSupabase(created).catch((err) => {
+        console.warn("Supabase create profile error:", err);
+      });
+    }
     setNewProfile({
       name: "",
       code: "",
@@ -210,6 +233,11 @@ export function SettingsModal({
 
   const handleDeleteProfile = (id: string) => {
     setLocalProfiles((prev) => prev.filter((p) => p.id !== id));
+    if (isSupabaseConfigured()) {
+      deleteFrameProfileFromSupabase(id).catch((err) => {
+        console.warn("Supabase delete profile error:", err);
+      });
+    }
   };
 
   const handleProfilePriceChange = (id: string, price: number) => {
@@ -1129,8 +1157,30 @@ export function SettingsModal({
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {localProfiles.map((prof) => (
+                {localProfiles.length === 0 ? (
+                  <div className={`border border-dashed rounded-xl p-8 text-center space-y-3 ${
+                    isDarkMode ? "bg-[#141619] border-neutral-700 text-neutral-400" : "bg-white border-slate-300 text-slate-600"
+                  }`}>
+                    <Database className="w-10 h-10 mx-auto opacity-30 text-[#C5A059]" />
+                    <div>
+                      <h4 className="font-bold text-sm text-neutral-200">Kayıtlı Profil Bulunmuyor</h4>
+                      <p className="text-xs text-neutral-400 mt-1 max-w-md mx-auto">
+                        Veritabanınızda henüz çerçeve profili bulunmamaktadır. Yukarıdaki formu kullanarak kendi çıtalarınızı ekleyebilir veya tek tıkla 5 adet hazır klasik çerçeve profilini yükleyebilirsiniz.
+                      </p>
+                    </div>
+                    <div className="pt-2 flex justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleLoadSampleProfiles}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#C5A059] hover:bg-[#b5924b] text-black font-bold text-xs transition-colors cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4" /> Örnek 5 Klasik Profili Yükle
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {localProfiles.map((prof) => (
                     <div
                       key={prof.id}
                       className={`flex items-center gap-3 border p-3 rounded-md transition-colors ${
@@ -1250,6 +1300,7 @@ export function SettingsModal({
                     </div>
                   ))}
                 </div>
+                )}
               </div>
 
             </div>
