@@ -252,7 +252,7 @@ export async function fetchOrdersFromSupabase(): Promise<{ data: OrderArchiveIte
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching orders from Supabase:", error);
+      console.warn("Could not fetch orders from Supabase:", error.message || error);
       return { data: null, error };
     }
 
@@ -271,23 +271,23 @@ export async function fetchOrdersFromSupabase(): Promise<{ data: OrderArchiveIte
         createdAt: createdDateStr,
         customerName: row.customer_name,
         customerPhone: row.customer_phone || "",
-        deliveryDate: row.delivery_date ? new Date(row.delivery_date).toLocaleDateString("tr-TR") : undefined,
+        deliveryDate: row.delivery_date ? new Date(row.delivery_date).toLocaleDateString("tr-TR") : (row.delivery_date_str || undefined),
         artworkWidthCm: row.artwork_width_cm ? Number(row.artwork_width_cm) : undefined,
         artworkHeightCm: row.artwork_height_cm ? Number(row.artwork_height_cm) : undefined,
         innerFrameTitle: row.inner_frame_title || "",
         outerFrameTitle: row.outer_frame_title || "Yok",
         matInfo: row.mat_info || "Paspartusuz",
-        totalAmount: Number(row.total_amount || 0),
+        totalAmount: Number(row.grand_total ?? row.total_amount ?? 0),
         currency: row.currency || "₺",
         status: (row.status as OrderStatus) || "quote",
-        deliveryMethod: row.delivery_method || "pickup",
-        authorUser: row.author_user || "Yetkili Personel"
+        deliveryMethod: row.delivery_method === "store" ? "pickup" : (row.delivery_method || "pickup"),
+        authorUser: row.author_user_name || row.author_user || "Yetkili Personel"
       };
     });
 
     return { data: orders, error: null };
   } catch (err) {
-    console.error("Exception fetching orders:", err);
+    console.warn("Exception fetching orders:", err);
     return { data: null, error: err };
   }
 }
@@ -315,34 +315,69 @@ export async function createOrderInSupabase(
     }
   }
 
-  const payload: any = {
+  const deliveryMethodCode = order.deliveryMethod === "pickup" ? "store" : (order.deliveryMethod || "store");
+  const validDeliveryMethod = ["store", "shipping", "special_delivery"].includes(deliveryMethodCode) ? deliveryMethodCode : "store";
+
+  // Standard schema payload
+  const primaryPayload: any = {
     tenant_id: tenantId,
     order_number: order.orderNumber,
     customer_name: order.customerName,
     customer_phone: order.customerPhone || null,
     delivery_date: formattedDeliveryDate,
+    delivery_date_str: order.deliveryDate || null,
     artwork_width_cm: order.artworkWidthCm || null,
     artwork_height_cm: order.artworkHeightCm || null,
     inner_frame_title: order.innerFrameTitle || null,
     outer_frame_title: order.outerFrameTitle || null,
     mat_info: order.matInfo || null,
-    total_amount: order.totalAmount,
+    grand_total: order.totalAmount || 0,
+    subtotal: order.totalAmount || 0,
     currency: order.currency || "₺",
     status: order.status || "quote",
-    delivery_method: order.deliveryMethod || "pickup",
-    author_user: order.authorUser || "Yetkili Personel",
-    metadata: {}
+    delivery_method: validDeliveryMethod,
+    author_user_name: order.authorUser || "Yetkili Personel"
   };
 
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("quotes_orders")
-      .insert([payload])
+      .insert([primaryPayload])
       .select()
       .single();
 
+    // Fallback if schema has total_amount / author_user columns
+    if (error && error.code === "42703") {
+      const fallbackPayload: any = {
+        tenant_id: tenantId,
+        order_number: order.orderNumber,
+        customer_name: order.customerName,
+        customer_phone: order.customerPhone || null,
+        delivery_date: formattedDeliveryDate,
+        artwork_width_cm: order.artworkWidthCm || null,
+        artwork_height_cm: order.artworkHeightCm || null,
+        inner_frame_title: order.innerFrameTitle || null,
+        outer_frame_title: order.outerFrameTitle || null,
+        mat_info: order.matInfo || null,
+        total_amount: order.totalAmount || 0,
+        currency: order.currency || "₺",
+        status: order.status || "quote",
+        delivery_method: order.deliveryMethod || "pickup",
+        author_user: order.authorUser || "Yetkili Personel"
+      };
+
+      const fallbackRes = await supabase
+        .from("quotes_orders")
+        .insert([fallbackPayload])
+        .select()
+        .single();
+      
+      data = fallbackRes.data;
+      error = fallbackRes.error;
+    }
+
     if (error) {
-      console.error("Error saving order to Supabase:", error);
+      console.warn("Could not save order to Supabase:", error.message || error);
       return { data: null, error };
     }
 
@@ -353,7 +388,7 @@ export async function createOrderInSupabase(
 
     return { data: savedOrder, error: null };
   } catch (err) {
-    console.error("Exception creating order in Supabase:", err);
+    console.warn("Exception creating order in Supabase:", err);
     return { data: null, error: err };
   }
 }
@@ -378,13 +413,13 @@ export async function updateOrderStatusInSupabase(
 
     const { error } = await query;
     if (error) {
-      console.error("Error updating order status:", error);
+      console.warn("Could not update order status in Supabase:", error.message || error);
       return { success: false, error };
     }
 
     return { success: true, error: null };
   } catch (err) {
-    console.error("Exception updating order status:", err);
+    console.warn("Exception updating order status:", err);
     return { success: false, error: err };
   }
 }
@@ -406,13 +441,13 @@ export async function deleteOrderFromSupabase(orderId: string): Promise<{ succes
 
     const { error } = await query;
     if (error) {
-      console.error("Error deleting order from Supabase:", error);
+      console.warn("Could not delete order from Supabase:", error.message || error);
       return { success: false, error };
     }
 
     return { success: true, error: null };
   } catch (err) {
-    console.error("Exception deleting order from Supabase:", err);
+    console.warn("Exception deleting order from Supabase:", err);
     return { success: false, error: err };
   }
 }
@@ -431,22 +466,46 @@ export async function fetchTenantSettingsFromSupabase(): Promise<{ data: UnitPri
   try {
     const { data, error } = await supabase
       .from("tenant_settings")
-      .select("settings")
+      .select("*")
       .eq("tenant_id", tenantId)
       .maybeSingle();
 
     if (error) {
-      console.error("Error fetching tenant settings from Supabase:", error);
+      console.warn("Could not fetch tenant settings from Supabase (using local settings):", error.message || error);
       return { data: null, error };
     }
 
-    if (!data || !data.settings) {
+    if (!data) {
       return { data: null, error: null };
     }
 
-    return { data: data.settings as UnitPricesSettings, error: null };
+    // 1. If stored as a JSON object in 'settings' column
+    if ((data as any).settings && typeof (data as any).settings === "object") {
+      return { data: (data as any).settings as UnitPricesSettings, error: null };
+    }
+
+    // 2. Map structured relational columns from schema.sql
+    const mapped: UnitPricesSettings = {
+      canvasPrintPricePerSqm: Number(data.canvas_print_price_per_sqm ?? 450),
+      matBoardPricePerSqm: Number(data.mat_board_price_per_sqm ?? 280),
+      middleMatBoardPricePerSqm: Number(data.middle_mat_board_price_per_sqm ?? 350),
+      transparentMatBoardPricePerSqm: Number(data.transparent_mat_board_price_per_sqm ?? 520),
+      defaultInnerFramePricePerMeter: Number(data.default_inner_frame_price_per_meter ?? 120),
+      defaultOuterFramePricePerMeter: Number(data.default_outer_frame_price_per_meter ?? 180),
+      glassPricePerSqm: Number(data.glass_price_per_sqm ?? 320),
+      backingBoardPricePerSqm: Number(data.backing_board_price_per_sqm ?? 180),
+      backingClothPricePerSqm: Number(data.backing_cloth_price_per_sqm ?? 90),
+      kraftTapePricePerMeter: Number(data.kraft_tape_price_per_meter ?? 20),
+      laborFixedCost: Number(data.default_labor_fixed_cost ?? 250),
+      wastePercentage: Number(data.default_waste_percentage ?? 15),
+      targetProfitMarginPercent: Number(data.target_profit_margin_percent ?? 40),
+      vatRatePercent: Number(data.vat_rate_percent ?? 20),
+      defaultShippingCost: Number(data.default_shipping_cost ?? 150)
+    };
+
+    return { data: mapped, error: null };
   } catch (err) {
-    console.error("Exception fetching tenant settings:", err);
+    console.warn("Exception fetching tenant settings:", err);
     return { data: null, error: err };
   }
 }
@@ -460,23 +519,55 @@ export async function saveTenantSettingsToSupabase(
 
   const tenantId = getTenantId();
 
-  try {
-    const { error } = await supabase
-      .from("tenant_settings")
-      .upsert({
-        tenant_id: tenantId,
-        settings: settings,
-        updated_at: new Date().toISOString()
-      }, { onConflict: "tenant_id" });
+  // Relational columns payload matching schema.sql
+  const relationalPayload: any = {
+    tenant_id: tenantId,
+    canvas_print_price_per_sqm: settings.canvasPrintPricePerSqm,
+    mat_board_price_per_sqm: settings.matBoardPricePerSqm,
+    middle_mat_board_price_per_sqm: settings.middleMatBoardPricePerSqm,
+    transparent_mat_board_price_per_sqm: settings.transparentMatBoardPricePerSqm,
+    default_inner_frame_price_per_meter: settings.defaultInnerFramePricePerMeter,
+    default_outer_frame_price_per_meter: settings.defaultOuterFramePricePerMeter,
+    glass_price_per_sqm: settings.glassPricePerSqm,
+    backing_board_price_per_sqm: settings.backingBoardPricePerSqm,
+    backing_cloth_price_per_sqm: settings.backingClothPricePerSqm,
+    kraft_tape_price_per_meter: settings.kraftTapePricePerMeter,
+    default_labor_fixed_cost: settings.laborFixedCost,
+    default_waste_percentage: settings.wastePercentage,
+    target_profit_margin_percent: settings.targetProfitMarginPercent,
+    vat_rate_percent: settings.vatRatePercent,
+    default_shipping_cost: settings.defaultShippingCost,
+    updated_at: new Date().toISOString()
+  };
 
-    if (error) {
-      console.error("Error saving tenant settings to Supabase:", error);
-      return { success: false, error };
+  try {
+    const { error: relError } = await supabase
+      .from("tenant_settings")
+      .upsert(relationalPayload, { onConflict: "tenant_id" });
+
+    if (!relError) {
+      return { success: true, error: null };
     }
 
-    return { success: true, error: null };
+    // Fallback: If table has a 'settings' json column instead of individual columns
+    if (relError.code === "42703") {
+      const { error: jsonError } = await supabase
+        .from("tenant_settings")
+        .upsert({
+          tenant_id: tenantId,
+          settings: settings,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "tenant_id" });
+
+      if (!jsonError) {
+        return { success: true, error: null };
+      }
+    }
+
+    console.warn("Could not save tenant settings to Supabase:", relError.message || relError);
+    return { success: false, error: relError };
   } catch (err) {
-    console.error("Exception saving tenant settings:", err);
+    console.warn("Exception saving tenant settings:", err);
     return { success: false, error: err };
   }
 }
