@@ -18,7 +18,9 @@ import {
   Receipt, 
   Send, 
   Sparkles,
-  Loader2
+  Loader2,
+  Code2,
+  Compass
 } from "lucide-react";
 import { CompanyProfile, UserAccount } from "../types/pricing";
 import { 
@@ -41,6 +43,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   users,
   onLoginSuccess,
   onRegisterCompany,
+  onContinueAsGuest,
   isDarkMode
 }) => {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -342,7 +345,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   return (
-    <div className={`min-h-screen w-full flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans transition-colors duration-200 ${
+    <div className={`min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 font-sans transition-colors duration-200 ${
       isDarkMode ? "bg-[#0b0d10] text-white" : "bg-[#f3f4f6] text-slate-900"
     }`}>
       {/* Background Decorative ambient glow */}
@@ -350,6 +353,43 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#C5A059]/10 blur-3xl" />
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-[#C5A059]/10 blur-3xl" />
       </div>
+
+      {/* Top Bar: Hızlı Geliştirici & Tasarım Önizleme Barı */}
+      {onContinueAsGuest && (
+        <div className={`relative z-10 w-full max-w-5xl mb-4 p-3 sm:px-5 sm:py-3 rounded-2xl border shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 backdrop-blur-md transition-all ${
+          isDarkMode 
+            ? "bg-[#181b22]/95 border-[#C5A059]/40 text-neutral-200 shadow-black/50" 
+            : "bg-white/95 border-amber-300 text-slate-800 shadow-amber-900/10"
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#C5A059] to-[#8F6A1E] flex items-center justify-center text-black font-black text-sm shadow-md shrink-0">
+              <Code2 className="w-5 h-5 text-black" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-[#C5A059]">
+                  Arayüz Düzenleme &amp; Test Modu
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                  Giriş Gerektirmez
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-400 leading-tight mt-0.5">
+                Google ile giriş yapmadan doğrudan simülatöre geçip kodlama ve tasarım güncellemelerini test edebilirsiniz.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onContinueAsGuest}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FAE2B3] via-[#E5C17B] to-[#C5A059] hover:from-white hover:to-[#E5C17B] text-black font-black text-xs tracking-wider uppercase shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0"
+          >
+            <Eye className="w-4 h-4 text-black" />
+            <span>GİRİŞ YAPMADAN DÜZENLEMEYE GEÇ →</span>
+          </button>
+        </div>
+      )}
 
       {/* Main Container */}
       <div className={`relative w-full max-w-5xl rounded-3xl border shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 backdrop-blur-sm transition-all duration-300 ${
@@ -493,7 +533,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     )}
                   </button>
 
-                  <div className="flex items-center gap-3">
+                  {/* Giriş Yapmadan Tasarım & Önizleme Moduna Geçme Butonu */}
+                  {onContinueAsGuest && (
+                    <button
+                      type="button"
+                      onClick={onContinueAsGuest}
+                      className={`w-full py-3 px-4 rounded-xl border border-dashed font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer shadow-sm active:scale-[0.99] ${
+                        isDarkMode
+                          ? "border-[#C5A059]/70 hover:border-[#C5A059] bg-[#C5A059]/10 hover:bg-[#C5A059]/20 text-[#FAE2B3]"
+                          : "border-amber-400 hover:border-amber-600 bg-amber-50 hover:bg-amber-100 text-[#8F6A1E]"
+                      }`}
+                    >
+                      <Sparkles className="w-4 h-4 text-[#C5A059]" />
+                      <span>Giriş Yapmadan Tasarım &amp; Test Moduna Geç (Önizleme)</span>
+                    </button>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-1">
                     <div className={`h-[1px] flex-1 ${isDarkMode ? "bg-white/10" : "bg-slate-200"}`} />
                     <span className={`text-[10px] uppercase font-bold tracking-wider ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>
                       veya e-posta ile
@@ -1003,8 +1059,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             )}
           </div>
 
-          {/* Footer Switching (No Guest Login) */}
-          <div className="mt-6 pt-4 border-t border-neutral-700/30 flex items-center justify-between text-xs">
+          {/* Footer Switching & Quick Access */}
+          <div className="mt-6 pt-4 border-t border-neutral-700/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             {authMode === "login" ? (
               <div className={`${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
                 <span>Hesabınız yok mu? </span>
@@ -1039,7 +1095,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </div>
             )}
 
-            <div className="flex items-center justify-end">
+            <div className="flex items-center gap-4">
+              {onContinueAsGuest && (
+                <button
+                  type="button"
+                  onClick={onContinueAsGuest}
+                  className={`text-[11px] font-bold hover:underline cursor-pointer flex items-center gap-1 ${
+                    isDarkMode ? "text-[#C5A059] hover:text-[#FAE2B3]" : "text-[#B88E3A] hover:text-[#8F6A1E]"
+                  }`}
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>Misafir / Tasarım Modu</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsContactModalOpen(true)}

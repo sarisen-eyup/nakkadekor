@@ -150,13 +150,22 @@ export async function ensureTenantAndUserExist(user: any) {
   const tenantId = user.id;
 
   try {
+    const rawUsername = 
+      user.user_metadata?.user_name || 
+      user.user_metadata?.username || 
+      user.email?.split("@")[0] || 
+      "yonetici";
+    const username = rawUsername.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 50);
+
     const fullName = 
       user.user_metadata?.full_name || 
       user.user_metadata?.name || 
       user.email?.split("@")[0] || 
-      "Atölye Sahibi";
+      "Atölye Yöneticisi";
 
-    // 1. Tenants tablosunda kaydı garantiye al (Var olan firma adını ve ayarları ezme!)
+    const email = user.email || "";
+
+    // 1. Tenants tablosunda atölye kaydını garantiye al
     try {
       const { data: existingTenant } = await supabase
         .from("tenants")
@@ -165,12 +174,28 @@ export async function ensureTenantAndUserExist(user: any) {
         .maybeSingle();
 
       if (!existingTenant) {
-        await supabase.from("tenants").insert({
+        const slug = `tenant-${tenantId.slice(0, 8)}`;
+        const tenantName = user.user_metadata?.company_name || fullName || "Atölye";
+
+        // Tablonun beklediği tüm gerekli ve ilişkisel alanlar
+        const tenantPayload: Record<string, any> = {
           id: tenantId,
-          name: "",
-          slug: `tenant-${tenantId.slice(0, 8)}`,
-          subscription_status: "active"
-        });
+          name: tenantName,
+          slug: slug,
+          email: email,
+          subscription_status: "active",
+          status: "active"
+        };
+
+        const { error: tErr } = await supabase.from("tenants").insert([tenantPayload]);
+        if (tErr) {
+          console.warn("Tenants tablosu tam şema uyarısı, minimal alanlarla deneniyor:", tErr.message);
+          await supabase.from("tenants").insert([{
+            id: tenantId,
+            name: tenantName,
+            slug: slug
+          }]).catch(() => {});
+        }
       }
     } catch (tErr) {
       console.warn("Tenant kaydı bilgisi:", tErr);
@@ -178,15 +203,59 @@ export async function ensureTenantAndUserExist(user: any) {
 
     // 2. Users tablosunda kullanıcı profilini garantiye al
     try {
-      await supabase.from("users").upsert({
-        id: tenantId,
-        auth_user_id: tenantId,
-        tenant_id: tenantId,
-        email: user.email || "",
-        full_name: fullName,
-        role: "owner",
-        status: "active"
-      }, { onConflict: "id" });
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id", tenantId)
+        .maybeSingle();
+
+      if (!existingUser) {
+        // Tablonun beklediği tüm gerekli (NOT NULL) ve ilişkisel sütunlar:
+        // id, auth_user_id, tenant_id, full_name, username, email, role, status
+        const fullUserPayload: Record<string, any> = {
+          id: tenantId,
+          auth_user_id: tenantId,
+          tenant_id: tenantId,
+          full_name: fullName,
+          username: username,
+          email: email,
+          role: "owner",
+          status: "active",
+          is_email_verified: true
+        };
+
+        const { error: uErr } = await supabase.from("users").insert([fullUserPayload]);
+        
+        // Eğer veritabanı tablosu farklı sütun kısıtlarına sahipse dinamik uyarlama
+        if (uErr) {
+          console.warn("Users tablosu tam şema uyarısı, çekirdek sütunlarla deneniyor:", uErr.message);
+          
+          const coreUserPayload: Record<string, any> = {
+            id: tenantId,
+            tenant_id: tenantId,
+            full_name: fullName,
+            username: username,
+            email: email,
+            role: "owner"
+          };
+          const { error: coreErr } = await supabase.from("users").insert([coreUserPayload]);
+
+          if (coreErr) {
+            console.warn("Users tablosu temel alanlar uyarısı, sade şema deneniyor:", coreErr.message);
+            await supabase.from("users").upsert({
+              id: tenantId,
+              email: email,
+              full_name: fullName
+            }, { onConflict: "id" }).catch(() => {});
+          }
+        }
+      } else {
+        // Mevcut kullanıcıyı hafif güncelle (örneğin son profil adı)
+        await supabase.from("users").update({
+          full_name: fullName,
+          updated_at: new Date().toISOString()
+        }).eq("id", tenantId).catch(() => {});
+      }
     } catch (uErr) {
       console.warn("User kaydı bilgisi:", uErr);
     }

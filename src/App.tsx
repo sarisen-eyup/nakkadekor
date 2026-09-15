@@ -49,7 +49,6 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import QRCode from "qrcode";
 import { SettingsModal } from "./components/SettingsModal";
-import { AccountModal } from "./components/AccountModal";
 import { CostBreakdownModal } from "./components/CostBreakdownModal";
 import { CuttingListModal } from "./components/CuttingListModal";
 import { FrameProfileSelector } from "./components/FrameProfileSelector";
@@ -62,7 +61,6 @@ import { SubscriptionModal } from "./components/SubscriptionModal";
 import { OrderArchiveModal } from "./components/OrderArchiveModal";
 import { PrintCenterModal } from "./components/PrintCenterModal";
 import { CustomerWallPreviewModal } from "./components/CustomerWallPreviewModal";
-import { VisualizerHeaderSpec } from "./components/VisualizerHeaderSpec";
 import { exportAndDownloadHD } from "./utils/hdCanvasExporter";
 import { DEFAULT_ROOM_TEMPLATES } from "./types/roomPreview";
 import { initGlobalDragScroll } from "./utils/dragScroll";
@@ -410,7 +408,6 @@ export default function App() {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<"prices" | "profiles" | "privacy" | "whitelabel">("prices");
-  const [isAccountModalOpen, setIsAccountModalOpen] = useState<boolean>(false);
   const [isCostModalOpen, setIsCostModalOpen] = useState<boolean>(false);
   const [isCutListModalOpen, setIsCutListModalOpen] = useState<boolean>(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
@@ -491,10 +488,10 @@ export default function App() {
 
   const handleContinueAsGuest = () => {
     const defaultUser: UserAccount = userAccounts[0] || {
-      id: "demo_guest",
-      email: "demo@nakka.com",
-      username: "misafir",
-      fullName: "Misafir Atölye",
+      id: "dev_admin",
+      email: "yonetici@nakka.com",
+      username: "yonetici",
+      fullName: "Geliştirici & Tasarımcı",
       role: "admin",
       isEmailVerified: true,
       status: "active",
@@ -508,11 +505,17 @@ export default function App() {
       username: defaultUser.username,
       fullName: defaultUser.fullName,
       role: defaultUser.role,
-      rememberMe: false,
+      rememberMe: true,
       loginTime: new Date().toISOString()
     };
     saveAuthSession(session);
     setAuthSession(session);
+
+    // Önizleme ve test için kayıtlı profiller varsa yükle
+    const storedProfiles = loadProfilesFromStorage();
+    if (storedProfiles && storedProfiles.length > 0) {
+      setFrameProfiles(storedProfiles);
+    }
   };
 
   const handleDeleteArchiveOrder = (orderId: string) => {
@@ -528,11 +531,6 @@ export default function App() {
   const handleUpdateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
     setArchiveOrders(prev => {
       const updated = prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
-      try {
-        localStorage.setItem("nakka_order_archive_v1", JSON.stringify(updated));
-      } catch (e) {
-        console.error("Failed to save updated orders to localStorage", e);
-      }
       return updated;
     });
     if (isSupabaseConfigured()) {
@@ -642,25 +640,19 @@ export default function App() {
     if (!isSupabaseConfigured() || !authSession?.isLoggedIn) return;
     let isMounted = true;
 
-    // 1. Fetch Cloud Frame Profiles for this tenant
+    // 1. Fetch Cloud Frame Profiles for this tenant (Doğrudan Supabase'den çekilir, localStorage'a yazılmaz)
     fetchFrameProfilesFromSupabase().then(({ data, error }) => {
       if (!isMounted) return;
       if (data && !error) {
         setFrameProfiles(data);
-        saveProfilesToStorage(data);
       }
     });
 
-    // 2. Fetch Cloud Orders Archive for this tenant
+    // 2. Fetch Cloud Orders Archive for this tenant (Doğrudan Supabase'den çekilir)
     fetchOrdersFromSupabase().then(({ data, error }) => {
       if (!isMounted) return;
       if (data && !error) {
         setArchiveOrders(data);
-        try {
-          localStorage.setItem("nakka_order_archive_v1", JSON.stringify(data));
-        } catch (e) {
-          console.error("Failed to save cloud orders to localStorage", e);
-        }
       }
     });
 
@@ -786,7 +778,6 @@ export default function App() {
 
   const handleSaveProfiles = (newProfiles: FrameProfileItem[]) => {
     setFrameProfiles(newProfiles);
-    saveProfilesToStorage(newProfiles);
   };
 
   const handleSaveCompanyProfile = (newProfile: CompanyProfile) => {
@@ -2063,31 +2054,6 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         </div>
         
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {/* Active Company & Logged in Member pill (Opens Account & Company Settings) */}
-          <button
-            onClick={() => setIsAccountModalOpen(true)}
-            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[10px] font-mono tracking-wider transition-all cursor-pointer shadow-sm ${
-              isDarkMode 
-                ? "bg-[#101216] border-white/10 text-neutral-300 hover:border-[#C5A059]/60 hover:text-white" 
-                : "bg-white border-slate-200 text-slate-700 hover:border-[#B88E3A]/60 hover:text-slate-900"
-            }`}
-            title="Hesap & Firma Ayarları (Logo, Bilgiler ve Üye Yönetimi)"
-          >
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-            <span className="font-bold text-[#C5A059] truncate max-w-[90px] sm:max-w-[120px]">
-              {companyProfile.companyName || "Nakka Decor"}
-            </span>
-            <span className="text-neutral-500 hidden sm:inline">|</span>
-            <span className="truncate max-w-[80px] text-neutral-400 hidden sm:inline">
-              @{activeUser?.username || "admin"}
-            </span>
-            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase hidden md:inline-block ${
-              isDarkMode ? "bg-white/10 text-neutral-300" : "bg-slate-100 text-slate-700"
-            }`}>
-              HESAP
-            </span>
-          </button>
-
           {/* Logout Button */}
           <button
             onClick={handleLogout}
@@ -2434,25 +2400,6 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
             {/* Subtle Wall Room Edge Vignette Shadow */}
             <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_60px_rgba(0,0,0,0.3)] z-10" />
 
-            {/* Top Spec Bar (When in Wall Color Mode) */}
-            {wallMode !== "room" && (
-              <div className="absolute top-4 left-4 right-4 z-30 flex justify-center pointer-events-none">
-                <VisualizerHeaderSpec
-                  artworkWidth={artworkWidth}
-                  artworkHeight={artworkHeight}
-                  finalOuterWidthCm={finalOuterWidthCm}
-                  finalOuterHeightCm={finalOuterHeightCm}
-                  costBreakdown={costBreakdown}
-                  activeInnerProfileName={activeInnerProfile?.name}
-                  matWidth={matWidth}
-                  innerMatColorName={getPaspartuColorName(innerMatColor)}
-                  deliveryMethod={deliveryMethod}
-                  isDarkMode={isDarkMode}
-                  onOpenCostModal={() => setIsCostModalOpen(true)}
-                />
-              </div>
-            )}
-
             {/* Floating Room Mode Toolbar */}
             {wallMode === "room" && (
               <div className="absolute top-4 left-4 right-4 z-30 flex flex-wrap items-center justify-between pointer-events-auto gap-2">
@@ -2653,23 +2600,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
           setIsSettingsOpen(false);
           setIsSubscriptionModalOpen(true);
         }}
-      />
-
-      <AccountModal
-        isOpen={isAccountModalOpen}
-        onClose={() => setIsAccountModalOpen(false)}
-        isDarkMode={isDarkMode}
-        companyProfile={companyProfile}
-        onSaveCompanyProfile={handleSaveCompanyProfile}
-        users={userAccounts}
-        onSaveUsers={handleSaveUsers}
         activeUser={activeUser}
-        onSetActiveUser={setActiveUser}
-        subscription={subscriptionData}
-        onOpenSubscriptionModal={() => {
-          setIsAccountModalOpen(false);
-          setIsSubscriptionModalOpen(true);
-        }}
+        onLogout={handleLogout}
       />
 
       <SubscriptionModal

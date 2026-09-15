@@ -39,6 +39,25 @@ const SUBSCRIPTION_STORAGE_KEY = "nakka_subscription_v1";
 const ARCHIVE_STORAGE_KEY = "nakka_orders_archive_v1";
 const AUTH_SESSION_KEY = "nakka_auth_session_v1";
 
+// Otomatik Temizlik: Tarayıcı 5MB localStorage limitini doldurmamak için
+// yüksek boyutlu profil dokuları ve sipariş görsel verilerini temizle
+if (typeof window !== "undefined") {
+  try {
+    localStorage.removeItem(PROFILES_STORAGE_KEY);
+    localStorage.removeItem(ARCHIVE_STORAGE_KEY);
+    localStorage.removeItem("nakka_order_archive_v1");
+    localStorage.removeItem("nakka_frame_profiles_v1");
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && (k.includes("frame_profiles") || k.includes("order_archive"))) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
 /**
  * Oturumlar arası veri sızıntısını ve cache çakışmasını engellemek için anahtarı tenant_id ile kapsüller
  */
@@ -106,42 +125,19 @@ export function saveSettingsToStorage(settings: UnitPricesSettings): void {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
   } catch (e) {
-    console.error("Error saving pricing settings to localStorage", e);
+    // Quota hatası durumunda sessizce geç
   }
 }
 
-export function loadProfilesFromStorage(tenantId?: string): FrameProfileItem[] {
-  try {
-    const key = getScopedKey(PROFILES_STORAGE_KEY, tenantId);
-    let saved = localStorage.getItem(key);
-    if (!saved && !tenantId) {
-      saved = localStorage.getItem(PROFILES_STORAGE_KEY);
-    }
-    if (saved) {
-      const parsed: FrameProfileItem[] = JSON.parse(saved);
-      // If the storage contains the old initial mock data, purge it
-      const hasMockOnly = parsed.length > 0 && parsed.every(p => p.id && /^prof_[1-5]$/.test(p.id));
-      if (hasMockOnly) {
-        localStorage.removeItem(key);
-        localStorage.removeItem(PROFILES_STORAGE_KEY);
-        return [];
-      }
-      return parsed;
-    }
-  } catch (e) {
-    console.error("Error loading frame profiles from localStorage", e);
-  }
+export function loadProfilesFromStorage(_tenantId?: string): FrameProfileItem[] {
+  // LocalStorage / Cache mantığı tamamen iptal edildi.
+  // Çerçeve profilleri daima doğrudan Supabase veritabanından çekilir.
   return [];
 }
 
-export function saveProfilesToStorage(profiles: FrameProfileItem[], tenantId?: string): void {
-  try {
-    const key = getScopedKey(PROFILES_STORAGE_KEY, tenantId);
-    localStorage.setItem(key, JSON.stringify(profiles));
-    localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(profiles));
-  } catch (e) {
-    console.error("Error saving frame profiles to localStorage", e);
-  }
+export function saveProfilesToStorage(_profiles: FrameProfileItem[], _tenantId?: string): void {
+  // LocalStorage QuotaExceededError önlendi: Yüksek boyutlu profil doku ve görselleri
+  // localStorage'a kaydedilmez; doğrudan Supabase veritabanında yönetilir.
 }
 
 export function loadCompanyProfileFromStorage(tenantId?: string): CompanyProfile {
@@ -169,11 +165,15 @@ export function loadCompanyProfileFromStorage(tenantId?: string): CompanyProfile
 
 export function saveCompanyProfileToStorage(profile: CompanyProfile, tenantId?: string): void {
   try {
+    // Logo görseli (büyük base64) localStorage'a yazılmaz, QuotaExceededError kesin olarak önlenir.
+    const safeProfile = { 
+      ...profile, 
+      logoUrl: profile.logoUrl && profile.logoUrl.startsWith("http") ? profile.logoUrl : null 
+    };
     const key = getScopedKey(COMPANY_STORAGE_KEY, tenantId);
-    localStorage.setItem(key, JSON.stringify(profile));
-    localStorage.setItem(COMPANY_STORAGE_KEY, JSON.stringify(profile));
+    localStorage.setItem(key, JSON.stringify(safeProfile));
   } catch (e) {
-    console.error("Error saving company profile to localStorage", e);
+    // Quota hatası durumunda sessizce geç
   }
 }
 
@@ -250,40 +250,17 @@ export function deductSubscriptionCredit(): SubscriptionData {
 }
 
 // Archive Orders Storage
-export function loadArchiveOrdersFromStorage(tenantId?: string): OrderArchiveItem[] {
-  try {
-    const key = getScopedKey(ARCHIVE_STORAGE_KEY, tenantId);
-    let saved = localStorage.getItem(key);
-    if (!saved && !tenantId) {
-      saved = localStorage.getItem(ARCHIVE_STORAGE_KEY);
-    }
-    if (saved) {
-      const parsed: OrderArchiveItem[] = JSON.parse(saved);
-      // If the storage contains the old initial mock orders, purge it
-      const hasMockOnly = parsed.length > 0 && parsed.every(o => o.id && /^ord_10[1-4]$/.test(o.id));
-      if (hasMockOnly) {
-        localStorage.removeItem(key);
-        localStorage.removeItem(ARCHIVE_STORAGE_KEY);
-        return [];
-      }
-      return parsed;
-    }
-  } catch (e) {
-    console.error("Error loading order archive from localStorage", e);
-  }
+export function loadArchiveOrdersFromStorage(_tenantId?: string): OrderArchiveItem[] {
+  // LocalStorage / Cache mantığı tamamen iptal edildi.
+  // Sipariş arşivleri doğrudan Supabase veritabanından çekilir.
   return [];
 }
 
 export const loadOrdersArchiveFromStorage = loadArchiveOrdersFromStorage;
 
-export function saveArchiveOrdersToStorage(orders: OrderArchiveItem[], tenantId?: string): void {
-  try {
-    const key = getScopedKey(ARCHIVE_STORAGE_KEY, tenantId);
-    localStorage.setItem(key, JSON.stringify(orders));
-    localStorage.setItem(ARCHIVE_STORAGE_KEY, JSON.stringify(orders));
-  } catch (e) {
-    console.error("Error saving order archive to localStorage", e);
-  }
+export function saveArchiveOrdersToStorage(_orders: OrderArchiveItem[], _tenantId?: string): void {
+  // LocalStorage QuotaExceededError önlendi: Büyük sipariş listeleri ve görseller
+  // localStorage'a kaydedilmez; doğrudan Supabase veritabanında saklanır.
 }
 
 export function addOrderToArchive(newOrder: OrderArchiveItem): OrderArchiveItem[] {

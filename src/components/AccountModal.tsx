@@ -3,28 +3,23 @@ import {
   X, 
   Building2, 
   Upload, 
-  Users, 
-  UserPlus, 
-  CheckCircle2, 
-  AlertCircle, 
+  Check, 
+  Lock, 
+  Sparkles, 
+  User, 
   Mail, 
   Phone, 
-  Send, 
-  Check, 
-  Trash2, 
-  Save, 
+  CreditCard, 
+  Coins, 
+  LogOut, 
+  CheckCircle2, 
   ShieldCheck,
-  Globe,
-  MapPin,
-  CreditCard,
-  UserCheck,
-  Lock,
-  Sparkles
+  Building,
+  ArrowRight
 } from "lucide-react";
 import { 
   CompanyProfile, 
   UserAccount, 
-  UserRole, 
   SubscriptionData, 
   isProPlan,
   EMPTY_COMPANY_PROFILE 
@@ -40,12 +35,13 @@ interface AccountModalProps {
   isDarkMode: boolean;
   companyProfile: CompanyProfile;
   onSaveCompanyProfile: (profile: CompanyProfile) => void;
-  users: UserAccount[];
-  onSaveUsers: (users: UserAccount[]) => void;
-  activeUser: UserAccount;
-  onSetActiveUser: (user: UserAccount) => void;
-  subscription: SubscriptionData;
-  onOpenSubscriptionModal: () => void;
+  users?: UserAccount[];
+  onSaveUsers?: (users: UserAccount[]) => void;
+  activeUser?: UserAccount;
+  onSetActiveUser?: (user: UserAccount) => void;
+  subscription?: SubscriptionData;
+  onOpenSubscriptionModal?: () => void;
+  onLogout?: () => void;
 }
 
 export const AccountModal: React.FC<AccountModalProps> = ({
@@ -54,72 +50,42 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   isDarkMode,
   companyProfile,
   onSaveCompanyProfile,
-  users,
-  onSaveUsers,
   activeUser,
-  onSetActiveUser,
   subscription,
-  onOpenSubscriptionModal
+  onOpenSubscriptionModal,
+  onLogout
 }) => {
   const [localCompany, setLocalCompany] = useState<CompanyProfile>(companyProfile || EMPTY_COMPANY_PROFILE);
-  const [localUsers, setLocalUsers] = useState<UserAccount[]>(users);
-  const [activeUserAccount, setActiveUserAccount] = useState<UserAccount>(activeUser);
-  const [emailActionNotice, setEmailActionNotice] = useState<string | null>(null);
-  const [simulatedEmailSent, setSimulatedEmailSent] = useState<UserAccount | null>(null);
-  const [saveToast, setSaveToast] = useState(false);
-  const [isLoadingCompany, setIsLoadingCompany] = useState(false);
-  const [isSavingCompany, setIsSavingCompany] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // User limit calculations based on subscription tier
-  const maxAllowedUsers = subscription?.isMonthlySubscription ? 6 : 3;
-  const isCreditAccount = !subscription?.isMonthlySubscription;
-  const isLimitReached = localUsers.length >= maxAllowedUsers;
-
-  const [newUserForm, setNewUserForm] = useState({
-    fullName: "",
-    username: "",
-    email: "",
-    phone: "",
-    role: "sales" as UserRole
-  });
-
-  // Modal açıldığında verileri doğrudan Supabase'den giriş yapan kullanıcının ID'siyle çek
+  // Modal açıldığında hem prop'tan hem de doğrudan Supabase'den verileri güncelle
   useEffect(() => {
     if (isOpen) {
-      setLocalUsers(users);
-      setActiveUserAccount(activeUser);
-      setEmailActionNotice(null);
-      setSimulatedEmailSent(null);
-      setSaveToast(false);
-
-      // Doğrudan Supabase'den çek
-      setIsLoadingCompany(true);
+      setSavedSuccess(false);
+      if (companyProfile) {
+        setLocalCompany(companyProfile);
+      }
+      // Supabase'den en güncel profil verisini yükle
       fetchCompanyProfileFromSupabase()
         .then(({ data }) => {
-          if (data) {
+          if (data && Object.keys(data).length > 0) {
             setLocalCompany(data);
-          } else {
-            // Eğer yeni bir kullanıcıysa ve veritabanında henüz bir firma kaydı yoksa, form BOMBOŞ gelsin
-            setLocalCompany(EMPTY_COMPANY_PROFILE);
           }
         })
         .catch(err => {
-          console.warn("Firma profili Supabase'den yüklenirken uyarı:", err);
-          setLocalCompany(companyProfile || EMPTY_COMPANY_PROFILE);
-        })
-        .finally(() => {
-          setIsLoadingCompany(false);
+          console.warn("Supabase firma profili okunurken hata:", err);
         });
     }
-  }, [isOpen]);
+  }, [isOpen, companyProfile]);
 
   if (!isOpen) return null;
 
-  // Company logo upload handler
-  const canUploadLogo = isProPlan(subscription);
+  // Pro Plan / Kredi Hesabı Kontrolü
+  const canUploadLogo = subscription ? isProPlan(subscription) : true;
 
   const handleCompanyLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!canUploadLogo) {
+    if (!canUploadLogo && onOpenSubscriptionModal) {
       onOpenSubscriptionModal();
       return;
     }
@@ -143,155 +109,163 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     setLocalCompany(prev => ({ ...prev, [field]: val }));
   };
 
-  // User management handlers
-  const handleSendVerificationEmail = (user: UserAccount) => {
-    const updatedUsers = localUsers.map(u => 
-      u.id === user.id ? { ...u, verificationSentAt: "Az önce gönderildi" } : u
-    );
-    setLocalUsers(updatedUsers);
-    setSimulatedEmailSent(user);
-    setEmailActionNotice(`Doğrulama ve üyelik aktivasyon e-postası "${user.email}" adresine iletildi.`);
-    setTimeout(() => setEmailActionNotice(null), 5000);
-  };
-
-  const handleConfirmEmailVerification = (userId: string) => {
-    const updatedUsers = localUsers.map(u => 
-      u.id === userId 
-        ? { ...u, isEmailVerified: true, status: "active" as const, verificationSentAt: undefined } 
-        : u
-    );
-    setLocalUsers(updatedUsers);
-    setSimulatedEmailSent(null);
-    setEmailActionNotice("E-posta adresi başarıyla onaylandı! Üyelik aktif edildi.");
-    setTimeout(() => setEmailActionNotice(null), 4000);
-  };
-
-  const handleAddNewUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUserForm.fullName.trim() || !newUserForm.email.trim()) return;
-
-    // Strict User Limit Check
-    if (localUsers.length >= maxAllowedUsers) {
-      if (isCreditAccount) {
-        setEmailActionNotice("Kredili hesaplarda en fazla 3 kullanıcı tanımlanabilir. 3'ten fazla personel için kredili hesap yerine Aylık Premium Abonelik sistemine geçilmesi zorunludur.");
-      } else {
-        setEmailActionNotice("Aylık abonelik seçeneğinde en fazla 6 personel üye kaydı yapılabilir.");
-      }
-      return;
-    }
-    
-    const newUsername = newUserForm.username.trim() || newUserForm.email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
-    const created: UserAccount = {
-      id: `usr_${Date.now()}`,
-      fullName: newUserForm.fullName.trim(),
-      username: newUsername,
-      email: newUserForm.email.trim(),
-      phone: newUserForm.phone.trim() || undefined,
-      role: newUserForm.role,
-      isEmailVerified: false,
-      status: "pending_verification",
-      createdAt: new Date().toISOString().split("T")[0],
-      verificationSentAt: "Aktivasyon bağlantısı gönderildi"
-    };
-
-    const nextList = [...localUsers, created];
-    setLocalUsers(nextList);
-    setSimulatedEmailSent(created);
-    setEmailActionNotice(`Davet e-postası hazırlandı ve ${created.email} adresine gönderildi.`);
-    setTimeout(() => setEmailActionNotice(null), 5000);
-
-    setNewUserForm({
-      fullName: "",
-      username: "",
-      email: "",
-      phone: "",
-      role: "sales"
-    });
-  };
-
-  const handleDeleteUser = (userId: string) => {
-    setLocalUsers(prev => prev.filter(u => u.id !== userId));
-  };
-
-  const handleChangeUserRole = (userId: string, newRole: UserRole) => {
-    setLocalUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
-    if (activeUserAccount.id === userId) {
-      setActiveUserAccount(prev => ({ ...prev, role: newRole }));
-    }
-  };
-
   const handleSaveAll = async () => {
-    setIsSavingCompany(true);
+    setIsSaving(true);
     try {
+      // 1. Üst state'i ve LocalStorage'ı güncelle
+      onSaveCompanyProfile(localCompany);
+      // 2. Supabase bulut veritabanına kalıcı olarak kaydet
       await saveCompanyProfileToSupabase(localCompany);
     } catch (err) {
-      console.warn("Supabase firma profili kaydetme hatası:", err);
+      console.warn("Firma profili kaydedilirken hata:", err);
     } finally {
-      setIsSavingCompany(false);
+      setIsSaving(false);
+      setSavedSuccess(true);
+      setTimeout(() => {
+        setSavedSuccess(false);
+        onClose();
+      }, 700);
     }
-    onSaveCompanyProfile(localCompany);
-    onSaveUsers(localUsers);
-    onSetActiveUser(activeUserAccount);
-    setSaveToast(true);
-    setTimeout(() => {
-      setSaveToast(false);
-      onClose();
-    }, 900);
   };
 
+  const userInitial = (activeUser?.fullName || activeUser?.username || "Y").charAt(0).toUpperCase();
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
-      <div className={`w-full max-w-5xl h-[85vh] min-h-[580px] max-h-[840px] rounded-2xl border shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ${
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in font-sans">
+      <div className={`w-full max-w-4xl h-[88vh] min-h-[580px] max-h-[840px] rounded-2xl border shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ${
         isDarkMode 
           ? "bg-[#111317] border-[#C5A059]/40 text-neutral-100" 
           : "bg-white border-slate-300 text-slate-900"
       }`}>
         
-        {/* Header */}
+        {/* Üst Başlık (Modal Header) */}
         <div className={`flex items-center justify-between px-6 py-4 border-b shrink-0 ${
-          isDarkMode ? "bg-[#14171d] border-neutral-800" : "bg-slate-50 border-slate-200"
+          isDarkMode ? "bg-[#161920] border-neutral-800" : "bg-slate-50 border-slate-200"
         }`}>
           <div className="flex items-center gap-3">
-            <div className={`p-2.5 rounded-xl ${
-              isDarkMode ? "bg-[#C5A059]/20 text-[#C5A059]" : "bg-[#B88E3A]/20 text-[#B88E3A]"
+            <div className={`p-2.5 rounded-xl border ${
+              isDarkMode 
+                ? "bg-[#C5A059]/15 border-[#C5A059]/30 text-[#C5A059]" 
+                : "bg-amber-100/80 border-amber-300 text-[#8F6A1E]"
             }`}>
-              <Building2 className="w-6 h-6" />
+              <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base md:text-lg font-black tracking-wider uppercase flex items-center gap-2">
-                HESAP & FİRMA YÖNETİMİ
-                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                  ONLİNE BULUT SİSTEMİ
+              <div className="flex items-center gap-2">
+                <h2 className={`text-base sm:text-lg font-black tracking-wider uppercase ${
+                  isDarkMode ? "text-white" : "text-slate-900"
+                }`}>
+                  HESAP &amp; WHITE-LABEL
+                </h2>
+                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  BULUT SENKRON
                 </span>
-              </h2>
+              </div>
               <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                Kurumsal firma anteti & logo ayarları ile e-posta onaylı personel/üye hesap ataması
+                Kullanıcı hesabı, şirket anteti, logo ve resmi PDF/sipariş döküm ayarları
               </p>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
             className={`p-2 rounded-xl transition-colors cursor-pointer ${
               isDarkMode ? "hover:bg-neutral-800 text-neutral-400 hover:text-white" : "hover:bg-slate-200 text-slate-500 hover:text-slate-900"
             }`}
-            title="Pencereyi Kapat"
+            title="Kapat"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Scrollable Body */}
-        <div className="p-6 overflow-y-auto flex-1 min-h-[480px] space-y-6">
-          {/* Notification Banner */}
-          {emailActionNotice && (
-            <div className="flex items-center gap-3 p-3.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-mono animate-fade-in">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-              <span>{emailActionNotice}</span>
+        {/* Kaydırılabilir Gövde */}
+        <div className="p-6 overflow-y-auto flex-1 min-h-[460px] space-y-6">
+          
+          {/* 1. BÖLÜM: HESAP VE ABONELİK BİLGİLERİ */}
+          <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
+            isDarkMode 
+              ? "bg-[#161922] border-[#C5A059]/25 shadow-sm" 
+              : "bg-amber-50/50 border-amber-200 shadow-sm"
+          }`}>
+            {/* Kullanıcı Profili */}
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#FAE2B3] via-[#E5C17B] to-[#C5A059] text-black font-black flex items-center justify-center text-base shadow-md shrink-0">
+                {userInitial}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                    {activeUser?.fullName || "Yönetici Kullanıcı"}
+                  </span>
+                  <span className="text-xs font-mono text-[#C5A059] font-semibold">
+                    @{activeUser?.username || "yonetici"}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">
+                    {activeUser?.role === "admin" ? "Yönetici (Admin)" : "Atölye"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-neutral-400 mt-0.5">
+                  <span className="flex items-center gap-1">
+                    <Mail className="w-3.5 h-3.5 text-neutral-500" />
+                    {activeUser?.email || "yonetici@nakka.com"}
+                  </span>
+                  <span>•</span>
+                  <span className="text-emerald-400 flex items-center gap-1 font-semibold text-[11px]">
+                    <CheckCircle2 className="w-3 h-3" /> Çevrimiçi Hesap
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
 
-          {/* 1. SECTION: FIRMA & KURUMSAL BİLGİLER */}
+            {/* Kredi / Paket & Çıkış Aksiyonları */}
+            <div className="flex items-center gap-2.5 self-end sm:self-center shrink-0">
+              {subscription && (
+                <div className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-bold flex items-center gap-2 ${
+                  isDarkMode ? "bg-black/30 border-white/10 text-neutral-300" : "bg-white border-slate-200 text-slate-700"
+                }`}>
+                  <Coins className="w-4 h-4 text-[#C5A059]" />
+                  <span>
+                    {subscription.remainingCredits} <span className="text-[10px] font-normal text-neutral-400">KREDİ</span>
+                  </span>
+                </div>
+              )}
+
+              {onOpenSubscriptionModal && (
+                <button
+                  type="button"
+                  onClick={onOpenSubscriptionModal}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    isDarkMode 
+                      ? "bg-[#C5A059]/15 border-[#C5A059]/40 hover:bg-[#C5A059]/25 text-[#FAE2B3]" 
+                      : "bg-amber-100 border-amber-300 hover:bg-amber-200 text-[#8F6A1E]"
+                  }`}
+                  title="Abonelik ve Kredi Yönetimi"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                  <span>Paketler</span>
+                </button>
+              )}
+
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                    isDarkMode 
+                      ? "bg-black/30 border-white/10 text-neutral-400 hover:text-rose-400 hover:border-rose-400/40" 
+                      : "bg-white border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-300"
+                  }`}
+                  title="Oturumu Kapat (Giriş Ekranına Dön)"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 2. BÖLÜM: FİRMA PROFİLİ & WHITE-LABEL ÖZELLEŞTİRME */}
           <div className={`border rounded-xl p-5 space-y-5 ${
             isDarkMode ? "bg-[#181b20] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
           }`}>
@@ -302,10 +276,10 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                 </div>
                 <div>
                   <h3 className={`text-sm font-bold uppercase tracking-wider ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                    FİRMA PROFİLİ & KURUMSAL BİLGİLER
+                    FİRMA PROFİLİ &amp; WHITE-LABEL ÖZELLEŞTİRME
                   </h3>
                   <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                    Teklif dökümlerinde, sipariş formunda ve PDF çıktılarında görünecek resmi antet ve logo
+                    PDF teklif dökümlerinde ve sipariş formlarında basılacak şirket logonuz ve bilgileriniz
                   </p>
                 </div>
               </div>
@@ -322,12 +296,13 @@ export const AccountModal: React.FC<AccountModalProps> = ({
               </label>
             </div>
 
-            {/* Logo & Basic Info Grid */}
+            {/* Logo & Form Alanları Grid */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-              {/* Logo Upload Box (4 cols) */}
-              <div className={`md:col-span-4 flex flex-col items-center text-center p-4 border rounded-lg transition-all ${
-                canUploadLogo
-                  ? "bg-black/20 border-dashed border-neutral-700"
+              
+              {/* Logo Kutusu (4 kolon) */}
+              <div className={`md:col-span-4 flex flex-col items-center text-center p-4 border rounded-xl transition-all ${
+                canUploadLogo 
+                  ? "bg-black/20 border-dashed border-neutral-700" 
                   : (isDarkMode ? "bg-amber-950/10 border-amber-500/30" : "bg-amber-50/60 border-amber-400/40")
               }`}>
                 {canUploadLogo ? (
@@ -337,11 +312,11 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                         FİRMA LOGOSU
                       </span>
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
-                        PRO
+                        PRO AKTİF
                       </span>
                     </div>
 
-                    <div className="w-32 h-32 rounded-lg border flex items-center justify-center overflow-hidden mb-3 bg-neutral-900/60 border-neutral-700 relative group">
+                    <div className="w-36 h-36 rounded-xl border flex items-center justify-center overflow-hidden mb-3 bg-neutral-900/60 border-neutral-700 relative group">
                       {localCompany.logoUrl ? (
                         <img 
                           src={localCompany.logoUrl} 
@@ -350,18 +325,18 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                         />
                       ) : (
                         <div className="flex flex-col items-center justify-center p-3 text-neutral-500">
-                          <Building2 className="w-8 h-8 mb-1 opacity-50" />
-                          <span className="text-[10px]">Logo Yok</span>
+                          <Building2 className="w-10 h-10 mb-1 opacity-40" />
+                          <span className="text-[11px]">Logo Yüklenmedi</span>
                         </div>
                       )}
                     </div>
 
                     <div className="flex flex-wrap gap-2 justify-center w-full">
-                      <label className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold cursor-pointer transition-colors ${
+                      <label className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-sm ${
                         isDarkMode ? "bg-[#C5A059] text-black hover:bg-[#b08c48]" : "bg-[#B88E3A] text-white hover:bg-[#9E7728]"
                       }`}>
                         <Upload className="w-3.5 h-3.5" />
-                        <span>{localCompany.logoUrl ? "Değiştir" : "Logo Yükle"}</span>
+                        <span>{localCompany.logoUrl ? "Logoyu Değiştir" : "Logo Yükle (PNG/JPG)"}</span>
                         <input 
                           type="file" 
                           accept="image/*" 
@@ -373,13 +348,15 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                         <button
                           type="button"
                           onClick={handleRemoveCompanyLogo}
-                          className="px-2.5 py-1.5 rounded text-xs text-rose-400 hover:bg-rose-500/10 border border-rose-500/30 transition-colors cursor-pointer"
+                          className="px-3 py-2 rounded-lg text-xs text-rose-400 hover:bg-rose-500/10 border border-rose-500/30 transition-colors cursor-pointer"
                         >
                           Kaldır
                         </button>
                       )}
                     </div>
-                    <p className="text-[10px] text-neutral-500 mt-2">PNG (şeffaf) veya JPG (Maks. 2MB)</p>
+                    <p className="text-[10px] text-neutral-500 mt-2">
+                      Şeffaf PNG veya kare/yatay logo önerilir (Maks 2MB)
+                    </p>
                   </>
                 ) : (
                   <>
@@ -388,39 +365,34 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                       <span className="text-xs font-bold uppercase tracking-wider">
                         FİRMA LOGOSU
                       </span>
-                    </div>
-
-                    <div className="w-32 h-32 rounded-lg border flex flex-col items-center justify-center overflow-hidden mb-3 bg-black/40 border-amber-500/30 p-2 text-center">
-                      <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center text-amber-400 mb-1.5 border border-amber-500/30">
-                        <Lock className="w-4 h-4" />
-                      </div>
-                      <span className="text-[10px] font-bold text-amber-300">KREDİLİ HESAP</span>
-                      <span className="text-[8px] text-neutral-400 mt-0.5 leading-tight">
-                        Logo yükleme kilitli
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">
+                        PRO ÖZELLİK
                       </span>
                     </div>
 
-                    <div className="w-full space-y-2">
-                      <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-200/90 text-center leading-relaxed">
-                        Logo eklemek için <strong>Pro Abonelik</strong> (Aylık/Yıllık) gereklidir.
+                    <div className="w-36 h-36 rounded-xl border flex flex-col items-center justify-center overflow-hidden mb-3 bg-black/40 border-amber-500/30 p-3 text-center">
+                      <div className="w-10 h-10 rounded-full bg-amber-500/15 flex items-center justify-center text-amber-400 mb-2 border border-amber-500/30">
+                        <Lock className="w-5 h-5" />
+                      </div>
+                      <span className="text-[11px] font-bold text-amber-300">KONTÖRLÜ HESAP</span>
+                      <span className="text-[9px] text-neutral-400 mt-1 leading-tight">
+                        Logo yükleme özelliği kilitlidir
+                      </span>
+                    </div>
+
+                    <div className="w-full space-y-2.5">
+                      <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-200/90 text-center leading-relaxed">
+                        Teklif ve dökümlere kendi logonuzu eklemek için <strong>Pro Abonelik</strong> gereklidir.
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={onOpenSubscriptionModal}
-                        className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-bold bg-[#C5A059] text-black hover:bg-[#b08c48] cursor-pointer transition-all shadow-sm shadow-[#C5A059]/20"
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        <span>Pro Pakete Geç</span>
-                      </button>
-
-                      {localCompany.logoUrl && (
+                      {onOpenSubscriptionModal && (
                         <button
                           type="button"
-                          onClick={handleRemoveCompanyLogo}
-                          className="text-[9px] text-neutral-400 hover:text-rose-400 underline transition-colors cursor-pointer"
+                          onClick={onOpenSubscriptionModal}
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#C5A059] text-black hover:bg-[#b08c48] cursor-pointer transition-all shadow-sm"
                         >
-                          Kayıtlı Eski Logoyu Kaldır
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Pro Pakete Yükselt</span>
                         </button>
                       )}
                     </div>
@@ -428,625 +400,224 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                 )}
               </div>
 
-              {/* Form fields (8 cols) */}
-              <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Firma Kısa İsmi / Marka
-                  </label>
-                  <input
-                    type="text"
-                    value={localCompany.companyName}
-                    onChange={(e) => handleCompanyChange("companyName", e.target.value)}
-                    placeholder="Örn: Atölye / Marka Adınız"
-                    className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
-                      isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
+              {/* Kurumsal Bilgi Alanları (8 kolon) */}
+              <div className="md:col-span-8 space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Firma Adı */}
+                  <div>
+                    <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                      Firma / Atölye Adı (PDF Başlığı) *
+                    </label>
+                    <input
+                      type="text"
+                      value={localCompany.companyName}
+                      onChange={(e) => handleCompanyChange("companyName", e.target.value)}
+                      placeholder="Örn: Nakka Decor & Sanat"
+                      className={`w-full border rounded-lg px-3 py-2 focus:outline-none transition-colors ${
+                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                      }`}
+                    />
+                  </div>
+
+                  {/* Ticari Ünvan */}
+                  <div>
+                    <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                      Resmi Ticari Ünvan
+                    </label>
+                    <input
+                      type="text"
+                      value={localCompany.tradeTitle}
+                      onChange={(e) => handleCompanyChange("tradeTitle", e.target.value)}
+                      placeholder="Örn: Nakka Çerçeve Sanat Tic. Ltd. Şti."
+                      className={`w-full border rounded-lg px-3 py-2 focus:outline-none transition-colors ${
+                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                      }`}
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Resmi Ticari Ünvan
-                  </label>
-                  <input
-                    type="text"
-                    value={localCompany.tradeTitle}
-                    onChange={(e) => handleCompanyChange("tradeTitle", e.target.value)}
-                    placeholder="Örn: Çerçeve Sanat Tic. Ltd. Şti."
-                    className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
-                      isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Telefon */}
+                  <div>
+                    <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                      Telefon (PDF İletişim Bilgisi) *
+                    </label>
+                    <input
+                      type="text"
+                      value={localCompany.phone}
+                      onChange={(e) => handleCompanyChange("phone", e.target.value)}
+                      placeholder="Örn: 0212 555 01 23 / 0532 ..."
+                      className={`w-full border rounded-lg px-3 py-2 focus:outline-none transition-colors ${
+                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                      }`}
+                    />
+                  </div>
+
+                  {/* Kurumsal E-posta */}
+                  <div>
+                    <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                      Kurumsal E-posta
+                    </label>
+                    <input
+                      type="email"
+                      value={localCompany.email}
+                      onChange={(e) => handleCompanyChange("email", e.target.value)}
+                      placeholder="info@nakkadecor.com"
+                      className={`w-full border rounded-lg px-3 py-2 focus:outline-none transition-colors ${
+                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                      }`}
+                    />
+                  </div>
                 </div>
 
+                {/* Açık Adres */}
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Vergi Dairesi
+                  <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                    Atölye / Mağaza Adresi (PDF Alt Bilgisi) *
                   </label>
-                  <input
-                    type="text"
-                    value={localCompany.taxOffice}
-                    onChange={(e) => handleCompanyChange("taxOffice", e.target.value)}
-                    placeholder="Örn: Vergi Dairesi"
-                    className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
-                      isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Vergi No / TCKN
-                  </label>
-                  <input
-                    type="text"
-                    value={localCompany.taxNumber}
-                    onChange={(e) => handleCompanyChange("taxNumber", e.target.value)}
-                    placeholder="Örn: 1234567890"
-                    className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
-                      isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Kurumsal Telefon
-                  </label>
-                  <input
-                    type="text"
-                    value={localCompany.phone}
-                    onChange={(e) => handleCompanyChange("phone", e.target.value)}
-                    placeholder="Örn: 0532 ... / 0212 ..."
-                    className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
-                      isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Kurumsal E-posta
-                  </label>
-                  <input
-                    type="email"
-                    value={localCompany.email}
-                    onChange={(e) => handleCompanyChange("email", e.target.value)}
-                    placeholder="ornek@firma.com"
-                    className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
-                      isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Web Sitesi
-                  </label>
-                  <input
-                    type="text"
-                    value={localCompany.website}
-                    onChange={(e) => handleCompanyChange("website", e.target.value)}
-                    placeholder="www.firmaniz.com"
-                    className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
-                      isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Şehir / İlçe
-                  </label>
-                  <input
-                    type="text"
-                    value={localCompany.city}
-                    onChange={(e) => handleCompanyChange("city", e.target.value)}
-                    placeholder="İl / İlçe"
-                    className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
-                      isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Atölye / Mağaza Açık Adresi
-                  </label>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={2}
                     value={localCompany.address}
                     onChange={(e) => handleCompanyChange("address", e.target.value)}
-                    placeholder="Atölye açık adresi..."
-                    className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
-                      isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                    placeholder="Örn: Sanatkarlar Cad. No:14 Kadıköy / İstanbul"
+                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none resize-none transition-colors ${
+                      isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
                     }`}
                   />
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Banka & IBAN Numarası (Teklif dökümlerinde gösterilir)
-                  </label>
-                  <input
-                    type="text"
-                    value={localCompany.iban}
-                    onChange={(e) => handleCompanyChange("iban", e.target.value)}
-                    placeholder="TR..."
-                    className={`w-full px-3 py-2 text-xs rounded border outline-none font-mono ${
-                      isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 2. SECTION: KULLANICI ROLLERİ & ÇEVRİMİÇİ ÜYELİK SİSTEMİ */}
-          <div className={`border rounded-xl p-5 space-y-5 ${
-            isDarkMode ? "bg-[#181b20] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
-          }`}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 border-neutral-700/40">
-              <div className="flex items-center gap-2.5">
-                <div className={`p-2 rounded-lg ${isDarkMode ? "bg-[#C5A059]/20 text-[#C5A059]" : "bg-[#B88E3A]/20 text-[#B88E3A]"}`}>
-                  <Users className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className={`text-sm font-bold uppercase tracking-wider ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                    KULLANICI ROLLERİ & E-POSTA ONAYLI ÜYELİK SİSTEMİ
-                  </h3>
-                  <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                    Çok kullanıcılı online giriş altyapısı, e-posta doğrulama ve rol yetkilendirmesi
-                  </p>
-                </div>
-              </div>
-              <span className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 self-start sm:self-auto">
-                ONLİNE BULUT DESTEĞİ
-              </span>
-            </div>
-
-            {/* Active Session Card */}
-            <div className={`p-3.5 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-              isDarkMode ? "bg-neutral-900/80 border-neutral-700" : "bg-white border-slate-200"
-            }`}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#C5A059] to-amber-200 text-black font-bold flex items-center justify-center text-sm shadow-md">
-                  {activeUserAccount.fullName.charAt(0)}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold">{activeUserAccount.fullName}</span>
-                    <span className="text-[10px] font-mono text-neutral-400">(@{activeUserAccount.username})</span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
-                      {activeUserAccount.role === "admin" ? "Yönetici (Admin)" : activeUserAccount.role === "sales" ? "Satış" : "Atölye"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px] text-neutral-400">
-                    <span>{activeUserAccount.email}</span>
-                    <span>•</span>
-                    <span className="text-emerald-400 flex items-center gap-0.5 font-semibold">
-                      <CheckCircle2 className="w-3 h-3" /> E-posta Onaylı Hesap
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="text-[10px] font-mono text-neutral-400 text-right">
-                Aktif Oturum • Son Giriş: {activeUserAccount.lastLoginAt || "Şimdi"}
-              </div>
-            </div>
-
-            {/* Users List */}
-            <div className="space-y-2.5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
-                    SİSTEMDE KAYITLI PERSONEL & ÜYELER ({localUsers.length} / {maxAllowedUsers})
-                  </h4>
-                  {isCreditAccount ? (
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
-                      isLimitReached 
-                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40" 
-                        : "bg-blue-500/20 text-blue-300 border border-blue-500/40"
-                    }`}>
-                      {isLimitReached ? "Kredili Hesap: Kota Doldu (3/3)" : "Kredili Hesap: Maks. 3 Personel"}
-                    </span>
-                  ) : (
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
-                      isLimitReached 
-                        ? "bg-purple-500/20 text-purple-300 border border-purple-500/40" 
-                        : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                    }`}>
-                      {isLimitReached ? "Aylık Abonelik: Kota Doldu (6/6)" : "Aylık Abonelik: Maks. 6 Personel"}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[11px] text-neutral-500">
-                  Üyeler e-posta onayı tamamlandığında yetkilerini kullanabilir
-                </span>
-              </div>
-
-              <div className="border rounded-lg overflow-hidden border-neutral-700/60 divide-y divide-neutral-700/40">
-                {localUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className={`p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 transition-colors ${
-                      isDarkMode ? "bg-neutral-900/50 hover:bg-neutral-900" : "bg-white hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-start sm:items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                        user.role === "admin" 
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" 
-                          : user.role === "sales" 
-                          ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" 
-                          : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                      }`}>
-                        {user.fullName.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold">{user.fullName}</span>
-                          <span className="text-[10px] font-mono text-neutral-400">@{user.username}</span>
-                          {user.isEmailVerified ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                              <CheckCircle2 className="w-2.5 h-2.5" /> E-posta Onaylandı
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                              <AlertCircle className="w-2.5 h-2.5" /> Onay Bekliyor
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 text-[11px] text-neutral-400 mt-0.5">
-                          <span className="flex items-center gap-1">
-                            <Mail className="w-3 h-3 text-neutral-500" /> {user.email}
-                          </span>
-                          {user.phone && (
-                            <span className="flex items-center gap-1">
-                              <Phone className="w-3 h-3 text-neutral-500" /> {user.phone}
-                            </span>
-                          )}
-                          {user.verificationSentAt && !user.isEmailVerified && (
-                            <span className="text-amber-400/80 italic text-[10px]">
-                              ({user.verificationSentAt})
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Actions & Role Selector */}
-                    <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
-                      <select
-                        value={user.role}
-                        onChange={(e) => handleChangeUserRole(user.id, e.target.value as UserRole)}
-                        className={`px-2.5 py-1 text-xs rounded border font-mono outline-none cursor-pointer ${
-                          isDarkMode ? "bg-neutral-800 border-neutral-700 text-white" : "bg-slate-100 border-slate-300 text-slate-800"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Vergi Dairesi & No */}
+                  <div>
+                    <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                      Vergi Dairesi &amp; No
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={localCompany.taxOffice}
+                        onChange={(e) => handleCompanyChange("taxOffice", e.target.value)}
+                        placeholder="Kadıköy V.D."
+                        className={`w-1/2 border rounded-lg px-3 py-2 focus:outline-none transition-colors ${
+                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
                         }`}
-                      >
-                        <option value="admin">Yönetici (Admin)</option>
-                        <option value="sales">Satış Danışmanı</option>
-                        <option value="workshop">Atölye Ustası</option>
-                      </select>
-
-                      {!user.isEmailVerified && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleSendVerificationEmail(user)}
-                            title="Doğrulama E-postası Gönder"
-                            className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-mono font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition-colors cursor-pointer"
-                          >
-                            <Send className="w-3 h-3" /> E-posta Gönder
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleConfirmEmailVerification(user.id)}
-                            title="E-postayı Şimdi Doğrula (Hızlı Test)"
-                            className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-mono font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition-colors cursor-pointer"
-                          >
-                            <Check className="w-3 h-3" /> Doğrula
-                          </button>
-                        </>
-                      )}
-
-                      {localUsers.length > 1 && user.role !== "admin" && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="p-1.5 rounded text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                          title="Kullanıcıyı Sil"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      />
+                      <input
+                        type="text"
+                        value={localCompany.taxNumber}
+                        onChange={(e) => handleCompanyChange("taxNumber", e.target.value)}
+                        placeholder="1234567890"
+                        className={`w-1/2 border rounded-lg px-3 py-2 focus:outline-none font-mono transition-colors ${
+                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                        }`}
+                      />
                     </div>
                   </div>
-                ))}
+
+                  {/* Ödeme / IBAN */}
+                  <div>
+                    <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                      Ödeme / Banka IBAN
+                    </label>
+                    <input
+                      type="text"
+                      value={localCompany.iban}
+                      onChange={(e) => handleCompanyChange("iban", e.target.value)}
+                      placeholder="TR00 0000 0000 0000 0000 0000 00"
+                      className={`w-full border rounded-lg px-3 py-2 focus:outline-none font-mono transition-colors ${
+                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                      }`}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Quota Exceeded Alert / Upgrade Card */}
-            {isCreditAccount && isLimitReached && (
-              <div className="p-4 rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in shadow-md">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
-                    <Lock className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h5 className="text-xs font-black uppercase tracking-wider text-amber-300">
-                        KULLANICI KOTASI DOLDU (3 / 3 PERSONEL)
-                      </h5>
-                      <span className="text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-amber-500/30 text-amber-200">
-                        KREDİLİ HESAP LİMİTİ
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-300 mt-1 max-w-xl leading-relaxed">
-                      Sisteme kredili hesapta en fazla <strong>3 personel</strong> tanımlanabilir. 3'ten fazla kullanıcı için kredili hesap yerine <strong>Aylık Premium Abonelik</strong> sistemine geçilmesi zorunludur. Aylık abonelik seçeneğinde <strong>en fazla 6 personel</strong> üye kaydı yapılabilir.
-                    </p>
-                  </div>
-                </div>
+            {/* 3. BÖLÜM: CANLI KURUMSAL PDF & SİPARİŞ ANTETİ ÖNİZLEMESİ */}
+            <div className="mt-4 pt-4 border-t border-neutral-700/30">
+              <span className="block text-[11px] font-mono uppercase font-bold tracking-wider mb-2 text-[#C5A059]">
+                CANLI KURUMSAL PDF &amp; SİPARİŞ ANTETİ ÖNİZLEMESİ
+              </span>
 
-                <button
-                  type="button"
-                  onClick={onOpenSubscriptionModal}
-                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#C5A059] to-[#E5C17B] hover:from-[#b08c48] hover:to-[#C5A059] text-black font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 shrink-0 cursor-pointer transition-all hover:scale-[1.02] border border-amber-300/40"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Aylık Aboneliğe Geç (6 Personel)</span>
-                </button>
-              </div>
-            )}
-
-            {!isCreditAccount && isLimitReached && (
-              <div className="p-4 rounded-xl border border-purple-500/50 bg-gradient-to-r from-purple-500/15 via-purple-500/5 to-transparent flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in shadow-md">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/40 shrink-0">
-                    <ShieldCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h5 className="text-xs font-black uppercase tracking-wider text-purple-300">
-                        AYLIK ABONELİK MAKSİMUM KOTASINA ULAŞILDI (6 / 6)
-                      </h5>
-                      <span className="text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-purple-500/30 text-purple-200">
-                        TAM KAPASİTE
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-300 mt-1 max-w-xl leading-relaxed">
-                      Aylık abonelik paketinde maksimum <strong>6 personel</strong> üye kaydı yapılabilir. Yeni bir personel tanımlamak için lütfen mevcut listedeki personellerden birini siliniz.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Add New User Invitation Form */}
-            <form onSubmit={handleAddNewUser} className={`p-4 rounded-xl border space-y-3 transition-opacity ${
-              isLimitReached ? "opacity-85" : "opacity-100"
-            } ${
-              isDarkMode ? "bg-neutral-900/60 border-neutral-700/80" : "bg-white border-slate-200"
-            }`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <UserPlus className={`w-4 h-4 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
-                  <h5 className="text-xs font-bold uppercase tracking-wider">
-                    YENİ PERSONEL / ÜYE DAVET ET (E-POSTA İLE)
-                  </h5>
-                </div>
-                <span className="text-[11px] font-mono text-neutral-400">
-                  Kalan Kontenjan: <strong className={isLimitReached ? "text-rose-400" : "text-emerald-400"}>{Math.max(0, maxAllowedUsers - localUsers.length)}</strong> / {maxAllowedUsers}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Ad Soyad *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    disabled={isLimitReached}
-                    value={newUserForm.fullName}
-                    onChange={(e) => setNewUserForm(prev => ({ ...prev, fullName: e.target.value }))}
-                    placeholder="Örn: Ayşe Kaya"
-                    className={`w-full px-3 py-1.5 text-xs rounded border outline-none ${
-                      isLimitReached ? "opacity-60 cursor-not-allowed" : ""
-                    } ${
-                      isDarkMode ? "bg-neutral-800 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Kullanıcı Adı
-                  </label>
-                  <input
-                    type="text"
-                    disabled={isLimitReached}
-                    value={newUserForm.username}
-                    onChange={(e) => setNewUserForm(prev => ({ ...prev, username: e.target.value }))}
-                    placeholder="Örn: ayse.kaya"
-                    className={`w-full px-3 py-1.5 text-xs rounded border outline-none ${
-                      isLimitReached ? "opacity-60 cursor-not-allowed" : ""
-                    } ${
-                      isDarkMode ? "bg-neutral-800 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    E-posta Adresi *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    disabled={isLimitReached}
-                    value={newUserForm.email}
-                    onChange={(e) => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="ayse@vizyonart.com"
-                    className={`w-full px-3 py-1.5 text-xs rounded border outline-none ${
-                      isLimitReached ? "opacity-60 cursor-not-allowed" : ""
-                    } ${
-                      isDarkMode ? "bg-neutral-800 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Yetki Rolü
-                  </label>
-                  <select
-                    disabled={isLimitReached}
-                    value={newUserForm.role}
-                    onChange={(e) => setNewUserForm(prev => ({ ...prev, role: e.target.value as UserRole }))}
-                    className={`w-full px-3 py-1.5 text-xs rounded border outline-none font-mono ${
-                      isLimitReached ? "opacity-60 cursor-not-allowed" : ""
-                    } ${
-                      isDarkMode ? "bg-neutral-800 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                    }`}
-                  >
-                    <option value="sales">Satış Danışmanı (Müşteri Modu)</option>
-                    <option value="workshop">Atölye Ustası (İmalat / Kesim)</option>
-                    <option value="admin">Yönetici (Tam Yetkili)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                <p className="text-[11px] text-neutral-500">
-                  {isCreditAccount && isLimitReached ? (
-                    <span className="text-amber-400 font-semibold">
-                      * Kredili hesapta en fazla 3 kullanıcı tanımlanabilir. 3'ten fazla için Aylık Abonelik zorunludur.
-                    </span>
-                  ) : !isCreditAccount && isLimitReached ? (
-                    <span className="text-purple-400 font-semibold">
-                      * Aylık abonelik seçeneğinde en fazla 6 personel tanımlanabilir. Kota dolmuştur.
-                    </span>
+              <div className="p-4 rounded-xl border border-slate-300 bg-white text-slate-900 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  {localCompany.logoUrl ? (
+                    <img 
+                      src={localCompany.logoUrl} 
+                      alt="Firma Logosu" 
+                      className="w-12 h-12 object-contain border border-slate-200 rounded p-1 bg-slate-50 shrink-0"
+                    />
                   ) : (
-                    <span>
-                      * Kaydedildiğinde kullanıcıya sistem aktivasyonu ve şifre belirleme bağlantısı içeren onay e-postası gönderilir.
-                    </span>
+                    <div className="w-12 h-12 bg-slate-100 rounded border border-slate-300 flex items-center justify-center text-slate-400 shrink-0">
+                      <Building2 className="w-6 h-6" />
+                    </div>
                   )}
-                </p>
-
-                {isCreditAccount && isLimitReached ? (
-                  <button
-                    type="button"
-                    onClick={onOpenSubscriptionModal}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2 rounded text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 cursor-pointer shadow-md transition-all shrink-0"
-                    title="Aylık aboneliğe geçerek 6 personele kadar kullanıcı ekleyin"
-                  >
-                    <Lock className="w-3.5 h-3.5" /> 3 Kullanıcı Sınırı (Aylık Aboneliğe Geçin)
-                  </button>
-                ) : !isCreditAccount && isLimitReached ? (
-                  <button
-                    type="button"
-                    disabled
-                    className="flex items-center justify-center gap-1.5 px-4 py-2 rounded text-xs font-bold bg-neutral-800 text-neutral-500 border border-neutral-700 cursor-not-allowed shrink-0"
-                  >
-                    <Lock className="w-3.5 h-3.5" /> Maksimum 6 Personel Kotası Doldu
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded text-xs font-bold transition-all shadow-md cursor-pointer shrink-0 ${
-                      isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
-                    }`}
-                  >
-                    <Send className="w-3.5 h-3.5" /> DAVET ET ({maxAllowedUsers - localUsers.length} Kontenjan)
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-
-          {/* Simulated Email Verification Modal / Dialog */}
-          {simulatedEmailSent && (
-            <div className="p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-amber-300 text-xs font-bold uppercase">
-                  <Mail className="w-4 h-4" />
-                  GÖNDERİLEN ONAY E-POSTASI ÖNİZLEMESİ
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-900 uppercase tracking-wide">
+                      {localCompany.companyName || "FİRMA / ATÖLYE ADI"}
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      {localCompany.tradeTitle || "Resmi Ticari Ünvan"}
+                    </p>
+                    <p className="text-[10px] text-slate-600 font-mono mt-0.5">
+                      {localCompany.phone ? `Tel: ${localCompany.phone}` : ""}{localCompany.phone && localCompany.email ? " • " : ""}{localCompany.email || ""}
+                    </p>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSimulatedEmailSent(null)}
-                  className="text-xs text-neutral-400 hover:text-white cursor-pointer"
-                >
-                  Kapat ✕
-                </button>
-              </div>
-              <div className={`p-4 rounded-lg border text-xs space-y-2 font-mono ${
-                isDarkMode ? "bg-neutral-900 border-neutral-700 text-neutral-300" : "bg-white border-slate-300 text-slate-800"
-              }`}>
-                <div className="border-b pb-2 border-neutral-700/50">
-                  <div><strong>Kime:</strong> {simulatedEmailSent.fullName} &lt;{simulatedEmailSent.email}&gt;</div>
-                  <div><strong>Konu:</strong> {localCompany.companyName || "Atölye Sistemi"} - Üyelik ve E-posta Onayı</div>
-                </div>
-                <p className="text-xs">
-                  Merhaba <strong>{simulatedEmailSent.fullName}</strong>,<br />
-                  <strong>{localCompany.tradeTitle || localCompany.companyName || "Atölyemiz"}</strong> bünyesinde <strong>{simulatedEmailSent.role === "admin" ? "Yönetici" : simulatedEmailSent.role === "sales" ? "Satış Danışmanı" : "Atölye Ustası"}</strong> yetkisiyle sisteme davet edildiniz.
-                  Hesabınızı etkinleştirmek ve kullanıcı adınızla giriş yapmak için lütfen aşağıdaki butona tıklayarak e-posta adresinizi onaylayın:
-                </p>
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => handleConfirmEmailVerification(simulatedEmailSent.id)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer shadow-lg transition-all"
-                  >
-                    <CheckCircle2 className="w-4 h-4" /> [Simüle Link]: E-Postamı Onayla ve Üyeliğimi Başlat
-                  </button>
+
+                <div className="text-left sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 w-full sm:w-auto text-[10px] text-slate-500 font-mono">
+                  <div>Adres: {localCompany.address ? localCompany.address.slice(0, 40) + "..." : "Atölye Adresi"}</div>
+                  <div className="text-emerald-600 font-bold mt-0.5 flex items-center gap-1 justify-start sm:justify-end">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>PDF Çıktısında Bu Başlık Basılacaktır</span>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
+
+          </div>
         </div>
 
-        {/* Footer Actions */}
+        {/* Alt Butonlar (Footer Actions) */}
         <div className={`flex items-center justify-between px-6 py-4 border-t shrink-0 ${
-          isDarkMode ? "bg-[#14171d] border-neutral-800" : "bg-slate-50 border-slate-200"
+          isDarkMode ? "bg-[#161920] border-neutral-800" : "bg-slate-50 border-slate-200"
         }`}>
-          <div>
-            {saveToast && (
-              <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold animate-pulse">
-                <CheckCircle2 className="w-4 h-4" /> Firma & Hesap Ayarları Kaydedildi!
-              </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className={`px-4 py-2 text-xs font-mono rounded-xl border transition-colors cursor-pointer ${
+              isDarkMode 
+                ? "border-neutral-700 bg-neutral-800/80 hover:bg-neutral-800 text-neutral-300" 
+                : "border-slate-300 bg-white hover:bg-slate-100 text-slate-700"
+            }`}
+          >
+            Vazgeç
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={isSaving}
+            className={`flex items-center gap-2 px-6 py-2.5 font-mono font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer active:scale-95 ${
+              savedSuccess
+                ? "bg-emerald-600 text-white"
+                : (isDarkMode 
+                    ? "bg-gradient-to-r from-[#FAE2B3] via-[#E5C17B] to-[#C5A059] hover:from-white hover:to-[#E5C17B] text-black" 
+                    : "bg-[#B88E3A] hover:bg-[#9E7728] text-white")
+            }`}
+          >
+            {savedSuccess ? (
+              <>
+                <Check className="w-4 h-4" />
+                <span>KAYDEDİLDİ!</span>
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                <span>{isSaving ? "KAYDEDİLİYOR..." : "DEĞİŞİKLİKLERİ KAYDET"}</span>
+              </>
             )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className={`px-4 py-2 text-xs font-bold rounded-xl border transition-colors cursor-pointer ${
-                isDarkMode 
-                  ? "border-neutral-700 text-neutral-400 hover:text-white hover:bg-neutral-800" 
-                  : "border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-              }`}
-            >
-              Vazgeç
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSaveAll}
-              className={`flex items-center gap-2 px-6 py-2.5 text-xs font-bold rounded-xl shadow-lg transition-all active:scale-95 cursor-pointer ${
-                isDarkMode 
-                  ? "bg-[#C5A059] text-black hover:bg-[#b5924d]" 
-                  : "bg-[#B88E3A] text-white hover:bg-[#a67e2f]"
-              }`}
-            >
-              <Save className="w-4 h-4" />
-              DEĞİŞİKLİKLERİ KAYDET
-            </button>
-          </div>
+          </button>
         </div>
 
       </div>

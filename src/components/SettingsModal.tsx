@@ -3,7 +3,7 @@ import {
   X, Settings, Database, Plus, Trash2, Check, RefreshCw, DollarSign, 
   Tag, Image as ImageIcon, Lock, Unlock, KeyRound, ShieldCheck, 
   Eye, EyeOff, Upload, AlertCircle, Users, Shield, Building2, Phone, Mail, MapPin, Globe, CreditCard,
-  Camera, Scan, Crop as CropIcon, Sparkles, TrendingUp, RotateCcw, CheckCircle2
+  Camera, Scan, Crop as CropIcon, Sparkles, TrendingUp, RotateCcw, CheckCircle2, Coins, LogOut, User
 } from "lucide-react";
 import { 
   UnitPricesSettings, 
@@ -12,7 +12,8 @@ import {
   DEFAULT_COMPANY_PROFILE,
   EMPTY_COMPANY_PROFILE,
   SubscriptionData,
-  isProPlan
+  isProPlan,
+  UserAccount
 } from "../types/pricing";
 import { ImageCropModal } from "./ImageCropModal";
 import { 
@@ -39,6 +40,8 @@ interface SettingsModalProps {
   initialTab?: "prices" | "profiles" | "privacy" | "whitelabel";
   subscription?: SubscriptionData;
   onOpenSubscriptionModal?: () => void;
+  activeUser?: UserAccount;
+  onLogout?: () => void;
 }
 
 export function SettingsModal({
@@ -56,7 +59,9 @@ export function SettingsModal({
   onSaveCompanyProfile,
   initialTab = "prices",
   subscription,
-  onOpenSubscriptionModal
+  onOpenSubscriptionModal,
+  activeUser,
+  onLogout
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<"prices" | "profiles" | "privacy" | "whitelabel">(initialTab);
   
@@ -479,7 +484,7 @@ export function SettingsModal({
             }`}
           >
             <Building2 className="w-4 h-4" />
-            04. KURUMSAL BİLGİLER (WHITE-LABEL)
+            04. HESAP & WHITE-LABEL (KURUMSAL)
           </button>
         </div>
 
@@ -1656,9 +1661,98 @@ export function SettingsModal({
             </div>
           )}
 
-          {/* 04. WHITE-LABEL KURUMSAL BİLGİLER */}
+          {/* 04. HESAP & WHITE-LABEL KURUMSAL BİLGİLER */}
           {activeTab === "whitelabel" && (
             <div className="space-y-6">
+              {/* Aktif Kullanıcı & Hesap Bilgisi */}
+              <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
+                isDarkMode 
+                  ? "bg-[#161922] border-[#C5A059]/25 shadow-sm" 
+                  : "bg-amber-50/50 border-amber-200 shadow-sm"
+              }`}>
+                {/* Kullanıcı Profili */}
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#FAE2B3] via-[#E5C17B] to-[#C5A059] text-black font-black flex items-center justify-center text-base shadow-md shrink-0">
+                    {(activeUser?.fullName || activeUser?.username || "Y").charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                        {activeUser?.fullName || "Yönetici Kullanıcı"}
+                      </span>
+                      <span className="text-xs font-mono text-[#C5A059] font-semibold">
+                        @{activeUser?.username || "yonetici"}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">
+                        {activeUser?.role === "admin" ? "Yönetici (Admin)" : "Atölye"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-neutral-400 mt-0.5">
+                      <span className="flex items-center gap-1">
+                        <Mail className="w-3.5 h-3.5 text-neutral-500" />
+                        {activeUser?.email || "yonetici@nakka.com"}
+                      </span>
+                      <span>•</span>
+                      <span className="text-emerald-400 flex items-center gap-1 font-semibold text-[11px]">
+                        <CheckCircle2 className="w-3 h-3" /> Aktif Oturum
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Kredi / Paket & Çıkış Aksiyonları */}
+                <div className="flex items-center gap-2.5 self-end sm:self-center shrink-0">
+                  {subscription && (
+                    <div className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-bold flex items-center gap-2 ${
+                      isDarkMode ? "bg-black/30 border-white/10 text-neutral-300" : "bg-white border-slate-200 text-slate-700"
+                    }`}>
+                      <Coins className="w-4 h-4 text-[#C5A059]" />
+                      <span>
+                        {subscription.remainingCredits} <span className="text-[10px] font-normal text-neutral-400">KREDİ</span>
+                      </span>
+                    </div>
+                  )}
+
+                  {onOpenSubscriptionModal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenSubscriptionModal();
+                      }}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        isDarkMode 
+                          ? "bg-[#C5A059]/15 border-[#C5A059]/40 hover:bg-[#C5A059]/25 text-[#FAE2B3]" 
+                          : "bg-amber-100 border-amber-300 hover:bg-amber-200 text-[#8F6A1E]"
+                      }`}
+                      title="Abonelik ve Kredi Yönetimi"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
+                      <span>Paketler</span>
+                    </button>
+                  )}
+
+                  {onLogout && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onLogout();
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        isDarkMode 
+                          ? "bg-black/30 border-white/10 text-neutral-400 hover:text-rose-400 hover:border-rose-400/40" 
+                          : "bg-white border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-300"
+                      }`}
+                      title="Oturumu Kapat (Giriş Ekranına Dön)"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Çıkış Yap</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className={`border rounded-xl p-5 space-y-5 ${
                 isDarkMode ? "bg-[#181b20] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
               }`}>
