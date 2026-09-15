@@ -21,7 +21,18 @@ import {
   Lock,
   Sparkles
 } from "lucide-react";
-import { CompanyProfile, UserAccount, UserRole, SubscriptionData, isProPlan } from "../types/pricing";
+import { 
+  CompanyProfile, 
+  UserAccount, 
+  UserRole, 
+  SubscriptionData, 
+  isProPlan,
+  EMPTY_COMPANY_PROFILE 
+} from "../types/pricing";
+import { 
+  fetchCompanyProfileFromSupabase, 
+  saveCompanyProfileToSupabase 
+} from "../services/supabaseService";
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -50,12 +61,14 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   subscription,
   onOpenSubscriptionModal
 }) => {
-  const [localCompany, setLocalCompany] = useState<CompanyProfile>(companyProfile);
+  const [localCompany, setLocalCompany] = useState<CompanyProfile>(companyProfile || EMPTY_COMPANY_PROFILE);
   const [localUsers, setLocalUsers] = useState<UserAccount[]>(users);
   const [activeUserAccount, setActiveUserAccount] = useState<UserAccount>(activeUser);
   const [emailActionNotice, setEmailActionNotice] = useState<string | null>(null);
   const [simulatedEmailSent, setSimulatedEmailSent] = useState<UserAccount | null>(null);
   const [saveToast, setSaveToast] = useState(false);
+  const [isLoadingCompany, setIsLoadingCompany] = useState(false);
+  const [isSavingCompany, setIsSavingCompany] = useState(false);
 
   // User limit calculations based on subscription tier
   const maxAllowedUsers = subscription?.isMonthlySubscription ? 6 : 3;
@@ -70,16 +83,35 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     role: "sales" as UserRole
   });
 
+  // Modal açıldığında verileri doğrudan Supabase'den giriş yapan kullanıcının ID'siyle çek
   useEffect(() => {
     if (isOpen) {
-      setLocalCompany(companyProfile);
       setLocalUsers(users);
       setActiveUserAccount(activeUser);
       setEmailActionNotice(null);
       setSimulatedEmailSent(null);
       setSaveToast(false);
+
+      // Doğrudan Supabase'den çek
+      setIsLoadingCompany(true);
+      fetchCompanyProfileFromSupabase()
+        .then(({ data }) => {
+          if (data) {
+            setLocalCompany(data);
+          } else {
+            // Eğer yeni bir kullanıcıysa ve veritabanında henüz bir firma kaydı yoksa, form BOMBOŞ gelsin
+            setLocalCompany(EMPTY_COMPANY_PROFILE);
+          }
+        })
+        .catch(err => {
+          console.warn("Firma profili Supabase'den yüklenirken uyarı:", err);
+          setLocalCompany(companyProfile || EMPTY_COMPANY_PROFILE);
+        })
+        .finally(() => {
+          setIsLoadingCompany(false);
+        });
     }
-  }, [isOpen, companyProfile, users, activeUser]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -188,7 +220,15 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     }
   };
 
-  const handleSaveAll = () => {
+  const handleSaveAll = async () => {
+    setIsSavingCompany(true);
+    try {
+      await saveCompanyProfileToSupabase(localCompany);
+    } catch (err) {
+      console.warn("Supabase firma profili kaydetme hatası:", err);
+    } finally {
+      setIsSavingCompany(false);
+    }
     onSaveCompanyProfile(localCompany);
     onSaveUsers(localUsers);
     onSetActiveUser(activeUserAccount);
@@ -398,7 +438,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     type="text"
                     value={localCompany.companyName}
                     onChange={(e) => handleCompanyChange("companyName", e.target.value)}
-                    placeholder="Örn: Vizyon Art Studio"
+                    placeholder="Örn: Atölye / Marka Adınız"
                     className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
                       isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
                     }`}
@@ -413,7 +453,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     type="text"
                     value={localCompany.tradeTitle}
                     onChange={(e) => handleCompanyChange("tradeTitle", e.target.value)}
-                    placeholder="Örn: Vizyon Sanat & Çerçeve Ltd. Şti."
+                    placeholder="Örn: Çerçeve Sanat Tic. Ltd. Şti."
                     className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
                       isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
                     }`}
@@ -428,7 +468,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     type="text"
                     value={localCompany.taxOffice}
                     onChange={(e) => handleCompanyChange("taxOffice", e.target.value)}
-                    placeholder="Örn: Beyoğlu V.D."
+                    placeholder="Örn: Vergi Dairesi"
                     className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
                       isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
                     }`}
@@ -443,7 +483,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     type="text"
                     value={localCompany.taxNumber}
                     onChange={(e) => handleCompanyChange("taxNumber", e.target.value)}
-                    placeholder="Örn: 8920451234"
+                    placeholder="Örn: 1234567890"
                     className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
                       isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
                     }`}
@@ -458,7 +498,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     type="text"
                     value={localCompany.phone}
                     onChange={(e) => handleCompanyChange("phone", e.target.value)}
-                    placeholder="0212 245 88 90"
+                    placeholder="Örn: 0532 ... / 0212 ..."
                     className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
                       isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
                     }`}
@@ -473,7 +513,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     type="email"
                     value={localCompany.email}
                     onChange={(e) => handleCompanyChange("email", e.target.value)}
-                    placeholder="info@vizyonart.com"
+                    placeholder="ornek@firma.com"
                     className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
                       isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
                     }`}
@@ -488,7 +528,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     type="text"
                     value={localCompany.website}
                     onChange={(e) => handleCompanyChange("website", e.target.value)}
-                    placeholder="www.vizyonartstudio.com"
+                    placeholder="www.firmaniz.com"
                     className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
                       isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
                     }`}
@@ -503,7 +543,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     type="text"
                     value={localCompany.city}
                     onChange={(e) => handleCompanyChange("city", e.target.value)}
-                    placeholder="Beyoğlu / İstanbul"
+                    placeholder="İl / İlçe"
                     className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
                       isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
                     }`}
@@ -518,7 +558,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     type="text"
                     value={localCompany.address}
                     onChange={(e) => handleCompanyChange("address", e.target.value)}
-                    placeholder="Örn: Tomtom Mah. İstiklal Cad. No:16/B Beyoğlu / İstanbul"
+                    placeholder="Atölye açık adresi..."
                     className={`w-full px-3 py-2 text-xs rounded border outline-none font-medium ${
                       isDarkMode ? "bg-neutral-900 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
                     }`}
@@ -948,11 +988,11 @@ export const AccountModal: React.FC<AccountModalProps> = ({
               }`}>
                 <div className="border-b pb-2 border-neutral-700/50">
                   <div><strong>Kime:</strong> {simulatedEmailSent.fullName} &lt;{simulatedEmailSent.email}&gt;</div>
-                  <div><strong>Konu:</strong> {localCompany.companyName || "Vizyon Art Studio"} - Atölye Sistemi Üyelik ve E-posta Onayı</div>
+                  <div><strong>Konu:</strong> {localCompany.companyName || "Atölye Sistemi"} - Üyelik ve E-posta Onayı</div>
                 </div>
                 <p className="text-xs">
                   Merhaba <strong>{simulatedEmailSent.fullName}</strong>,<br />
-                  <strong>{localCompany.tradeTitle || localCompany.companyName || "Vizyon Art Studio"}</strong> bünyesinde <strong>{simulatedEmailSent.role === "admin" ? "Yönetici" : simulatedEmailSent.role === "sales" ? "Satış Danışmanı" : "Atölye Ustası"}</strong> yetkisiyle sisteme davet edildiniz.
+                  <strong>{localCompany.tradeTitle || localCompany.companyName || "Atölyemiz"}</strong> bünyesinde <strong>{simulatedEmailSent.role === "admin" ? "Yönetici" : simulatedEmailSent.role === "sales" ? "Satış Danışmanı" : "Atölye Ustası"}</strong> yetkisiyle sisteme davet edildiniz.
                   Hesabınızı etkinleştirmek ve kullanıcı adınızla giriş yapmak için lütfen aşağıdaki butona tıklayarak e-posta adresinizi onaylayın:
                 </p>
                 <div className="pt-2">

@@ -200,36 +200,40 @@ export const DEFAULT_PASPARTU_COLORS: PaspartuColorOption[] = [
 ];
 
 export interface CompanyProfile {
-  companyName: string; // Kısa Firma / Atölye İsmi (örn: Vizyon Art Studio)
-  tradeTitle: string; // Resmi Ticari Ünvan (örn: Vizyon Sanat Çerçeve Tasarım Ltd. Şti.)
+  companyName: string; // Kısa Firma / Atölye İsmi
+  tradeTitle: string; // Resmi Ticari Ünvan
   tagline?: string; // Slogan veya alt başlık
   logoUrl: string | null; // Base64 data URL veya resim linki
   primaryColor?: string; // Kurumsal tema rengi
-  taxOffice: string; // Vergi Dairesi (örn: Beşiktaş V.D.)
+  taxOffice: string; // Vergi Dairesi
   taxNumber: string; // Vergi No veya TCKN
-  phone: string; // Telefon (örn: 0212 555 01 23)
-  email: string; // E-posta (örn: info@vizyonart.com)
-  website: string; // Web Sitesi (örn: www.vizyonart.com)
+  phone: string; // Telefon
+  email: string; // E-posta
+  website: string; // Web Sitesi
   address: string; // Açık Adres
-  city: string; // Şehir (örn: İstanbul)
+  city: string; // Şehir
   iban: string; // Banka / IBAN
   includeInQuotes: boolean; // Teklif ve PDF çıktılarında logo/ünvan gösterilsin mi
 }
 
-export const DEFAULT_COMPANY_PROFILE: CompanyProfile = {
-  companyName: "Vizyon Art Studio",
-  tradeTitle: "Vizyon Sanat & Özel Çerçeve Atölyesi Ltd. Şti.",
+export const EMPTY_COMPANY_PROFILE: CompanyProfile = {
+  companyName: "",
+  tradeTitle: "",
+  tagline: "",
   logoUrl: "",
-  taxOffice: "Beyoğlu V.D.",
-  taxNumber: "8920451234",
-  phone: "0212 245 88 90",
-  email: "info@vizyonartstudio.com",
-  website: "www.vizyonartstudio.com",
-  address: "Tomtom Mah. İstiklal Cad. Sanatçılar Pasajı No:16/B Beyoğlu",
-  city: "İstanbul",
-  iban: "TR45 0006 2000 1234 5678 9012 34",
+  primaryColor: "#C5A059",
+  taxOffice: "",
+  taxNumber: "",
+  phone: "",
+  email: "",
+  website: "",
+  address: "",
+  city: "",
+  iban: "",
   includeInQuotes: true,
 };
+
+export const DEFAULT_COMPANY_PROFILE: CompanyProfile = EMPTY_COMPANY_PROFILE;
 
 export type UserRole = "admin" | "sales" | "workshop";
 

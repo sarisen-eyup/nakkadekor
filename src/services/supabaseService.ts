@@ -1,5 +1,12 @@
 import { supabase, isSupabaseConfigured, getTenantId } from "../lib/supabase";
-import { FrameProfileItem, OrderArchiveItem, OrderStatus, UnitPricesSettings } from "../types/pricing";
+import { 
+  FrameProfileItem, 
+  OrderArchiveItem, 
+  OrderStatus, 
+  UnitPricesSettings,
+  CompanyProfile,
+  EMPTY_COMPANY_PROFILE
+} from "../types/pricing";
 
 // Test connection to Supabase
 export async function testSupabaseConnection(): Promise<{ success: boolean; message: string }> {
@@ -750,6 +757,221 @@ export async function deleteVisualizationFromSupabase(
     return { success: true, error: null };
   } catch (err) {
     console.error("Exception deleting visualization:", err);
+    return { success: false, error: err };
+  }
+}
+
+// ==========================================
+// COMPANY PROFILE & WHITE-LABEL (Firma Profili)
+// ==========================================
+
+/**
+ * Supabase'den aktif kullanıcının (auth.uid veya tenant_id) firma profili ve white-label ayarlarını çeker.
+ * Yeni bir kullanıcıysa veya veritabanında henüz kayıt yoksa null döner (böylece form sahte verisiz, tamamen BOMBOŞ açılır).
+ */
+export async function fetchCompanyProfileFromSupabase(
+  targetTenantId?: string
+): Promise<{ data: CompanyProfile | null; error: any }> {
+  if (!isSupabaseConfigured()) {
+    return { data: null, error: new Error("Supabase is not configured") };
+  }
+
+  let tenantId = targetTenantId;
+  if (!tenantId) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        tenantId = user.id;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (!tenantId) {
+    tenantId = getTenantId();
+  }
+
+  if (!tenantId) {
+    return { data: null, error: new Error("No tenant ID available") };
+  }
+
+  try {
+    // 1. Tenants tablosunu kontrol et
+    const { data: tenantRow, error: tenantErr } = await supabase
+      .from("tenants")
+      .select("*")
+      .eq("id", tenantId)
+      .maybeSingle();
+
+    if (tenantErr) {
+      console.warn("Supabase tenants fetch warning:", tenantErr.message);
+    }
+
+    // 2. Tenant_settings tablosunu kontrol et (settings JSON ve include_in_quotes)
+    const { data: settingsRow, error: settingsErr } = await supabase
+      .from("tenant_settings")
+      .select("include_in_quotes, settings")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (settingsErr) {
+      console.warn("Supabase tenant_settings fetch warning:", settingsErr.message);
+    }
+
+    const savedInSettings = 
+      (settingsRow?.settings as any)?.companyProfile || 
+      (settingsRow?.settings as any)?.company_profile;
+
+    // Hiçbir kayıt yoksa
+    if (!tenantRow && !savedInSettings) {
+      return { data: null, error: null };
+    }
+
+    // Kullanıcı tarafından girilmiş gerçek bir firma verisi var mı kontrol et
+    const hasUserData = Boolean(
+      (tenantRow?.name && !tenantRow.name.startsWith("tenant-") && !tenantRow.name.includes("Çerçeve Atölyesi")) ||
+      tenantRow?.trade_title ||
+      tenantRow?.phone ||
+      tenantRow?.tax_office ||
+      tenantRow?.tax_number ||
+      tenantRow?.address ||
+      tenantRow?.city ||
+      tenantRow?.iban ||
+      tenantRow?.logo_url ||
+      tenantRow?.website ||
+      tenantRow?.tagline ||
+      savedInSettings?.companyName ||
+      savedInSettings?.tradeTitle ||
+      savedInSettings?.phone ||
+      savedInSettings?.address
+    );
+
+    // Eğer yeni kullanıcıysa veya form henüz hiç doldurulup kaydedilmemişse: BOMBOŞ gelsin
+    if (!hasUserData) {
+      return { data: null, error: null };
+    }
+
+    const profile: CompanyProfile = {
+      companyName: savedInSettings?.companyName ?? tenantRow?.name ?? "",
+      tradeTitle: savedInSettings?.tradeTitle ?? tenantRow?.trade_title ?? "",
+      tagline: savedInSettings?.tagline ?? tenantRow?.tagline ?? "",
+      logoUrl: savedInSettings?.logoUrl ?? tenantRow?.logo_url ?? "",
+      primaryColor: savedInSettings?.primaryColor ?? tenantRow?.primary_color ?? "#C5A059",
+      taxOffice: savedInSettings?.taxOffice ?? tenantRow?.tax_office ?? "",
+      taxNumber: savedInSettings?.taxNumber ?? tenantRow?.tax_number ?? "",
+      phone: savedInSettings?.phone ?? tenantRow?.phone ?? "",
+      email: savedInSettings?.email ?? tenantRow?.email ?? "",
+      website: savedInSettings?.website ?? tenantRow?.website ?? "",
+      address: savedInSettings?.address ?? tenantRow?.address ?? "",
+      city: savedInSettings?.city ?? tenantRow?.city ?? "",
+      iban: savedInSettings?.iban ?? tenantRow?.iban ?? "",
+      includeInQuotes: settingsRow?.include_in_quotes ?? savedInSettings?.includeInQuotes ?? true
+    };
+
+    return { data: profile, error: null };
+  } catch (err) {
+    console.error("Exception fetching company profile from Supabase:", err);
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Kullanıcı firma bilgilerini doldurup kaydettiğinde, Supabase'e o kullanıcının tenant_id'si ile Upsert eder.
+ * (Kayıt yoksa ekler, varsa günceller)
+ */
+export async function saveCompanyProfileToSupabase(
+  profile: CompanyProfile,
+  targetTenantId?: string
+): Promise<{ success: boolean; error: any }> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, error: new Error("Supabase is not configured") };
+  }
+
+  let tenantId = targetTenantId;
+  if (!tenantId) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        tenantId = user.id;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (!tenantId) {
+    tenantId = getTenantId();
+  }
+
+  if (!tenantId) {
+    return { success: false, error: new Error("No tenant ID available") };
+  }
+
+  try {
+    // 1. Tenants tablosuna Upsert (kayıt yoksa ekle, varsa güncelle)
+    const tenantPayload: any = {
+      id: tenantId,
+      name: profile.companyName?.trim() || "Atölye",
+      slug: `tenant-${tenantId.slice(0, 8)}`,
+      trade_title: profile.tradeTitle || "",
+      tagline: profile.tagline || "",
+      tax_office: profile.taxOffice || "",
+      tax_number: profile.taxNumber || "",
+      phone: profile.phone || "",
+      email: profile.email || "",
+      website: profile.website || "",
+      address: profile.address || "",
+      city: profile.city || "",
+      iban: profile.iban || "",
+      logo_url: profile.logoUrl || "",
+      primary_color: profile.primaryColor || "#C5A059",
+      updated_at: new Date().toISOString()
+    };
+
+    const { error: tenantError } = await supabase
+      .from("tenants")
+      .upsert(tenantPayload, { onConflict: "id" });
+
+    if (tenantError) {
+      console.warn("Warning upserting into tenants table:", tenantError);
+    }
+
+    // 2. Tenant_settings tablosuna Upsert (include_in_quotes ve settings JSON'ında companyProfile)
+    const { data: existingSettingsRow } = await supabase
+      .from("tenant_settings")
+      .select("settings")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    const existingSettings = 
+      (existingSettingsRow?.settings && typeof existingSettingsRow.settings === "object")
+        ? existingSettingsRow.settings
+        : {};
+
+    const settingsPayload: any = {
+      tenant_id: tenantId,
+      include_in_quotes: profile.includeInQuotes ?? true,
+      settings: {
+        ...existingSettings,
+        companyProfile: profile
+      },
+      updated_at: new Date().toISOString()
+    };
+
+    const { error: settingsError } = await supabase
+      .from("tenant_settings")
+      .upsert(settingsPayload, { onConflict: "tenant_id" });
+
+    if (settingsError) {
+      console.warn("Warning upserting into tenant_settings table:", settingsError);
+    }
+
+    const isSuccess = !tenantError || !settingsError;
+    return { 
+      success: isSuccess, 
+      error: tenantError && settingsError ? (tenantError || settingsError) : null 
+    };
+  } catch (err) {
+    console.error("Exception saving company profile to Supabase:", err);
     return { success: false, error: err };
   }
 }

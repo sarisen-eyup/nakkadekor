@@ -78,7 +78,8 @@ import {
   SubscriptionData,
   OrderArchiveItem,
   OrderStatus,
-  isProPlan
+  isProPlan,
+  EMPTY_COMPANY_PROFILE
 } from "./types/pricing";
 import { 
   fetchFrameProfilesFromSupabase, 
@@ -89,7 +90,8 @@ import {
   createOrderInSupabase,
   deleteOrderFromSupabase,
   updateOrderStatusInSupabase,
-  saveTenantSettingsToSupabase
+  saveTenantSettingsToSupabase,
+  fetchCompanyProfileFromSupabase
 } from "./services/supabaseService";
 import { 
   isSupabaseConfigured,
@@ -119,7 +121,8 @@ import {
   deleteOrderFromArchive,
   loadAuthSession,
   saveAuthSession,
-  clearAuthSession
+  clearAuthSession,
+  clearAllUserTenantCache
 } from "./utils/pricing";
 import { 
   triggerImagePrintWindow, 
@@ -477,8 +480,10 @@ export default function App() {
       }
     }
     clearAuthSession();
+    clearAllUserTenantCache();
     setAuthSession(null);
     setFrameProfiles([]);
+    setCompanyProfile(EMPTY_COMPANY_PROFILE);
     setArchiveOrders([]);
     setCustomPaintingUrl(null);
     setCustomPaintingFile("Henüz görsel seçilmedi");
@@ -617,8 +622,10 @@ export default function App() {
         setAuthSession(sess);
       } else if (event === "SIGNED_OUT") {
         clearAuthSession();
+        clearAllUserTenantCache();
         setAuthSession(null);
         setFrameProfiles([]);
+        setCompanyProfile(EMPTY_COMPANY_PROFILE);
         setArchiveOrders([]);
         setCustomPaintingUrl(null);
         setCustomPaintingFile("Henüz görsel seçilmedi");
@@ -677,6 +684,17 @@ export default function App() {
           if (latest.artwork_width_cm) setWidthInput(String(latest.artwork_width_cm));
           if (latest.artwork_height_cm) setHeightInput(String(latest.artwork_height_cm));
         }
+      }
+    });
+
+    // 5. Fetch Company Profile (White-Label) for this tenant
+    fetchCompanyProfileFromSupabase().then(({ data, error }) => {
+      if (!isMounted) return;
+      if (data && !error) {
+        setCompanyProfile(data);
+        saveCompanyProfileToStorage(data);
+      } else {
+        setCompanyProfile(EMPTY_COMPANY_PROFILE);
       }
     });
 

@@ -10,13 +10,16 @@ import {
   FrameProfileItem,
   CompanyProfile,
   DEFAULT_COMPANY_PROFILE,
+  EMPTY_COMPANY_PROFILE,
   SubscriptionData,
   isProPlan
 } from "../types/pricing";
 import { ImageCropModal } from "./ImageCropModal";
 import { 
   createFrameProfileInSupabase,
-  deleteFrameProfileFromSupabase
+  deleteFrameProfileFromSupabase,
+  fetchCompanyProfileFromSupabase,
+  saveCompanyProfileToSupabase
 } from "../services/supabaseService";
 import { isSupabaseConfigured } from "../lib/supabase";
 
@@ -67,8 +70,29 @@ export function SettingsModal({
   // Local edit states
   const [localSettings, setLocalSettings] = useState<UnitPricesSettings>(settings);
   const [localProfiles, setLocalProfiles] = useState<FrameProfileItem[]>(profiles);
-  const [localCompany, setLocalCompany] = useState<CompanyProfile>(companyProfile || DEFAULT_COMPANY_PROFILE);
+  const [localCompany, setLocalCompany] = useState<CompanyProfile>(companyProfile || EMPTY_COMPANY_PROFILE);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // Modal açıldığında firma profilini Supabase'den çek (yeni kullanıcıysa form BOMBOŞ gelsin)
+  useEffect(() => {
+    if (isOpen) {
+      setLocalSettings(settings);
+      setLocalProfiles(profiles);
+      setSavedSuccess(false);
+
+      fetchCompanyProfileFromSupabase()
+        .then(({ data }) => {
+          if (data) {
+            setLocalCompany(data);
+          } else {
+            setLocalCompany(EMPTY_COMPANY_PROFILE);
+          }
+        })
+        .catch(() => {
+          setLocalCompany(companyProfile || EMPTY_COMPANY_PROFILE);
+        });
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (companyProfile) {
@@ -336,11 +360,16 @@ export function SettingsModal({
     setLocalCompany(prev => ({ ...prev, [field]: val }));
   };
 
-  const handleSaveAll = () => {
+  const handleSaveAll = async () => {
     onSaveSettings(localSettings);
     onSaveProfiles(localProfiles);
     if (onSaveCompanyProfile) {
       onSaveCompanyProfile(localCompany);
+    }
+    try {
+      await saveCompanyProfileToSupabase(localCompany);
+    } catch (err) {
+      console.warn("Supabase firma profili kaydetme uyarısı:", err);
     }
     setSavedSuccess(true);
     setTimeout(() => {
@@ -1927,13 +1956,13 @@ export function SettingsModal({
                       )}
                       <div>
                         <h4 className="font-bold text-sm text-slate-900 uppercase tracking-wide">
-                          {localCompany.companyName || "AHMET ÇERÇEVE & SANAT ATÖLYESİ"}
+                          {localCompany.companyName || "FİRMA / ATÖLYE ADI"}
                         </h4>
                         <p className="text-[11px] text-slate-500">
-                          {localCompany.tradeTitle || "Ahmet Çerçeve Ltd. Şti."}
+                          {localCompany.tradeTitle || ""}
                         </p>
                         <p className="text-[10px] text-slate-600 font-mono mt-0.5">
-                          Tel: {localCompany.phone || "0212 555 01 23"} • {localCompany.email || "info@firma.com"}
+                          {localCompany.phone ? `Tel: ${localCompany.phone}` : ""}{localCompany.phone && localCompany.email ? " • " : ""}{localCompany.email || ""}
                         </p>
                       </div>
                     </div>

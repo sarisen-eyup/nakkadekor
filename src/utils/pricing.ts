@@ -11,6 +11,7 @@ import {
   DEFAULT_PASPARTU_COLORS,
   CompanyProfile,
   DEFAULT_COMPANY_PROFILE,
+  EMPTY_COMPANY_PROFILE,
   UserAccount,
   DEFAULT_USERS,
   SubscriptionData,
@@ -38,6 +39,52 @@ const SUBSCRIPTION_STORAGE_KEY = "nakka_subscription_v1";
 const ARCHIVE_STORAGE_KEY = "nakka_orders_archive_v1";
 const AUTH_SESSION_KEY = "nakka_auth_session_v1";
 
+/**
+ * Oturumlar arası veri sızıntısını ve cache çakışmasını engellemek için anahtarı tenant_id ile kapsüller
+ */
+export function getScopedKey(baseKey: string, tenantId?: string): string {
+  const tid = tenantId || (typeof window !== "undefined" ? localStorage.getItem("nakka_tenant_id") || "" : "");
+  return tid ? `${baseKey}_${tid}` : baseKey;
+}
+
+/**
+ * Kullanıcı oturumu kapattığında veya hesap değiştirdiğinde tüm tenant cache'ini temizler
+ */
+export function clearAllUserTenantCache(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const keysToRemove = [
+      SETTINGS_STORAGE_KEY,
+      PROFILES_STORAGE_KEY,
+      COMPANY_STORAGE_KEY,
+      USERS_STORAGE_KEY,
+      SUBSCRIPTION_STORAGE_KEY,
+      ARCHIVE_STORAGE_KEY,
+      "nakka_order_archive_v1",
+      AUTH_SESSION_KEY,
+      "nakka_tenant_id",
+      "nakka_auth_user_id"
+    ];
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+
+    // Belirli bir tenant id ile etiketlenmiş tüm localStorage anahtarlarını sil
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (
+        key && 
+        key.startsWith("nakka_") && 
+        key !== "nakka_theme_mode" && 
+        key !== "nakka_supabase_url" && 
+        key !== "nakka_supabase_key"
+      ) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch (e) {
+    console.warn("Error clearing user tenant cache:", e);
+  }
+}
+
 export function generateOrderNumber(): string {
   const randomDigits = Math.floor(10000 + Math.random() * 90000);
   return `NK-${new Date().getFullYear()}-${randomDigits}`;
@@ -63,14 +110,19 @@ export function saveSettingsToStorage(settings: UnitPricesSettings): void {
   }
 }
 
-export function loadProfilesFromStorage(): FrameProfileItem[] {
+export function loadProfilesFromStorage(tenantId?: string): FrameProfileItem[] {
   try {
-    const saved = localStorage.getItem(PROFILES_STORAGE_KEY);
+    const key = getScopedKey(PROFILES_STORAGE_KEY, tenantId);
+    let saved = localStorage.getItem(key);
+    if (!saved && !tenantId) {
+      saved = localStorage.getItem(PROFILES_STORAGE_KEY);
+    }
     if (saved) {
       const parsed: FrameProfileItem[] = JSON.parse(saved);
       // If the storage contains the old initial mock data, purge it
       const hasMockOnly = parsed.length > 0 && parsed.every(p => p.id && /^prof_[1-5]$/.test(p.id));
       if (hasMockOnly) {
+        localStorage.removeItem(key);
         localStorage.removeItem(PROFILES_STORAGE_KEY);
         return [];
       }
@@ -82,28 +134,43 @@ export function loadProfilesFromStorage(): FrameProfileItem[] {
   return [];
 }
 
-export function saveProfilesToStorage(profiles: FrameProfileItem[]): void {
+export function saveProfilesToStorage(profiles: FrameProfileItem[], tenantId?: string): void {
   try {
+    const key = getScopedKey(PROFILES_STORAGE_KEY, tenantId);
+    localStorage.setItem(key, JSON.stringify(profiles));
     localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(profiles));
   } catch (e) {
     console.error("Error saving frame profiles to localStorage", e);
   }
 }
 
-export function loadCompanyProfileFromStorage(): CompanyProfile {
+export function loadCompanyProfileFromStorage(tenantId?: string): CompanyProfile {
   try {
-    const saved = localStorage.getItem(COMPANY_STORAGE_KEY);
+    const key = getScopedKey(COMPANY_STORAGE_KEY, tenantId);
+    let saved = localStorage.getItem(key);
+    if (!saved && !tenantId) {
+      saved = localStorage.getItem(COMPANY_STORAGE_KEY);
+    }
     if (saved) {
-      return { ...DEFAULT_COMPANY_PROFILE, ...JSON.parse(saved) };
+      const parsed = JSON.parse(saved);
+      // Eski mock "Vizyon Art Studio" verisi varsa otomatik temizle
+      if (parsed?.companyName === "Vizyon Art Studio" || parsed?.email?.includes("vizyonart")) {
+        localStorage.removeItem(key);
+        localStorage.removeItem(COMPANY_STORAGE_KEY);
+        return EMPTY_COMPANY_PROFILE;
+      }
+      return { ...EMPTY_COMPANY_PROFILE, ...parsed };
     }
   } catch (e) {
     console.error("Error loading company profile from localStorage", e);
   }
-  return DEFAULT_COMPANY_PROFILE;
+  return EMPTY_COMPANY_PROFILE;
 }
 
-export function saveCompanyProfileToStorage(profile: CompanyProfile): void {
+export function saveCompanyProfileToStorage(profile: CompanyProfile, tenantId?: string): void {
   try {
+    const key = getScopedKey(COMPANY_STORAGE_KEY, tenantId);
+    localStorage.setItem(key, JSON.stringify(profile));
     localStorage.setItem(COMPANY_STORAGE_KEY, JSON.stringify(profile));
   } catch (e) {
     console.error("Error saving company profile to localStorage", e);
@@ -183,14 +250,19 @@ export function deductSubscriptionCredit(): SubscriptionData {
 }
 
 // Archive Orders Storage
-export function loadArchiveOrdersFromStorage(): OrderArchiveItem[] {
+export function loadArchiveOrdersFromStorage(tenantId?: string): OrderArchiveItem[] {
   try {
-    const saved = localStorage.getItem(ARCHIVE_STORAGE_KEY);
+    const key = getScopedKey(ARCHIVE_STORAGE_KEY, tenantId);
+    let saved = localStorage.getItem(key);
+    if (!saved && !tenantId) {
+      saved = localStorage.getItem(ARCHIVE_STORAGE_KEY);
+    }
     if (saved) {
       const parsed: OrderArchiveItem[] = JSON.parse(saved);
       // If the storage contains the old initial mock orders, purge it
       const hasMockOnly = parsed.length > 0 && parsed.every(o => o.id && /^ord_10[1-4]$/.test(o.id));
       if (hasMockOnly) {
+        localStorage.removeItem(key);
         localStorage.removeItem(ARCHIVE_STORAGE_KEY);
         return [];
       }
@@ -204,8 +276,10 @@ export function loadArchiveOrdersFromStorage(): OrderArchiveItem[] {
 
 export const loadOrdersArchiveFromStorage = loadArchiveOrdersFromStorage;
 
-export function saveArchiveOrdersToStorage(orders: OrderArchiveItem[]): void {
+export function saveArchiveOrdersToStorage(orders: OrderArchiveItem[], tenantId?: string): void {
   try {
+    const key = getScopedKey(ARCHIVE_STORAGE_KEY, tenantId);
+    localStorage.setItem(key, JSON.stringify(orders));
     localStorage.setItem(ARCHIVE_STORAGE_KEY, JSON.stringify(orders));
   } catch (e) {
     console.error("Error saving order archive to localStorage", e);

@@ -156,14 +156,22 @@ export async function ensureTenantAndUserExist(user: any) {
       user.email?.split("@")[0] || 
       "Atölye Sahibi";
 
-    // 1. Tenants tablosunda kaydı garantiye al (hem subscription_status hem status destekler)
+    // 1. Tenants tablosunda kaydı garantiye al (Var olan firma adını ve ayarları ezme!)
     try {
-      await supabase.from("tenants").upsert({
-        id: tenantId,
-        name: `${fullName} Çerçeve Atölyesi`,
-        slug: `tenant-${tenantId.slice(0, 8)}`,
-        subscription_status: "active"
-      }, { onConflict: "id" });
+      const { data: existingTenant } = await supabase
+        .from("tenants")
+        .select("id")
+        .eq("id", tenantId)
+        .maybeSingle();
+
+      if (!existingTenant) {
+        await supabase.from("tenants").insert({
+          id: tenantId,
+          name: "",
+          slug: `tenant-${tenantId.slice(0, 8)}`,
+          subscription_status: "active"
+        });
+      }
     } catch (tErr) {
       console.warn("Tenant kaydı bilgisi:", tErr);
     }
