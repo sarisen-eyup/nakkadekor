@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Lock, 
   Mail, 
@@ -12,14 +12,26 @@ import {
   MapPin,
   X, 
   CheckCircle2, 
-  Check,
-  Info,
-  FileText,
-  Receipt,
-  Send,
-  Sparkles
+  Check, 
+  Info, 
+  FileText, 
+  Receipt, 
+  Send, 
+  Sparkles,
+  Loader2,
+  Database,
+  Key
 } from "lucide-react";
 import { CompanyProfile, UserAccount } from "../types/pricing";
+import { 
+  supabase, 
+  signInWithGoogle, 
+  isSupabaseConfigured, 
+  getSupabaseCredentials, 
+  saveSupabaseCustomCredentials, 
+  ensureTenantAndUserExist, 
+  setAuthenticatedTenantId 
+} from "../lib/supabase";
 
 interface LoginScreenProps {
   users: UserAccount[];
@@ -37,12 +49,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 }) => {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   
-  // Login Form State
-  const [email, setEmail] = useState<string>("sarisen@gmail.com");
-  const [password, setPassword] = useState<string>("••••••••");
+  // Login Form State (Temiz ve sahte verisiz)
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
   
+  // Google OAuth & Supabase Loading State
+  const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
+
+  // Supabase Manual Configuration Modal State
+  const [isDbModalOpen, setIsDbModalOpen] = useState<boolean>(false);
+  const [dbUrl, setDbUrl] = useState<string>(() => getSupabaseCredentials().url);
+  const [dbKey, setDbKey] = useState<string>(() => getSupabaseCredentials().anonKey);
+  const [dbSaveNotice, setDbSaveNotice] = useState<string | null>(null);
+
   // Register Form State (Mali & Fatura Bilgileri)
   const [regForm, setRegForm] = useState({
     companyName: "",
@@ -66,7 +87,107 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [forgotEmail, setForgotEmail] = useState<string>("");
   const [forgotSent, setForgotSent] = useState<boolean>(false);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // Supabase Auth Dinleyicisi (Google OAuth ve mevcut oturum)
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      // 1. Mevcut aktif Supabase oturumu kontrolü
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
+        if (session?.user) {
+          const u = session.user;
+          setAuthenticatedTenantId(u.id);
+          await ensureTenantAndUserExist(u);
+          const loggedAccount: UserAccount = {
+            id: u.id,
+            fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Yetkili",
+            username: u.email?.split("@")[0] || "user",
+            email: u.email || "",
+            role: "admin",
+            avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || "",
+            phone: u.user_metadata?.phone || "",
+            isEmailVerified: true,
+            status: "active",
+            lastLoginAt: "Şimdi (Aktif Oturum)"
+          };
+          onLoginSuccess(loggedAccount, true);
+        }
+      });
+
+      // 2. Auth State Değişiklikleri (Google Login Popup veya Yönlendirme Tamamlandığında)
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if ((event === "SIGNED_IN" || event === "USER_UPDATED") && session?.user) {
+          const u = session.user;
+          setAuthenticatedTenantId(u.id);
+          await ensureTenantAndUserExist(u);
+          const loggedAccount: UserAccount = {
+            id: u.id,
+            fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Yetkili",
+            username: u.email?.split("@")[0] || "user",
+            email: u.email || "",
+            role: "admin",
+            avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || "",
+            phone: u.user_metadata?.phone || "",
+            isEmailVerified: true,
+            status: "active",
+            lastLoginAt: "Şimdi (Aktif Oturum)"
+          };
+          setIsGoogleLoading(false);
+          onLoginSuccess(loggedAccount, true);
+        }
+      });
+
+      // 3. Popup penceresinden gelebilecek mesaj dinleyicisi
+      const handlePopupMessage = (evt: MessageEvent) => {
+        if (evt.data?.type === "SUPABASE_AUTH_SUCCESS" && evt.data?.session?.user) {
+          const u = evt.data.session.user;
+          setAuthenticatedTenantId(u.id);
+          ensureTenantAndUserExist(u);
+          const loggedAccount: UserAccount = {
+            id: u.id,
+            fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Yetkili",
+            username: u.email?.split("@")[0] || "user",
+            email: u.email || "",
+            role: "admin",
+            avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || "",
+            phone: u.user_metadata?.phone || "",
+            isEmailVerified: true,
+            status: "active",
+            lastLoginAt: "Şimdi (Aktif Oturum)"
+          };
+          setIsGoogleLoading(false);
+          onLoginSuccess(loggedAccount, true);
+        }
+      };
+      window.addEventListener("message", handlePopupMessage);
+
+      return () => {
+        authListener.subscription.unsubscribe();
+        window.removeEventListener("message", handlePopupMessage);
+      };
+    }
+  }, [onLoginSuccess]);
+
+  // Google OAuth ile Giriş Başlatma
+  const handleGoogleLogin = async () => {
+    setErrorMessage(null);
+    if (!isSupabaseConfigured()) {
+      setIsDbModalOpen(true);
+      return;
+    }
+
+    setIsGoogleLoading(true);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        setErrorMessage(error.message || "Google ile giriş başlatılamadı. Lütfen Supabase ayarlarınızı kontrol edin.");
+        setIsGoogleLoading(false);
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || "Google girişinde beklenmeyen bir hata oluştu.");
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -83,12 +204,63 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      // Find matching user or fallback to first admin user
-      const matchedUser = users.find(u => u.email.toLowerCase() === cleanEmail) || users[0];
+    // 1. Supabase Auth ile doğrudan oturum açmayı dene
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: password.trim()
+        });
+
+        if (!error && data?.user) {
+          const u = data.user;
+          setAuthenticatedTenantId(u.id);
+          await ensureTenantAndUserExist(u);
+          const loggedAccount: UserAccount = {
+            id: u.id,
+            fullName: u.user_metadata?.full_name || u.email?.split("@")[0] || "Yetkili",
+            username: u.email?.split("@")[0] || "user",
+            email: u.email || cleanEmail,
+            role: "admin",
+            phone: u.user_metadata?.phone || "",
+            isEmailVerified: true,
+            status: "active",
+            lastLoginAt: "Şimdi (Aktif Oturum)"
+          };
+          setIsSubmitting(false);
+          onLoginSuccess(loggedAccount, rememberMe);
+          return;
+        } else if (error) {
+          console.warn("Supabase auth response:", error.message);
+          if (error.message !== "Invalid login credentials") {
+            setErrorMessage("Supabase Giriş Hatası: " + error.message);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      } catch (err: any) {
+        console.warn("Supabase login exception:", err);
+      }
+    }
+
+    // 2. Yerel kayıtlı kullanıcı kontrolü (Varsa)
+    const matchedUser = users.find(u => u.email.toLowerCase() === cleanEmail);
+    if (matchedUser) {
       setIsSubmitting(false);
       onLoginSuccess(matchedUser, rememberMe);
-    }, 450);
+    } else {
+      setIsSubmitting(false);
+      setErrorMessage("Kayıtlı kullanıcı bulunamadı. Lütfen 'Google ile Giriş Yap' butonunu kullanın veya kayıt oluşturun.");
+    }
+  };
+
+  const handleSaveDbSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveSupabaseCustomCredentials(dbUrl.trim(), dbKey.trim());
+    setDbSaveNotice("Supabase bağlantı bilgileri kaydedildi! Sayfa yenileniyor...");
+    setTimeout(() => {
+      window.location.reload();
+    }, 800);
   };
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
@@ -205,13 +377,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
         {/* LEFT PANEL: Branding & Inspiration Art */}
         <div className="lg:col-span-5 relative p-8 sm:p-10 flex flex-col justify-between overflow-hidden bg-gradient-to-br from-[#1a1c23] via-[#121419] to-[#0a0c0e] text-white border-b lg:border-b-0 lg:border-r border-white/10">
-          {/* Subtle Background Art Texture */}
-          <div 
-            className="absolute inset-0 opacity-25 mix-blend-luminosity bg-cover bg-center pointer-events-none scale-105 transition-transform duration-1000 hover:scale-100"
-            style={{
-              backgroundImage: `url("https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop")`
-            }}
-          />
+          {/* Subtle Atelier Geometric Frame Art Texture */}
+          <div className="absolute inset-0 opacity-15 pointer-events-none">
+            <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+              <defs>
+                <pattern id="frameGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+                  <rect width="40" height="40" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-[#C5A059]" strokeOpacity="0.3" />
+                  <circle cx="20" cy="20" r="1" fill="#C5A059" fillOpacity="0.4" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#frameGrid)" />
+            </svg>
+          </div>
           <div className="absolute inset-0 bg-gradient-to-t from-[#0d0f14] via-[#0d0f14]/85 to-transparent pointer-events-none" />
 
           {/* Top: Logo */}
@@ -304,6 +481,45 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     <span>{errorMessage}</span>
                   </div>
                 )}
+
+                {/* Google OAuth Login Button (Supabase Auth) */}
+                <div className="mb-5 space-y-3">
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={isGoogleLoading || isSubmitting}
+                    className={`w-full py-3.5 px-5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-3 transition-all duration-200 cursor-pointer shadow-md hover:shadow-lg active:scale-[0.99] border ${
+                      isDarkMode 
+                        ? "bg-[#181a20] hover:bg-[#20232b] text-white border-white/20 hover:border-[#C5A059]/50" 
+                        : "bg-white hover:bg-slate-50 text-slate-800 border-slate-300 hover:border-slate-400"
+                    }`}
+                  >
+                    {isGoogleLoading ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-[#C5A059]" />
+                        <span>Google ile Doğrulanıyor...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+                          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24z"/>
+                          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                        </svg>
+                        <span>Google ile Giriş Yap</span>
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <div className={`h-[1px] flex-1 ${isDarkMode ? "bg-white/10" : "bg-slate-200"}`} />
+                    <span className={`text-[10px] uppercase font-bold tracking-wider ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>
+                      veya e-posta ile
+                    </span>
+                    <div className={`h-[1px] flex-1 ${isDarkMode ? "bg-white/10" : "bg-slate-200"}`} />
+                  </div>
+                </div>
 
                 {/* Login Form */}
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -842,15 +1058,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={() => setIsContactModalOpen(true)}
-              className={`text-[11px] font-mono hover:underline cursor-pointer ${
-                isDarkMode ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600"
-              }`}
-            >
-              Destek &amp; Lisans
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setIsDbModalOpen(true)}
+                className={`text-[11px] font-mono flex items-center gap-1.5 hover:underline cursor-pointer ${
+                  isSupabaseConfigured() 
+                    ? "text-emerald-400/90 hover:text-emerald-300" 
+                    : "text-amber-400/90 hover:text-amber-300"
+                }`}
+              >
+                <div className={`w-1.5 h-1.5 rounded-full ${isSupabaseConfigured() ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+                <span>{isSupabaseConfigured() ? "Supabase Bulut Aktif" : "Supabase Bağlantısı Kur"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsContactModalOpen(true)}
+                className={`text-[11px] font-mono hover:underline cursor-pointer ${
+                  isDarkMode ? "text-neutral-500 hover:text-neutral-300" : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                Destek &amp; Lisans
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -962,6 +1193,102 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </button>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Supabase Database Configuration Modal */}
+      {isDbModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 relative ${
+            isDarkMode ? "bg-[#161920] border-white/15 text-white" : "bg-white border-slate-200 text-slate-900"
+          }`}>
+            <button
+              onClick={() => {
+                setIsDbModalOpen(false);
+                setDbSaveNotice(null);
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                <Database className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold uppercase tracking-wider">
+                  Supabase Bulut Veritabanı
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  Canlı veritabanı ve Google OAuth entegrasyonu
+                </p>
+              </div>
+            </div>
+
+            {dbSaveNotice && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{dbSaveNotice}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveDbSettings} className="space-y-4">
+              <div>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${
+                  isDarkMode ? "text-neutral-300" : "text-slate-700"
+                }`}>
+                  Supabase Project URL
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={dbUrl}
+                  onChange={(e) => setDbUrl(e.target.value)}
+                  placeholder="https://your-project.supabase.co"
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-mono focus:outline-none ${
+                    isDarkMode ? "bg-[#0e1014] border-white/15 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900"
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${
+                  isDarkMode ? "text-neutral-300" : "text-slate-700"
+                }`}>
+                  Supabase Anon Public Key
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={dbKey}
+                  onChange={(e) => setDbKey(e.target.value)}
+                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-mono focus:outline-none ${
+                    isDarkMode ? "bg-[#0e1014] border-white/15 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900"
+                  }`}
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsDbModalOpen(false)}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase border cursor-pointer ${
+                    isDarkMode ? "border-white/15 text-neutral-300 hover:bg-white/5" : "border-slate-300 text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  Kapat
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#FAE2B3] via-[#E5C17B] to-[#C5A059] text-black font-black uppercase text-xs tracking-wider cursor-pointer shadow-md hover:opacity-95"
+                >
+                  Kaydet &amp; Bağlan
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

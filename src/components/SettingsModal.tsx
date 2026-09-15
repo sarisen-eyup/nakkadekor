@@ -11,7 +11,6 @@ import {
   CompanyProfile,
   DEFAULT_COMPANY_PROFILE,
   SubscriptionData,
-  SAMPLE_FRAME_PROFILES,
   isProPlan
 } from "../types/pricing";
 import { ImageCropModal } from "./ImageCropModal";
@@ -205,7 +204,7 @@ export function SettingsModal({
       id: "prof_" + Date.now(),
       name: newProfile.name,
       code: newProfile.code.toUpperCase(),
-      imageUrl: newProfile.imageUrl || "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=300&auto=format&fit=crop",
+      imageUrl: newProfile.imageUrl || "",
       widthCm: newProfile.widthCm || 4.0,
       unitPricePerMeter: newProfile.unitPricePerMeter || 120,
       materialType: (newProfile.materialType as any) || "wood",
@@ -222,7 +221,7 @@ export function SettingsModal({
     setNewProfile({
       name: "",
       code: "",
-      imageUrl: "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=300&auto=format&fit=crop",
+      imageUrl: "",
       widthCm: 5.0,
       unitPricePerMeter: 150,
       materialType: "wood",

@@ -571,3 +571,143 @@ export async function saveTenantSettingsToSupabase(
     return { success: false, error: err };
   }
 }
+
+// ==========================================
+// VISUALIZATIONS CRUD (Sanat Eseri & Görseller)
+// ==========================================
+
+export interface SavedVisualizationItem {
+  id: string;
+  tenantId: string;
+  artworkUrl: string;
+  artworkName: string;
+  artworkWidthCm: number;
+  artworkHeightCm: number;
+  innerFrameProfileId?: string | null;
+  renderedPreviewUrl?: string | null;
+  createdAt?: string;
+}
+
+export async function fetchVisualizationsFromSupabase(): Promise<{ data: SavedVisualizationItem[] | null; error: any }> {
+  if (!isSupabaseConfigured()) {
+    return { data: null, error: new Error("Supabase is not configured") };
+  }
+
+  const tenantId = getTenantId();
+
+  try {
+    const { data, error } = await supabase
+      .from("visualizations")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.warn("Could not fetch visualizations from Supabase:", error.message || error);
+      return { data: null, error };
+    }
+
+    const items: SavedVisualizationItem[] = (data || []).map((row: any) => ({
+      id: String(row.id),
+      tenantId: row.tenant_id,
+      artworkUrl: row.artwork_url,
+      artworkName: row.artwork_name || "İsimsiz Eser",
+      artworkWidthCm: Number(row.artwork_width_cm || 50),
+      artworkHeightCm: Number(row.artwork_height_cm || 70),
+      innerFrameProfileId: row.inner_frame_profile_id || null,
+      renderedPreviewUrl: row.rendered_preview_url || null,
+      createdAt: row.created_at
+    }));
+
+    return { data: items, error: null };
+  } catch (err) {
+    console.warn("Exception fetching visualizations:", err);
+    return { data: null, error: err };
+  }
+}
+
+export async function createVisualizationInSupabase(
+  visual: {
+    artworkUrl: string;
+    artworkName: string;
+    artworkWidthCm: number;
+    artworkHeightCm: number;
+    innerFrameProfileId?: string | null;
+    renderedPreviewUrl?: string | null;
+  }
+): Promise<{ data: SavedVisualizationItem | null; error: any }> {
+  if (!isSupabaseConfigured()) {
+    return { data: null, error: new Error("Supabase is not configured") };
+  }
+
+  const tenantId = getTenantId();
+
+  const payload: any = {
+    tenant_id: tenantId,
+    artwork_url: visual.artworkUrl,
+    artwork_name: visual.artworkName || "Yeni Eser",
+    artwork_width_cm: visual.artworkWidthCm || 50,
+    artwork_height_cm: visual.artworkHeightCm || 70,
+    inner_frame_profile_id: visual.innerFrameProfileId || null,
+    rendered_preview_url: visual.renderedPreviewUrl || null,
+    updated_at: new Date().toISOString()
+  };
+
+  try {
+    const { data, error } = await supabase
+      .from("visualizations")
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating visualization in Supabase:", error);
+      return { data: null, error };
+    }
+
+    const created: SavedVisualizationItem = {
+      id: String(data.id),
+      tenantId: data.tenant_id,
+      artworkUrl: data.artwork_url,
+      artworkName: data.artwork_name,
+      artworkWidthCm: Number(data.artwork_width_cm),
+      artworkHeightCm: Number(data.artwork_height_cm),
+      innerFrameProfileId: data.inner_frame_profile_id || null,
+      renderedPreviewUrl: data.rendered_preview_url || null,
+      createdAt: data.created_at
+    };
+
+    return { data: created, error: null };
+  } catch (err) {
+    console.error("Exception creating visualization:", err);
+    return { data: null, error: err };
+  }
+}
+
+export async function deleteVisualizationFromSupabase(
+  id: string
+): Promise<{ success: boolean; error: any }> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, error: new Error("Supabase is not configured") };
+  }
+
+  const tenantId = getTenantId();
+
+  try {
+    const { error } = await supabase
+      .from("visualizations")
+      .delete()
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
+
+    if (error) {
+      console.error("Error deleting visualization from Supabase:", error);
+      return { success: false, error };
+    }
+
+    return { success: true, error: null };
+  } catch (err) {
+    console.error("Exception deleting visualization:", err);
+    return { success: false, error: err };
+  }
+}

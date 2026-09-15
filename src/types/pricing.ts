@@ -93,63 +93,7 @@ export const DEFAULT_UNIT_PRICES: UnitPricesSettings = {
 
 export const INITIAL_FRAME_PROFILES: FrameProfileItem[] = [];
 
-export const SAMPLE_FRAME_PROFILES: FrameProfileItem[] = [
-  {
-    id: "prof_1",
-    name: "Altın Varak Klasik Oymalı",
-    code: "AV-501",
-    imageUrl: "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=300&auto=format&fit=crop",
-    widthCm: 5.0,
-    unitPricePerMeter: 180,
-    materialType: "wood",
-    category: "both",
-    isRepeatingPattern: true
-  },
-  {
-    id: "prof_2",
-    name: "Siyah Mat Modern Profil",
-    code: "SM-302",
-    imageUrl: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?q=80&w=300&auto=format&fit=crop",
-    widthCm: 3.5,
-    unitPricePerMeter: 110,
-    materialType: "polystyrene",
-    category: "both",
-    isRepeatingPattern: true
-  },
-  {
-    id: "prof_3",
-    name: "Ceviz Ağacı Rustik Çerçeve",
-    code: "CR-405",
-    imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?q=80&w=300&auto=format&fit=crop",
-    widthCm: 4.5,
-    unitPricePerMeter: 220,
-    materialType: "wood",
-    category: "both",
-    isRepeatingPattern: true
-  },
-  {
-    id: "prof_4",
-    name: "Beyaz Lamine Minimalist",
-    code: "BL-201",
-    imageUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?q=80&w=300&auto=format&fit=crop",
-    widthCm: 3.0,
-    unitPricePerMeter: 95,
-    materialType: "polystyrene",
-    category: "inner",
-    isRepeatingPattern: true
-  },
-  {
-    id: "prof_5",
-    name: "Gümüş Varak Barok Lüks",
-    code: "GV-602",
-    imageUrl: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=300&auto=format&fit=crop",
-    widthCm: 6.0,
-    unitPricePerMeter: 260,
-    materialType: "wood",
-    category: "outer",
-    isRepeatingPattern: true
-  }
-];
+export const SAMPLE_FRAME_PROFILES: FrameProfileItem[] = [];
 
 export interface CostCalculationBreakdown {
   // Quantities & Dimensions
@@ -304,44 +248,7 @@ export interface UserAccount {
   verificationSentAt?: string;
 }
 
-export const DEFAULT_USERS: UserAccount[] = [
-  {
-    id: "usr_1",
-    fullName: "Sarı Şen (Yönetici)",
-    username: "sarisen",
-    email: "sarisen@gmail.com",
-    role: "admin",
-    isEmailVerified: true,
-    status: "active",
-    phone: "0532 123 45 67",
-    createdAt: "2026-01-10",
-    lastLoginAt: "Şimdi (Aktif Oturum)"
-  },
-  {
-    id: "usr_2",
-    fullName: "Ahmet Yılmaz",
-    username: "ahmet.satis",
-    email: "ahmet@vizyonartstudio.com",
-    role: "sales",
-    isEmailVerified: true,
-    status: "active",
-    phone: "0533 987 65 43",
-    createdAt: "2026-02-15",
-    lastLoginAt: "Dün 17:45"
-  },
-  {
-    id: "usr_3",
-    fullName: "Mehmet Usta",
-    username: "mehmet.atolye",
-    email: "mehmet.usta@vizyonartstudio.com",
-    role: "workshop",
-    isEmailVerified: false,
-    status: "pending_verification",
-    phone: "0542 321 00 11",
-    createdAt: "2026-03-01",
-    verificationSentAt: "1 saat önce"
-  }
-];
+export const DEFAULT_USERS: UserAccount[] = [];
 
 export interface SubscriptionData {
   planId: "pay_as_you_go" | "pro_monthly" | "pro_yearly" | "unlimited_enterprise";

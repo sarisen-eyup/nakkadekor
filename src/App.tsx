@@ -84,12 +84,20 @@ import {
   fetchFrameProfilesFromSupabase, 
   fetchOrdersFromSupabase, 
   fetchTenantSettingsFromSupabase,
+  fetchVisualizationsFromSupabase,
+  createVisualizationInSupabase,
   createOrderInSupabase,
   deleteOrderFromSupabase,
   updateOrderStatusInSupabase,
   saveTenantSettingsToSupabase
 } from "./services/supabaseService";
-import { isSupabaseConfigured } from "./lib/supabase";
+import { 
+  isSupabaseConfigured,
+  supabase,
+  setAuthenticatedTenantId,
+  ensureTenantAndUserExist,
+  getTenantId
+} from "./lib/supabase";
 import { 
   loadSettingsFromStorage, 
   saveSettingsToStorage, 
@@ -308,21 +316,17 @@ export default function App() {
   const isDarkMode = themeMode === "dark";
 
   // State management for custom visual configurator
-  const [customPaintingUrl, setCustomPaintingUrl] = useState<string | null>(
-    "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=800&auto=format&fit=crop" // Default beautiful classic painting
-  );
-  const [customPaintingFile, setCustomPaintingFile] = useState<string>("varsayilan_tablo.jpg");
+  const [customPaintingUrl, setCustomPaintingUrl] = useState<string | null>(null);
+  const [customPaintingFile, setCustomPaintingFile] = useState<string>("Henüz görsel seçilmedi");
   
   // Custom states for keyboard inputs (stored as string to prevent mid-typing lockups)
   const [widthInput, setWidthInput] = useState<string>("50");
   const [heightInput, setHeightInput] = useState<string>("70");
   
   // Custom frame profile uploader
-  const [customFrameUrl, setCustomFrameUrl] = useState<string | null>(
-    "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=300&auto=format&fit=crop" // Elegant wooden gold texture frame profile
-  );
-  const [customFrameFile, setCustomFrameFile] = useState<string>("varsayilan_cerceve_profili.jpg");
-  const [frameWidthInput, setFrameWidthInput] = useState<string>("5.0");
+  const [customFrameUrl, setCustomFrameUrl] = useState<string | null>(null);
+  const [customFrameFile, setCustomFrameFile] = useState<string>("Çerçeve Seçilmedi");
+  const [frameWidthInput, setFrameWidthInput] = useState<string>("4.0");
   const [matWidthInput, setMatWidthInput] = useState<string>("0"); // Default 0.0 cm (Paspartusuz)
 
   // Custom outer frame profile uploader
@@ -464,9 +468,20 @@ export default function App() {
     setAuthSession(session);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn("Supabase signout warning:", err);
+      }
+    }
     clearAuthSession();
     setAuthSession(null);
+    setFrameProfiles([]);
+    setArchiveOrders([]);
+    setCustomPaintingUrl(null);
+    setCustomPaintingFile("Henüz görsel seçilmedi");
   };
 
   const handleContinueAsGuest = () => {
@@ -522,24 +537,117 @@ export default function App() {
     }
   };
 
-  // Initial Supabase Cloud Sync
+  // Supabase Auth State listener & auto-session restoration
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
+
+    // 1. Check existing Supabase session immediately
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setAuthenticatedTenantId(session.user.id);
+        const name =
+          session.user.user_metadata?.full_name ||
+          session.user.user_metadata?.name ||
+          session.user.email?.split("@")[0] ||
+          "Atölye Kullanıcısı";
+
+        const userAccount: UserAccount = {
+          id: session.user.id,
+          email: session.user.email || "",
+          username: session.user.email?.split("@")[0] || "kullanici",
+          fullName: name,
+          role: "admin",
+          isEmailVerified: true,
+          status: "active",
+          createdAt: new Date().toISOString().split("T")[0]
+        };
+
+        setActiveUser(userAccount);
+        const sess = {
+          isLoggedIn: true,
+          userId: session.user.id,
+          email: userAccount.email,
+          username: userAccount.username,
+          fullName: userAccount.fullName,
+          role: userAccount.role,
+          rememberMe: true,
+          loginTime: new Date().toISOString()
+        };
+        saveAuthSession(sess);
+        setAuthSession(sess);
+        ensureTenantAndUserExist(session.user);
+      }
+    });
+
+    // 2. Listen to ongoing auth events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setAuthenticatedTenantId(session.user.id);
+        await ensureTenantAndUserExist(session.user);
+
+        const name =
+          session.user.user_metadata?.full_name ||
+          session.user.user_metadata?.name ||
+          session.user.email?.split("@")[0] ||
+          "Atölye Kullanıcısı";
+
+        const userAccount: UserAccount = {
+          id: session.user.id,
+          email: session.user.email || "",
+          username: session.user.email?.split("@")[0] || "kullanici",
+          fullName: name,
+          role: "admin",
+          isEmailVerified: true,
+          status: "active",
+          createdAt: new Date().toISOString().split("T")[0]
+        };
+
+        setActiveUser(userAccount);
+        const sess = {
+          isLoggedIn: true,
+          userId: session.user.id,
+          email: userAccount.email,
+          username: userAccount.username,
+          fullName: userAccount.fullName,
+          role: userAccount.role,
+          rememberMe: true,
+          loginTime: new Date().toISOString()
+        };
+        saveAuthSession(sess);
+        setAuthSession(sess);
+      } else if (event === "SIGNED_OUT") {
+        clearAuthSession();
+        setAuthSession(null);
+        setFrameProfiles([]);
+        setArchiveOrders([]);
+        setCustomPaintingUrl(null);
+        setCustomPaintingFile("Henüz görsel seçilmedi");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Supabase Cloud Sync (Runs when user is logged in or tenant changes)
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !authSession?.isLoggedIn) return;
     let isMounted = true;
 
-    // 1. Fetch Cloud Frame Profiles
+    // 1. Fetch Cloud Frame Profiles for this tenant
     fetchFrameProfilesFromSupabase().then(({ data, error }) => {
       if (!isMounted) return;
-      if (data && !error && data.length > 0) {
+      if (data && !error) {
         setFrameProfiles(data);
         saveProfilesToStorage(data);
       }
     });
 
-    // 2. Fetch Cloud Orders Archive
+    // 2. Fetch Cloud Orders Archive for this tenant
     fetchOrdersFromSupabase().then(({ data, error }) => {
       if (!isMounted) return;
-      if (data && !error && data.length > 0) {
+      if (data && !error) {
         setArchiveOrders(data);
         try {
           localStorage.setItem("nakka_order_archive_v1", JSON.stringify(data));
@@ -558,10 +666,24 @@ export default function App() {
       }
     });
 
+    // 4. Fetch Cloud Visualizations for this tenant
+    fetchVisualizationsFromSupabase().then(({ data, error }) => {
+      if (!isMounted) return;
+      if (data && !error && data.length > 0) {
+        const latest = data[0];
+        if (latest.image_url) {
+          setCustomPaintingUrl(latest.image_url);
+          if (latest.title) setCustomPaintingFile(latest.title);
+          if (latest.artwork_width_cm) setWidthInput(String(latest.artwork_width_cm));
+          if (latest.artwork_height_cm) setHeightInput(String(latest.artwork_height_cm));
+        }
+      }
+    });
+
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [authSession?.userId, authSession?.isLoggedIn]);
 
   const handleLoadOrderToWorkspace = (order: OrderArchiveItem) => {
     if (order.artworkWidthCm) setWidthInput(String(order.artworkWidthCm));
@@ -868,9 +990,21 @@ export default function App() {
     if (file) {
       const reader = new FileReader();
       reader.onload = () => {
-        setCustomPaintingUrl(reader.result as string);
+        const dataUrl = reader.result as string;
+        setCustomPaintingUrl(dataUrl);
         setCustomPaintingFile(file.name);
         setIsCropModalOpen(true); // Open corner scanner & crop modal automatically on image selection
+
+        if (isSupabaseConfigured()) {
+          createVisualizationInSupabase({
+            image_url: dataUrl,
+            title: file.name,
+            artwork_width_cm: artworkWidth,
+            artwork_height_cm: artworkHeight,
+            mat_width_cm: matWidth,
+            frame_profile_id: selectedInnerProfileId || undefined
+          }).catch(err => console.warn("Supabase visualization save warning:", err));
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -2606,6 +2740,16 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         imageUrl={customPaintingUrl || ""}
         onCropSave={(croppedDataUrl) => {
           setCustomPaintingUrl(croppedDataUrl);
+          if (isSupabaseConfigured()) {
+            createVisualizationInSupabase({
+              image_url: croppedDataUrl,
+              title: customPaintingFile && customPaintingFile !== "Henüz görsel seçilmedi" ? customPaintingFile : "Kırpılmış Eser Görseli",
+              artwork_width_cm: artworkWidth,
+              artwork_height_cm: artworkHeight,
+              mat_width_cm: matWidth,
+              frame_profile_id: selectedInnerProfileId || undefined
+            }).catch(err => console.warn("Supabase visualization crop save warning:", err));
+          }
         }}
         targetWidthCm={artworkWidth}
         targetHeightCm={artworkHeight}

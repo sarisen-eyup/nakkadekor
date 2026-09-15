@@ -114,12 +114,18 @@ export function loadUsersFromStorage(): UserAccount[] {
   try {
     const saved = localStorage.getItem(USERS_STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed: UserAccount[] = JSON.parse(saved);
+      const hasMockOnly = parsed.length > 0 && parsed.every(u => u.id && /^usr_[1-3]$/.test(u.id));
+      if (hasMockOnly) {
+        localStorage.removeItem(USERS_STORAGE_KEY);
+        return [];
+      }
+      return parsed;
     }
   } catch (e) {
     console.error("Error loading users from localStorage", e);
   }
-  return DEFAULT_USERS;
+  return [];
 }
 
 export function saveUsersToStorage(users: UserAccount[]): void {
