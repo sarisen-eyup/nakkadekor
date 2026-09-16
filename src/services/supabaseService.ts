@@ -1,11 +1,12 @@
-import { supabase, isSupabaseConfigured, getTenantId } from "../lib/supabase";
+import { supabase, isSupabaseConfigured, getTenantId, setAuthenticatedTenantId } from "../lib/supabase";
 import { 
   FrameProfileItem, 
   OrderArchiveItem, 
   OrderStatus, 
   UnitPricesSettings,
   CompanyProfile,
-  EMPTY_COMPANY_PROFILE
+  EMPTY_COMPANY_PROFILE,
+  sanitizeUnitPricesSettings
 } from "../types/pricing";
 
 // Test connection to Supabase
@@ -485,12 +486,29 @@ export async function deleteOrderFromSupabase(orderId: string): Promise<{ succes
 // TENANT SETTINGS (Fiyat ve Birim Ayarları)
 // ==========================================
 
+/**
+ * Giriş yapmış kullanıcının Supabase Auth UID bilgisini (auth.uid) tespit eder,
+ * yoksa localStorage veya yapılandırılmış varsayılan tenantId'ye geri döner.
+ */
+export async function getAuthUserIdOrTenantId(): Promise<string> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user?.id) {
+      setAuthenticatedTenantId(session.user.id);
+      return session.user.id;
+    }
+  } catch (err) {
+    console.warn("Auth session alınamadı, getTenantId kullanılacak:", err);
+  }
+  return getTenantId();
+}
+
 export async function fetchTenantSettingsFromSupabase(): Promise<{ data: UnitPricesSettings | null; error: any }> {
   if (!isSupabaseConfigured()) {
     return { data: null, error: new Error("Supabase is not configured") };
   }
 
-  const tenantId = getTenantId();
+  const tenantId = await getAuthUserIdOrTenantId();
 
   try {
     const { data, error } = await supabase
@@ -510,27 +528,27 @@ export async function fetchTenantSettingsFromSupabase(): Promise<{ data: UnitPri
 
     // 1. If stored as a JSON object in 'settings' column
     if ((data as any).settings && typeof (data as any).settings === "object") {
-      return { data: (data as any).settings as UnitPricesSettings, error: null };
+      return { data: sanitizeUnitPricesSettings((data as any).settings), error: null };
     }
 
-    // 2. Map structured relational columns from schema.sql
-    const mapped: UnitPricesSettings = {
-      canvasPrintPricePerSqm: Number(data.canvas_print_price_per_sqm ?? 450),
-      matBoardPricePerSqm: Number(data.mat_board_price_per_sqm ?? 280),
-      middleMatBoardPricePerSqm: Number(data.middle_mat_board_price_per_sqm ?? 350),
-      transparentMatBoardPricePerSqm: Number(data.transparent_mat_board_price_per_sqm ?? 520),
-      defaultInnerFramePricePerMeter: Number(data.default_inner_frame_price_per_meter ?? 120),
-      defaultOuterFramePricePerMeter: Number(data.default_outer_frame_price_per_meter ?? 180),
-      glassPricePerSqm: Number(data.glass_price_per_sqm ?? 320),
-      backingBoardPricePerSqm: Number(data.backing_board_price_per_sqm ?? 180),
-      backingClothPricePerSqm: Number(data.backing_cloth_price_per_sqm ?? 90),
-      kraftTapePricePerMeter: Number(data.kraft_tape_price_per_meter ?? 20),
-      laborFixedCost: Number(data.default_labor_fixed_cost ?? 250),
-      wastePercentage: Number(data.default_waste_percentage ?? 15),
-      targetProfitMarginPercent: Number(data.target_profit_margin_percent ?? 40),
-      vatRatePercent: Number(data.vat_rate_percent ?? 20),
-      defaultShippingCost: Number(data.default_shipping_cost ?? 150)
-    };
+    // 2. Map structured relational columns from schema, sanitized so NaN is impossible
+    const mapped = sanitizeUnitPricesSettings({
+      canvasPrintPricePerSqm: data.canvas_print_price_per_sqm ?? 0,
+      matBoardPricePerSqm: data.mat_board_price_per_sqm ?? 0,
+      middleMatBoardPricePerSqm: data.middle_mat_board_price_per_sqm ?? 0,
+      transparentMatBoardPricePerSqm: data.transparent_mat_board_price_per_sqm ?? 0,
+      defaultInnerFramePricePerMeter: data.default_inner_frame_price_per_meter ?? 0,
+      defaultOuterFramePricePerMeter: data.default_outer_frame_price_per_meter ?? 0,
+      glassPricePerSqm: data.glass_price_per_sqm ?? 0,
+      backingBoardPricePerSqm: data.backing_board_price_per_sqm ?? 0,
+      backingClothPricePerSqm: data.backing_cloth_price_per_sqm ?? 0,
+      kraftTapePricePerMeter: data.kraft_tape_price_per_meter ?? 0,
+      laborFixedCost: data.default_labor_fixed_cost ?? 0,
+      wastePercentage: data.default_waste_percentage ?? 0,
+      targetProfitMarginPercent: data.target_profit_margin_percent ?? 0,
+      vatRatePercent: data.vat_rate_percent ?? 0,
+      defaultShippingCost: data.default_shipping_cost ?? 0
+    });
 
     return { data: mapped, error: null };
   } catch (err) {
@@ -546,30 +564,48 @@ export async function saveTenantSettingsToSupabase(
     return { success: false, error: new Error("Supabase is not configured") };
   }
 
-  const tenantId = getTenantId();
+  // 1. Doğrudan aktif giriş yapmış kullanıcının UID'sini (auth.uid) al
+  const tenantId = await getAuthUserIdOrTenantId();
 
-  // Relational columns payload matching schema.sql
-  const relationalPayload: any = {
+  // 2. Boş bırakılan veya NaN olan tüm alanları 0 (sıfır) olarak varsayılan değere eşitle
+  const sanitized = sanitizeUnitPricesSettings(settings);
+
+  // 3. Foreign key kısıtını sağlamak adına tenants tablosunda kayıt varlığını garantile
+  try {
+    await supabase.from("tenants").upsert({
+      id: tenantId,
+      name: "Atölye",
+      slug: `tenant-${tenantId.slice(0, 8)}`,
+      status: "active"
+    }, { onConflict: "id" });
+  } catch (e) {
+    // Tenants tablosu kısıtı varsa veya zaten mevcutsa sessizce devam et
+  }
+
+  // 4. Tablodaki tüm ilişkisel sütunları ve yedek JSON'u içeren payload
+  const relationalPayload: Record<string, any> = {
     tenant_id: tenantId,
-    canvas_print_price_per_sqm: settings.canvasPrintPricePerSqm,
-    mat_board_price_per_sqm: settings.matBoardPricePerSqm,
-    middle_mat_board_price_per_sqm: settings.middleMatBoardPricePerSqm,
-    transparent_mat_board_price_per_sqm: settings.transparentMatBoardPricePerSqm,
-    default_inner_frame_price_per_meter: settings.defaultInnerFramePricePerMeter,
-    default_outer_frame_price_per_meter: settings.defaultOuterFramePricePerMeter,
-    glass_price_per_sqm: settings.glassPricePerSqm,
-    backing_board_price_per_sqm: settings.backingBoardPricePerSqm,
-    backing_cloth_price_per_sqm: settings.backingClothPricePerSqm,
-    kraft_tape_price_per_meter: settings.kraftTapePricePerMeter,
-    default_labor_fixed_cost: settings.laborFixedCost,
-    default_waste_percentage: settings.wastePercentage,
-    target_profit_margin_percent: settings.targetProfitMarginPercent,
-    vat_rate_percent: settings.vatRatePercent,
-    default_shipping_cost: settings.defaultShippingCost,
+    canvas_print_price_per_sqm: sanitized.canvasPrintPricePerSqm,
+    mat_board_price_per_sqm: sanitized.matBoardPricePerSqm,
+    middle_mat_board_price_per_sqm: sanitized.middleMatBoardPricePerSqm,
+    transparent_mat_board_price_per_sqm: sanitized.transparentMatBoardPricePerSqm,
+    default_inner_frame_price_per_meter: sanitized.defaultInnerFramePricePerMeter,
+    default_outer_frame_price_per_meter: sanitized.defaultOuterFramePricePerMeter,
+    glass_price_per_sqm: sanitized.glassPricePerSqm,
+    backing_board_price_per_sqm: sanitized.backingBoardPricePerSqm,
+    backing_cloth_price_per_sqm: sanitized.backingClothPricePerSqm,
+    kraft_tape_price_per_meter: sanitized.kraftTapePricePerMeter,
+    default_labor_fixed_cost: sanitized.laborFixedCost,
+    default_waste_percentage: sanitized.wastePercentage,
+    target_profit_margin_percent: sanitized.targetProfitMarginPercent,
+    vat_rate_percent: sanitized.vatRatePercent,
+    default_shipping_cost: sanitized.defaultShippingCost,
+    settings: sanitized,
     updated_at: new Date().toISOString()
   };
 
   try {
+    // 5. Upsert işlemi: Varsa güncelle, yoksa ekle (onConflict: tenant_id)
     const { error: relError } = await supabase
       .from("tenant_settings")
       .upsert(relationalPayload, { onConflict: "tenant_id" });
@@ -578,19 +614,21 @@ export async function saveTenantSettingsToSupabase(
       return { success: true, error: null };
     }
 
-    // Fallback: If table has a 'settings' json column instead of individual columns
-    if (relError.code === "42703") {
+    // 6. Geriye Uyumluluk / Eksik Sütun Durumu (Örn: Henüz SQL ALTER TABLE çalıştırılmadıysa)
+    if (relError.code === "42703" || (relError.message && relError.message.includes("column"))) {
+      console.warn("İlişkisel sütunlar eksik olabilir, sadece JSON 'settings' ve 'tenant_id' ile upsert deneniyor:", relError.message);
       const { error: jsonError } = await supabase
         .from("tenant_settings")
         .upsert({
           tenant_id: tenantId,
-          settings: settings,
+          settings: sanitized,
           updated_at: new Date().toISOString()
         }, { onConflict: "tenant_id" });
 
       if (!jsonError) {
         return { success: true, error: null };
       }
+      return { success: false, error: jsonError };
     }
 
     console.warn("Could not save tenant settings to Supabase:", relError.message || relError);

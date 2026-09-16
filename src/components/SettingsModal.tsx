@@ -13,14 +13,17 @@ import {
   EMPTY_COMPANY_PROFILE,
   SubscriptionData,
   isProPlan,
-  UserAccount
+  UserAccount,
+  sanitizeUnitPricesSettings
 } from "../types/pricing";
 import { ImageCropModal } from "./ImageCropModal";
 import { 
   createFrameProfileInSupabase,
   deleteFrameProfileFromSupabase,
   fetchCompanyProfileFromSupabase,
-  saveCompanyProfileToSupabase
+  saveCompanyProfileToSupabase,
+  fetchTenantSettingsFromSupabase,
+  saveTenantSettingsToSupabase
 } from "../services/supabaseService";
 import { isSupabaseConfigured } from "../lib/supabase";
 
@@ -73,19 +76,31 @@ export function SettingsModal({
   }, [isOpen, initialTab]);
 
   // Local edit states
-  const [localSettings, setLocalSettings] = useState<UnitPricesSettings>(settings);
+  const [localSettings, setLocalSettings] = useState<UnitPricesSettings>(() => sanitizeUnitPricesSettings(settings));
   const [localProfiles, setLocalProfiles] = useState<FrameProfileItem[]>(profiles);
   const [localCompany, setLocalCompany] = useState<CompanyProfile>(companyProfile || EMPTY_COMPANY_PROFILE);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatusMsg, setSaveStatusMsg] = useState<{ text: string; isError?: boolean } | null>(null);
 
-  // Modal açıldığında firma profilini Supabase'den çek (yeni kullanıcıysa form BOMBOŞ gelsin)
+  // Modal açıldığında firma profilini ve atölye ayarlarını Supabase'den çek
   useEffect(() => {
     if (isOpen) {
-      setLocalSettings(settings);
+      setLocalSettings(sanitizeUnitPricesSettings(settings));
       setLocalProfiles(profiles);
       setSavedSuccess(false);
+      setSaveStatusMsg(null);
 
       (async () => {
+        try {
+          const { data: remoteSettings } = await fetchTenantSettingsFromSupabase();
+          if (remoteSettings) {
+            setLocalSettings(sanitizeUnitPricesSettings(remoteSettings));
+          }
+        } catch (e) {
+          console.warn("Tenant settings fetch exception:", e);
+        }
+
         try {
           const { data, error } = await fetchCompanyProfileFromSupabase();
           if (error) {
@@ -235,8 +250,10 @@ export function SettingsModal({
     setIsCropModalOpen(false);
   };
 
-  const handleSettingChange = (field: keyof UnitPricesSettings, val: number) => {
-    setLocalSettings((prev) => ({ ...prev, [field]: isNaN(val) ? 0 : val }));
+  const handleSettingChange = (field: keyof UnitPricesSettings, rawVal: number | string) => {
+    const parsed = typeof rawVal === "number" ? rawVal : parseFloat(String(rawVal).replace(",", "."));
+    const val = isNaN(parsed) || !isFinite(parsed) ? 0 : Math.max(0, parsed);
+    setLocalSettings((prev) => ({ ...prev, [field]: val }));
   };
 
   const handleAddProfile = (e: React.FormEvent) => {
@@ -394,21 +411,53 @@ export function SettingsModal({
   };
 
   const handleSaveAll = async () => {
-    onSaveSettings(localSettings);
+    setIsSaving(true);
+    setSaveStatusMsg(null);
+
+    // 1. Boş bırakılan alanları 0 (sıfır) olarak varsayılana eşitle ve NaN oluşmasını engelle
+    const sanitizedSettings = sanitizeUnitPricesSettings(localSettings);
+    setLocalSettings(sanitizedSettings);
+
+    // 2. React state ve yerel depolamayı hemen güncelle
+    onSaveSettings(sanitizedSettings);
     onSaveProfiles(localProfiles);
     if (onSaveCompanyProfile) {
       onSaveCompanyProfile(localCompany);
     }
+
     try {
+      // 3. Supabase 'tenant_settings' tablosuna 'tenant_id' (auth.uid) ile upsert et
+      const { error: settingsError } = await saveTenantSettingsToSupabase(sanitizedSettings);
+      if (settingsError) {
+        console.warn("Supabase atölye ayarları kaydetme uyarısı:", settingsError);
+        setSaveStatusMsg({ 
+          text: `Supabase Uyarısı: ${settingsError.message || "Ayarlar veritabanına yazılamadı"}`, 
+          isError: true 
+        });
+      }
+
+      // 4. Firma profilini de kaydet
       await saveCompanyProfileToSupabase(localCompany);
-    } catch (err) {
-      console.warn("Supabase firma profili kaydetme uyarısı:", err);
+      setSavedSuccess(true);
+      setTimeout(() => {
+        setSavedSuccess(false);
+        onClose();
+      }, 900);
+    } catch (err: any) {
+      console.warn("Supabase kaydetme hatası:", err);
+      setSaveStatusMsg({ 
+        text: `Bağlantı hatası: ${err?.message || "Kayıt tamamlanamadı"}`, 
+        isError: true 
+      });
+      // Yine de yerel olarak kaydedildiği için kullanıcıyı bloke etmeyelim
+      setSavedSuccess(true);
+      setTimeout(() => {
+        setSavedSuccess(false);
+        onClose();
+      }, 1200);
+    } finally {
+      setIsSaving(false);
     }
-    setSavedSuccess(true);
-    setTimeout(() => {
-      setSavedSuccess(false);
-      onClose();
-    }, 800);
   };
 
 
@@ -1693,8 +1742,19 @@ export function SettingsModal({
           </button>
 
           <div className="flex items-center gap-3">
+            {saveStatusMsg && (
+              <span className={`text-[11px] font-mono px-2 py-1 rounded ${
+                saveStatusMsg.isError 
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40" 
+                  : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+              }`}>
+                {saveStatusMsg.text}
+              </span>
+            )}
+
             <button
               onClick={onClose}
+              disabled={isSaving}
               className={`px-4 py-2 text-xs font-mono rounded transition-colors cursor-pointer ${
                 isDarkMode ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-300" : "bg-slate-200 hover:bg-slate-300 text-slate-700"
               }`}
@@ -1704,13 +1764,20 @@ export function SettingsModal({
 
             <button
               onClick={handleSaveAll}
+              disabled={isSaving}
               className={`flex items-center gap-2 px-5 py-2 font-mono font-bold text-xs rounded transition-all shadow-md cursor-pointer ${
-                savedSuccess
-                  ? "bg-green-600 text-white"
-                  : (isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white")
+                isSaving
+                  ? "opacity-75 cursor-wait bg-[#C5A059] text-black"
+                  : savedSuccess
+                    ? "bg-green-600 text-white"
+                    : (isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white")
               }`}
             >
-              {savedSuccess ? (
+              {isSaving ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" /> KAYDEDİLİYOR...
+                </>
+              ) : savedSuccess ? (
                 <>
                   <Check className="w-4 h-4" /> KAYDEDİLDİ!
                 </>

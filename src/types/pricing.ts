@@ -91,6 +91,37 @@ export const DEFAULT_UNIT_PRICES: UnitPricesSettings = {
   defaultShippingCost: 150, // ₺150 Varsayılan kargo ücreti
 };
 
+/**
+ * Boş bırakılan veya geçersiz form alanlarını 0 (sıfır) varsayılan değerine eşitleyerek
+ * hesaplamalarda NaN (Not a Number) oluşmasını ve veritabanı hatalarını önler.
+ */
+export function sanitizeUnitPricesSettings(raw: any): UnitPricesSettings {
+  const toZero = (val: any, fallback = 0): number => {
+    if (val === null || val === undefined || val === "") return fallback;
+    const n = typeof val === "number" ? val : parseFloat(String(val).replace(",", "."));
+    return isNaN(n) || !isFinite(n) ? fallback : Math.max(0, n);
+  };
+
+  return {
+    canvasPrintPricePerSqm: toZero(raw?.canvasPrintPricePerSqm, 0),
+    matBoardPricePerSqm: toZero(raw?.matBoardPricePerSqm, 0),
+    middleMatBoardPricePerSqm: toZero(raw?.middleMatBoardPricePerSqm, 0),
+    transparentMatBoardPricePerSqm: toZero(raw?.transparentMatBoardPricePerSqm, 0),
+    defaultInnerFramePricePerMeter: toZero(raw?.defaultInnerFramePricePerMeter, 0),
+    defaultOuterFramePricePerMeter: toZero(raw?.defaultOuterFramePricePerMeter, 0),
+    glassPricePerSqm: toZero(raw?.glassPricePerSqm, 0),
+    backingBoardPricePerSqm: toZero(raw?.backingBoardPricePerSqm, 0),
+    backingClothPricePerSqm: toZero(raw?.backingClothPricePerSqm ?? raw?.backingPaperPricePerSqm, 0),
+    kraftTapePricePerMeter: toZero(raw?.kraftTapePricePerMeter, 0),
+    backingPaperPricePerSqm: toZero(raw?.backingPaperPricePerSqm ?? raw?.backingClothPricePerSqm, 0),
+    laborFixedCost: toZero(raw?.laborFixedCost, 0),
+    wastePercentage: toZero(raw?.wastePercentage, 0),
+    targetProfitMarginPercent: toZero(raw?.targetProfitMarginPercent, 0),
+    vatRatePercent: toZero(raw?.vatRatePercent, 0),
+    defaultShippingCost: toZero(raw?.defaultShippingCost, 0),
+  };
+}
+
 export const INITIAL_FRAME_PROFILES: FrameProfileItem[] = [];
 
 export const SAMPLE_FRAME_PROFILES: FrameProfileItem[] = [];

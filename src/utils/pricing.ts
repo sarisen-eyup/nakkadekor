@@ -18,7 +18,8 @@ import {
   DEFAULT_SUBSCRIPTION,
   isProPlan,
   OrderArchiveItem,
-  DEFAULT_ARCHIVE_ORDERS
+  DEFAULT_ARCHIVE_ORDERS,
+  sanitizeUnitPricesSettings
 } from "../types/pricing";
 
 export function getPaspartuColorName(hex?: string): string {
@@ -113,7 +114,7 @@ export function loadSettingsFromStorage(): UnitPricesSettings {
   try {
     const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (saved) {
-      return { ...DEFAULT_UNIT_PRICES, ...JSON.parse(saved) };
+      return sanitizeUnitPricesSettings({ ...DEFAULT_UNIT_PRICES, ...JSON.parse(saved) });
     }
   } catch (e) {
     console.error("Error loading pricing settings from localStorage", e);
@@ -357,75 +358,91 @@ export function calculateCostsAndPricing(params: CalculateCostParams): CostCalcu
     settings
   } = params;
 
+  const safeNum = (v: any, fallback = 0): number => {
+    if (v === null || v === undefined || v === "") return fallback;
+    const n = typeof v === "number" ? v : parseFloat(String(v).replace(",", "."));
+    return isNaN(n) || !isFinite(n) ? fallback : Math.max(0, n);
+  };
+
+  // Ayarları sanitize et: Boş veya tanımsız değerler 0 olur, asla NaN üretmez
+  const safeSettings = sanitizeUnitPricesSettings(settings);
+
+  const safeArtworkWidth = safeNum(artworkWidthCm, 0);
+  const safeArtworkHeight = safeNum(artworkHeightCm, 0);
+  const safeMatWidth = safeNum(matWidthCm, 0);
+  const safeFrameWidth = safeNum(frameWidthCm, 0);
+  const safeMiddleMatWidth = safeNum(middleMatWidthCm, 0);
+  const safeOuterFrameWidth = safeNum(outerFrameWidthCm, 0);
+
   // Check transparent/glass mat selections
   const isInnerMatTransparent = innerMatColor === "transparent" || innerMatColor === "glass";
   const innerMatUnitPrice = isInnerMatTransparent
-    ? (settings.transparentMatBoardPricePerSqm ?? 520)
-    : settings.matBoardPricePerSqm;
+    ? (safeSettings.transparentMatBoardPricePerSqm || 520)
+    : safeSettings.matBoardPricePerSqm;
 
   const isMiddleMatTransparent = outerMatColor === "transparent" || outerMatColor === "glass";
   const middleMatUnitPrice = isMiddleMatTransparent
-    ? (settings.transparentMatBoardPricePerSqm ?? 520)
-    : settings.middleMatBoardPricePerSqm;
+    ? (safeSettings.transparentMatBoardPricePerSqm || 520)
+    : safeSettings.middleMatBoardPricePerSqm;
 
   // 1. Dimensions calculations (with 6 mm = 0.6 cm frame rebate)
   // Artwork area in m²
-  const artworkSqm = (artworkWidthCm * artworkHeightCm) / 10000;
+  const artworkSqm = (safeArtworkWidth * safeArtworkHeight) / 10000;
 
   // Inner Mat outer dimensions (In-rebate resting size)
-  const innerMatOuterW = artworkWidthCm + 2 * matWidthCm;
-  const innerMatOuterH = artworkHeightCm + 2 * matWidthCm;
+  const innerMatOuterW = safeArtworkWidth + 2 * safeMatWidth;
+  const innerMatOuterH = safeArtworkHeight + 2 * safeMatWidth;
   // Full sheet size required to cut inner paspartu (window cutout area is consumed)
-  const innerMatSqm = matWidthCm > 0 
+  const innerMatSqm = safeMatWidth > 0 
     ? (innerMatOuterW * innerMatOuterH) / 10000
     : 0;
 
   // Inner Frame outer miter dimensions & linear meter
   // Note: Frame rebate is 0.6 cm on each side, so miter outer width = innerMatOuterW - 2*0.6 + 2*frameWidthCm
-  const innerFrameMiterW = frameWidthCm > 0 ? innerMatOuterW - 2 * REBATE_PER_SIDE_CM + 2 * frameWidthCm : innerMatOuterW;
-  const innerFrameMiterH = frameWidthCm > 0 ? innerMatOuterH - 2 * REBATE_PER_SIDE_CM + 2 * frameWidthCm : innerMatOuterH;
-  const innerFrameMeter = frameWidthCm > 0 ? (2 * (innerFrameMiterW + innerFrameMiterH)) / 100 : 0;
+  const innerFrameMiterW = safeFrameWidth > 0 ? innerMatOuterW - 2 * REBATE_PER_SIDE_CM + 2 * safeFrameWidth : innerMatOuterW;
+  const innerFrameMiterH = safeFrameWidth > 0 ? innerMatOuterH - 2 * REBATE_PER_SIDE_CM + 2 * safeFrameWidth : innerMatOuterH;
+  const innerFrameMeter = safeFrameWidth > 0 ? (2 * (innerFrameMiterW + innerFrameMiterH)) / 100 : 0;
 
   // Middle Mat outer dimensions
-  const middleMatOuterW = innerFrameMiterW + 2 * middleMatWidthCm;
-  const middleMatOuterH = innerFrameMiterH + 2 * middleMatWidthCm;
+  const middleMatOuterW = innerFrameMiterW + 2 * safeMiddleMatWidth;
+  const middleMatOuterH = innerFrameMiterH + 2 * safeMiddleMatWidth;
   // Full sheet size required to cut middle paspartu
-  const middleMatSqm = middleMatWidthCm > 0 
+  const middleMatSqm = safeMiddleMatWidth > 0 
     ? (middleMatOuterW * middleMatOuterH) / 10000
     : 0;
 
   // Outer Frame outer miter dimensions & linear meter (with 0.6 cm rebate)
   const innerRebateW = middleMatOuterW;
   const innerRebateH = middleMatOuterH;
-  const outerFrameMiterW = outerFrameWidthCm > 0 ? innerRebateW - 2 * REBATE_PER_SIDE_CM + 2 * outerFrameWidthCm : innerRebateW;
-  const outerFrameMiterH = outerFrameWidthCm > 0 ? innerRebateH - 2 * REBATE_PER_SIDE_CM + 2 * outerFrameWidthCm : innerRebateH;
-  const outerFrameMeter = outerFrameWidthCm > 0 
+  const outerFrameMiterW = safeOuterFrameWidth > 0 ? innerRebateW - 2 * REBATE_PER_SIDE_CM + 2 * safeOuterFrameWidth : innerRebateW;
+  const outerFrameMiterH = safeOuterFrameWidth > 0 ? innerRebateH - 2 * REBATE_PER_SIDE_CM + 2 * safeOuterFrameWidth : innerRebateH;
+  const outerFrameMeter = safeOuterFrameWidth > 0 
     ? (2 * (outerFrameMiterW + outerFrameMiterH)) / 100
     : 0;
 
   // Glass, Backing board, Backing cloth & Kraft Tape dimensions
   // Fits inside the outermost frame rebate (outer frame if present, else inner frame)
-  const outmostRebateW = outerFrameWidthCm > 0 ? middleMatOuterW : innerMatOuterW;
-  const outmostRebateH = outerFrameWidthCm > 0 ? middleMatOuterH : innerMatOuterH;
+  const outmostRebateW = safeOuterFrameWidth > 0 ? middleMatOuterW : innerMatOuterW;
+  const outmostRebateH = safeOuterFrameWidth > 0 ? middleMatOuterH : innerMatOuterH;
   const glassBackingSqm = (outmostRebateW * outmostRebateH) / 10000;
   const backingClothSqm = glassBackingSqm;
   const kraftTapeMeter = Number(((2 * (outmostRebateW + outmostRebateH)) / 100).toFixed(2));
 
   // 2. Unit Prices
-  const innerProfilePrice = selectedInnerProfileMeterPrice ?? settings.defaultInnerFramePricePerMeter;
-  const outerProfilePrice = selectedOuterProfileMeterPrice ?? settings.defaultOuterFramePricePerMeter;
-  const backingClothUnitPrice = settings.backingClothPricePerSqm ?? settings.backingPaperPricePerSqm ?? 90;
-  const kraftTapeUnitPrice = settings.kraftTapePricePerMeter ?? 20;
+  const innerProfilePrice = safeNum(selectedInnerProfileMeterPrice ?? safeSettings.defaultInnerFramePricePerMeter, 0);
+  const outerProfilePrice = safeNum(selectedOuterProfileMeterPrice ?? safeSettings.defaultOuterFramePricePerMeter, 0);
+  const backingClothUnitPrice = safeNum(safeSettings.backingClothPricePerSqm ?? safeSettings.backingPaperPricePerSqm, 0);
+  const kraftTapeUnitPrice = safeNum(safeSettings.kraftTapePricePerMeter, 0);
 
   // 3. Raw Costs Calculation (₺) respecting Inclusion Flags
-  const artworkCost = flags.includeArtworkPrint ? artworkSqm * settings.canvasPrintPricePerSqm : 0;
-  const innerMatCost = (flags.includeInnerMat && matWidthCm > 0) ? innerMatSqm * innerMatUnitPrice : 0;
-  const middleMatCost = (flags.includeMiddleMat && middleMatWidthCm > 0) ? middleMatSqm * middleMatUnitPrice : 0;
+  const artworkCost = flags.includeArtworkPrint ? artworkSqm * safeSettings.canvasPrintPricePerSqm : 0;
+  const innerMatCost = (flags.includeInnerMat && safeMatWidth > 0) ? innerMatSqm * innerMatUnitPrice : 0;
+  const middleMatCost = (flags.includeMiddleMat && safeMiddleMatWidth > 0) ? middleMatSqm * middleMatUnitPrice : 0;
   const innerFrameCost = flags.includeInnerFrame ? innerFrameMeter * innerProfilePrice : 0;
-  const outerFrameCost = (flags.includeOuterFrame && outerFrameWidthCm > 0) ? outerFrameMeter * outerProfilePrice : 0;
+  const outerFrameCost = (flags.includeOuterFrame && safeOuterFrameWidth > 0) ? outerFrameMeter * outerProfilePrice : 0;
   
-  const glassCost = flags.includeGlass ? glassBackingSqm * settings.glassPricePerSqm : 0;
-  const backingBoardCost = flags.includeBackingBoard ? glassBackingSqm * settings.backingBoardPricePerSqm : 0;
+  const glassCost = flags.includeGlass ? glassBackingSqm * safeSettings.glassPricePerSqm : 0;
+  const backingBoardCost = flags.includeBackingBoard ? glassBackingSqm * safeSettings.backingBoardPricePerSqm : 0;
   
   const isBackingClothActive = Boolean(flags.includeBackingCloth || flags.includeBackingPaper);
   const isKraftTapeActive = Boolean(flags.includeKraftTape || flags.includeBackingPaper);
@@ -437,24 +454,24 @@ export function calculateCostsAndPricing(params: CalculateCostParams): CostCalcu
   const rawMaterialsSubtotal = artworkCost + innerMatCost + middleMatCost + innerFrameCost + outerFrameCost + glassCost + backingBoardCost + backingClothCost + kraftTapeCost;
   
   // Waste cost (% of raw materials)
-  const wasteCost = rawMaterialsSubtotal * (settings.wastePercentage / 100);
+  const wasteCost = rawMaterialsSubtotal * (safeSettings.wastePercentage / 100);
   const totalMaterialCost = rawMaterialsSubtotal + wasteCost;
 
   // Direct Cost = Materials + Fixed Labor
-  const laborCost = flags.includeLaborCost ? settings.laborFixedCost : 0;
+  const laborCost = flags.includeLaborCost ? safeSettings.laborFixedCost : 0;
   const totalDirectCost = totalMaterialCost + laborCost;
 
   // Profit Margin
-  const profitAmount = totalDirectCost * (settings.targetProfitMarginPercent / 100);
+  const profitAmount = totalDirectCost * (safeSettings.targetProfitMarginPercent / 100);
   const calculatedPriceBeforeVat = totalDirectCost + profitAmount;
 
   // VAT (KDV)
-  const vatAmount = calculatedPriceBeforeVat * (settings.vatRatePercent / 100);
+  const vatAmount = calculatedPriceBeforeVat * (safeSettings.vatRatePercent / 100);
   const calculatedPriceWithVat = calculatedPriceBeforeVat + vatAmount;
 
   const deliveryMethod = params.deliveryMethod || "store";
   const shippingCost = deliveryMethod === "shipping" 
-    ? (params.customShippingCost ?? settings.defaultShippingCost ?? 150)
+    ? safeNum(params.customShippingCost ?? safeSettings.defaultShippingCost, 0)
     : 0;
 
   const overridePriceWithVat = customOverridePrice !== undefined && customOverridePrice !== null && customOverridePrice > 0 
@@ -465,20 +482,20 @@ export function calculateCostsAndPricing(params: CalculateCostParams): CostCalcu
   const effectiveFinalPriceWithVat = framingPriceWithVat + shippingCost;
 
   // 4. Calculate Customer Retail Selling Prices (incorporating Waste + Profit Margin + VAT)
-  const matRetailMultiplier = (1 + settings.wastePercentage / 100) * (1 + settings.targetProfitMarginPercent / 100) * (1 + settings.vatRatePercent / 100);
-  const laborRetailMultiplier = (1 + settings.targetProfitMarginPercent / 100) * (1 + settings.vatRatePercent / 100);
+  const matRetailMultiplier = (1 + safeSettings.wastePercentage / 100) * (1 + safeSettings.targetProfitMarginPercent / 100) * (1 + safeSettings.vatRatePercent / 100);
+  const laborRetailMultiplier = (1 + safeSettings.targetProfitMarginPercent / 100) * (1 + safeSettings.vatRatePercent / 100);
 
   // Potential raw costs (calculated regardless of flag state so UI can show the selling price when option is enabled)
-  const potArtworkCost = artworkSqm * settings.canvasPrintPricePerSqm;
-  const potInnerMatCost = matWidthCm > 0 ? innerMatSqm * innerMatUnitPrice : 0;
-  const potMiddleMatCost = middleMatWidthCm > 0 ? middleMatSqm * middleMatUnitPrice : 0;
+  const potArtworkCost = artworkSqm * safeSettings.canvasPrintPricePerSqm;
+  const potInnerMatCost = safeMatWidth > 0 ? innerMatSqm * innerMatUnitPrice : 0;
+  const potMiddleMatCost = safeMiddleMatWidth > 0 ? middleMatSqm * middleMatUnitPrice : 0;
   const potInnerFrameCost = innerFrameMeter * innerProfilePrice;
-  const potOuterFrameCost = outerFrameWidthCm > 0 ? outerFrameMeter * outerProfilePrice : 0;
-  const potGlassCost = glassBackingSqm * settings.glassPricePerSqm;
-  const potBackingBoardCost = glassBackingSqm * settings.backingBoardPricePerSqm;
+  const potOuterFrameCost = safeOuterFrameWidth > 0 ? outerFrameMeter * outerProfilePrice : 0;
+  const potGlassCost = glassBackingSqm * safeSettings.glassPricePerSqm;
+  const potBackingBoardCost = glassBackingSqm * safeSettings.backingBoardPricePerSqm;
   const potBackingClothCost = backingClothSqm * backingClothUnitPrice;
   const potKraftTapeCost = kraftTapeMeter * kraftTapeUnitPrice;
-  const potLaborCost = settings.laborFixedCost;
+  const potLaborCost = safeSettings.laborFixedCost;
 
   const artworkSellingPrice = potArtworkCost * matRetailMultiplier;
   const innerMatSellingPrice = potInnerMatCost * matRetailMultiplier;
