@@ -58,6 +58,7 @@ import { FramingStep } from "./components/FramingStep";
 import { OrderStep } from "./components/OrderStep";
 import { LoginScreen } from "./components/LoginScreen";
 import { SubscriptionModal } from "./components/SubscriptionModal";
+import { AccountModal } from "./components/AccountModal";
 import { OrderArchiveModal } from "./components/OrderArchiveModal";
 import { PrintCenterModal } from "./components/PrintCenterModal";
 import { CustomerWallPreviewModal } from "./components/CustomerWallPreviewModal";
@@ -407,11 +408,13 @@ export default function App() {
   const [isShopMode, setIsShopMode] = useState<boolean>(false);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"prices" | "profiles" | "privacy" | "whitelabel">("prices");
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"prices" | "profiles" | "privacy">("prices");
   const [isCostModalOpen, setIsCostModalOpen] = useState<boolean>(false);
   const [isCutListModalOpen, setIsCutListModalOpen] = useState<boolean>(false);
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState<boolean>(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState<boolean>(false);
+  const [accountModalInitialTab, setAccountModalInitialTab] = useState<"company" | "credits">("company");
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState<boolean>(false);
   const [isPrintCenterModalOpen, setIsPrintCenterModalOpen] = useState<boolean>(false);
 
@@ -522,9 +525,16 @@ export default function App() {
     const updated = deleteOrderFromArchive(orderId);
     setArchiveOrders(updated);
     if (isSupabaseConfigured()) {
-      deleteOrderFromSupabase(orderId).catch(err => {
-        console.warn("Supabase deleteOrder warning:", err);
-      });
+      (async () => {
+        try {
+          const { error } = await deleteOrderFromSupabase(orderId);
+          if (error) {
+            console.warn("Supabase deleteOrder warning:", error);
+          }
+        } catch (err) {
+          console.warn("Supabase deleteOrder exception:", err);
+        }
+      })();
     }
   };
 
@@ -534,9 +544,16 @@ export default function App() {
       return updated;
     });
     if (isSupabaseConfigured()) {
-      updateOrderStatusInSupabase(orderId, newStatus).catch(err => {
-        console.warn("Supabase updateOrderStatus warning:", err);
-      });
+      (async () => {
+        try {
+          const { error } = await updateOrderStatusInSupabase(orderId, newStatus);
+          if (error) {
+            console.warn("Supabase updateOrderStatus warning:", error);
+          }
+        } catch (err) {
+          console.warn("Supabase updateOrderStatus exception:", err);
+        }
+      })();
     }
   };
 
@@ -545,42 +562,52 @@ export default function App() {
     if (!isSupabaseConfigured()) return;
 
     // 1. Check existing Supabase session immediately
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setAuthenticatedTenantId(session.user.id);
-        const name =
-          session.user.user_metadata?.full_name ||
-          session.user.user_metadata?.name ||
-          session.user.email?.split("@")[0] ||
-          "Atölye Kullanıcısı";
+    (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.warn("Supabase getSession warning:", error.message);
+          return;
+        }
+        const session = data?.session;
+        if (session?.user) {
+          setAuthenticatedTenantId(session.user.id);
+          const name =
+            session.user.user_metadata?.full_name ||
+            session.user.user_metadata?.name ||
+            session.user.email?.split("@")[0] ||
+            "Atölye Kullanıcısı";
 
-        const userAccount: UserAccount = {
-          id: session.user.id,
-          email: session.user.email || "",
-          username: session.user.email?.split("@")[0] || "kullanici",
-          fullName: name,
-          role: "admin",
-          isEmailVerified: true,
-          status: "active",
-          createdAt: new Date().toISOString().split("T")[0]
-        };
+          const userAccount: UserAccount = {
+            id: session.user.id,
+            email: session.user.email || "",
+            username: session.user.email?.split("@")[0] || "kullanici",
+            fullName: name,
+            role: "admin",
+            isEmailVerified: true,
+            status: "active",
+            createdAt: new Date().toISOString().split("T")[0]
+          };
 
-        setActiveUser(userAccount);
-        const sess = {
-          isLoggedIn: true,
-          userId: session.user.id,
-          email: userAccount.email,
-          username: userAccount.username,
-          fullName: userAccount.fullName,
-          role: userAccount.role,
-          rememberMe: true,
-          loginTime: new Date().toISOString()
-        };
-        saveAuthSession(sess);
-        setAuthSession(sess);
-        ensureTenantAndUserExist(session.user);
+          setActiveUser(userAccount);
+          const sess = {
+            isLoggedIn: true,
+            userId: session.user.id,
+            email: userAccount.email,
+            username: userAccount.username,
+            fullName: userAccount.fullName,
+            role: userAccount.role,
+            rememberMe: true,
+            loginTime: new Date().toISOString()
+          };
+          saveAuthSession(sess);
+          setAuthSession(sess);
+          await ensureTenantAndUserExist(session.user);
+        }
+      } catch (err) {
+        console.warn("Supabase session check exception:", err);
       }
-    });
+    })();
 
     // 2. Listen to ongoing auth events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -770,9 +797,16 @@ export default function App() {
     setUnitPricesSettings(newSettings);
     saveSettingsToStorage(newSettings);
     if (isSupabaseConfigured()) {
-      saveTenantSettingsToSupabase(newSettings).catch(err => {
-        console.warn("Supabase saveTenantSettings warning:", err);
-      });
+      (async () => {
+        try {
+          const { error } = await saveTenantSettingsToSupabase(newSettings);
+          if (error) {
+            console.warn("Supabase saveTenantSettings warning:", error);
+          }
+        } catch (err) {
+          console.warn("Supabase saveTenantSettings exception:", err);
+        }
+      })();
     }
   };
 
@@ -1005,14 +1039,23 @@ export default function App() {
         setIsCropModalOpen(true); // Open corner scanner & crop modal automatically on image selection
 
         if (isSupabaseConfigured()) {
-          createVisualizationInSupabase({
-            image_url: dataUrl,
-            title: file.name,
-            artwork_width_cm: artworkWidth,
-            artwork_height_cm: artworkHeight,
-            mat_width_cm: matWidth,
-            frame_profile_id: selectedInnerProfileId || undefined
-          }).catch(err => console.warn("Supabase visualization save warning:", err));
+          (async () => {
+            try {
+              const { error } = await createVisualizationInSupabase({
+                image_url: dataUrl,
+                title: file.name,
+                artwork_width_cm: artworkWidth,
+                artwork_height_cm: artworkHeight,
+                mat_width_cm: matWidth,
+                frame_profile_id: selectedInnerProfileId || undefined
+              });
+              if (error) {
+                console.warn("Supabase visualization save warning:", error);
+              }
+            } catch (err) {
+              console.warn("Supabase visualization save exception:", err);
+            }
+          })();
         }
       };
       reader.readAsDataURL(file);
@@ -1692,9 +1735,16 @@ Durum: Onaylandi / Uretime Hazir`;
     setArchiveOrders(updatedArchive);
 
     if (isSupabaseConfigured()) {
-      createOrderInSupabase(newArchiveItem).catch(err => {
-        console.warn("Supabase createOrder sync warning:", err);
-      });
+      (async () => {
+        try {
+          const { error } = await createOrderInSupabase(newArchiveItem);
+          if (error) {
+            console.warn("Supabase createOrder sync warning:", error);
+          }
+        } catch (err) {
+          console.warn("Supabase createOrder sync exception:", err);
+        }
+      })();
     }
 
     // Deduct 1 credit from subscription
@@ -2081,20 +2131,30 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
             <span className="hidden sm:inline">{isDarkMode ? "AÇIK" : "KOYU"}</span>
           </button>
 
-          {/* Subscription / Credit Badge */}
+          {/* Account & Credit Management Button */}
           <button
-            onClick={() => setIsSubscriptionModalOpen(true)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
+            onClick={() => {
+              setAccountModalInitialTab("company");
+              setIsAccountModalOpen(true);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
               subscriptionData.remainingCredits < 15 
-                ? "bg-rose-500/10 border-rose-500/40 text-rose-300 animate-pulse" 
+                ? "bg-rose-500/10 border-rose-500/40 text-rose-300" 
                 : isDarkMode 
                   ? "bg-[#101216] border-[#C5A059]/40 hover:border-[#C5A059] text-[#C5A059]" 
                   : "bg-white border-[#B88E3A]/40 hover:border-[#B88E3A] text-[#B88E3A]"
             }`}
-            title="Kredi & Abonelik Yönetimi (Kalan Kredi)"
+            title="Hesap, Firma Bilgileri ve Kredi Yönetimi"
           >
-            <Coins className="w-3.5 h-3.5" />
-            <span>{subscriptionData.remainingCredits} <span className="hidden sm:inline">KREDİ</span></span>
+            <User className="w-3.5 h-3.5" />
+            <span>HESAP</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold ${
+              subscriptionData.remainingCredits < 15
+                ? "bg-rose-500/20 text-rose-300"
+                : isDarkMode ? "bg-white/10 text-[#C5A059]" : "bg-amber-100 text-[#B88E3A]"
+            }`}>
+              {subscriptionData.remainingCredits} Kr.
+            </span>
           </button>
 
           {/* Order Archive Button */}
@@ -2180,52 +2240,55 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
             {/* Step Navigation Pill Bar */}
             <div 
               data-drag-scroll="true"
-              className={`p-1 rounded-2xl border flex items-center justify-between gap-1 shadow-inner shrink-0 overflow-x-auto drag-scroll ${
+              className={`p-1 rounded-2xl border flex items-center gap-1 shadow-inner shrink-0 overflow-x-auto no-scrollbar drag-scroll select-none ${
               isDarkMode ? "bg-[#0e1013] border-white/10" : "bg-slate-100 border-slate-200"
             }`}>
               <button
                 type="button"
                 onClick={() => setActiveSidebarTab("artwork")}
-                className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 min-w-[70px] sm:min-w-0 py-2 px-1.5 sm:px-2.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap active:scale-95 ${
                   activeSidebarTab === "artwork"
                     ? (isDarkMode ? "bg-[#C5A059] text-black shadow-sm" : "bg-white text-slate-900 shadow-sm border border-slate-200/80")
                     : (isDarkMode ? "text-neutral-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
                 }`}
+                title="1. Sanat Eseri ve Ölçü"
               >
-                <Upload className="w-3.5 h-3.5" />
-                <span>1. Eser & Ölçü</span>
+                <Upload className="w-3.5 h-3.5 shrink-0" />
+                <span>1. Eser</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveSidebarTab("framing")}
-                className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 min-w-[75px] sm:min-w-0 py-2 px-1.5 sm:px-2.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap active:scale-95 ${
                   activeSidebarTab === "framing"
                     ? (isDarkMode ? "bg-[#C5A059] text-black shadow-sm" : "bg-white text-slate-900 shadow-sm border border-slate-200/80")
                     : (isDarkMode ? "text-neutral-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
                 }`}
+                title="2. Çerçeve ve Profil Seçimi"
               >
-                <Layers className="w-3.5 h-3.5" />
+                <Layers className="w-3.5 h-3.5 shrink-0" />
                 <span>2. Çerçeve</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveSidebarTab("materials")}
-                className={`flex-1 py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 min-w-[72px] sm:min-w-0 py-2 px-1.5 sm:px-2.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap active:scale-95 ${
                   activeSidebarTab === "materials"
                     ? (isDarkMode ? "bg-[#C5A059] text-black shadow-sm" : "bg-white text-slate-900 shadow-sm border border-slate-200/80")
                     : (isDarkMode ? "text-neutral-400 hover:text-white" : "text-slate-600 hover:text-slate-900")
                 }`}
+                title="3. Cam, Arka Panel ve Sipariş Kalemleri"
               >
-                <Shield className="w-3.5 h-3.5" />
+                <Shield className="w-3.5 h-3.5 shrink-0" />
                 <span>3. Sipariş</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveSidebarTab(activeSidebarTab === "all" ? "artwork" : "all")}
-                className={`px-2.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                className={`px-2.5 sm:px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center cursor-pointer whitespace-nowrap active:scale-95 ${
                   activeSidebarTab === "all"
                     ? (isDarkMode ? "bg-[#C5A059] text-black shadow-sm" : "bg-[#B88E3A] text-white shadow-sm")
                     : (isDarkMode ? "text-neutral-400 hover:text-white" : "text-slate-500 hover:text-slate-900")
@@ -2598,10 +2661,24 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         subscription={subscriptionData}
         onOpenSubscriptionModal={() => {
           setIsSettingsOpen(false);
-          setIsSubscriptionModalOpen(true);
+          setAccountModalInitialTab("credits");
+          setIsAccountModalOpen(true);
         }}
         activeUser={activeUser}
         onLogout={handleLogout}
+      />
+
+      <AccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        isDarkMode={isDarkMode}
+        companyProfile={companyProfile}
+        onSaveCompanyProfile={handleSaveCompanyProfile}
+        subscription={subscriptionData}
+        onUpdateSubscription={handleUpdateSubscription}
+        activeUser={activeUser}
+        onLogout={handleLogout}
+        initialTab={accountModalInitialTab}
       />
 
       <SubscriptionModal
@@ -2691,14 +2768,23 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         onCropSave={(croppedDataUrl) => {
           setCustomPaintingUrl(croppedDataUrl);
           if (isSupabaseConfigured()) {
-            createVisualizationInSupabase({
-              image_url: croppedDataUrl,
-              title: customPaintingFile && customPaintingFile !== "Henüz görsel seçilmedi" ? customPaintingFile : "Kırpılmış Eser Görseli",
-              artwork_width_cm: artworkWidth,
-              artwork_height_cm: artworkHeight,
-              mat_width_cm: matWidth,
-              frame_profile_id: selectedInnerProfileId || undefined
-            }).catch(err => console.warn("Supabase visualization crop save warning:", err));
+            (async () => {
+              try {
+                const { error } = await createVisualizationInSupabase({
+                  image_url: croppedDataUrl,
+                  title: customPaintingFile && customPaintingFile !== "Henüz görsel seçilmedi" ? customPaintingFile : "Kırpılmış Eser Görseli",
+                  artwork_width_cm: artworkWidth,
+                  artwork_height_cm: artworkHeight,
+                  mat_width_cm: matWidth,
+                  frame_profile_id: selectedInnerProfileId || undefined
+                });
+                if (error) {
+                  console.warn("Supabase visualization crop save warning:", error);
+                }
+              } catch (err) {
+                console.warn("Supabase visualization crop save exception:", err);
+              }
+            })();
           }
         }}
         targetWidthCm={artworkWidth}

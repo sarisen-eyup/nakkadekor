@@ -167,11 +167,15 @@ export async function ensureTenantAndUserExist(user: any) {
 
     // 1. Tenants tablosunda atölye kaydını garantiye al
     try {
-      const { data: existingTenant } = await supabase
+      const { data: existingTenant, error: existingTenantErr } = await supabase
         .from("tenants")
         .select("id")
         .eq("id", tenantId)
         .maybeSingle();
+
+      if (existingTenantErr) {
+        console.warn("Tenant kontrol hatası:", existingTenantErr.message);
+      }
 
       if (!existingTenant) {
         const slug = `tenant-${tenantId.slice(0, 8)}`;
@@ -190,11 +194,14 @@ export async function ensureTenantAndUserExist(user: any) {
         const { error: tErr } = await supabase.from("tenants").insert([tenantPayload]);
         if (tErr) {
           console.warn("Tenants tablosu tam şema uyarısı, minimal alanlarla deneniyor:", tErr.message);
-          await supabase.from("tenants").insert([{
+          const { error: minTErr } = await supabase.from("tenants").insert([{
             id: tenantId,
             name: tenantName,
             slug: slug
-          }]).catch(() => {});
+          }]);
+          if (minTErr) {
+            console.warn("Tenants tablosu minimal şema uyarısı:", minTErr.message);
+          }
         }
       }
     } catch (tErr) {
@@ -203,11 +210,15 @@ export async function ensureTenantAndUserExist(user: any) {
 
     // 2. Users tablosunda kullanıcı profilini garantiye al
     try {
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: existingUserErr } = await supabase
         .from("users")
         .select("id")
         .eq("id", tenantId)
         .maybeSingle();
+
+      if (existingUserErr) {
+        console.warn("User kontrol hatası:", existingUserErr.message);
+      }
 
       if (!existingUser) {
         // Tablonun beklediği tüm gerekli (NOT NULL) ve ilişkisel sütunlar:
@@ -242,19 +253,25 @@ export async function ensureTenantAndUserExist(user: any) {
 
           if (coreErr) {
             console.warn("Users tablosu temel alanlar uyarısı, sade şema deneniyor:", coreErr.message);
-            await supabase.from("users").upsert({
+            const { error: simpleErr } = await supabase.from("users").upsert({
               id: tenantId,
               email: email,
               full_name: fullName
-            }, { onConflict: "id" }).catch(() => {});
+            }, { onConflict: "id" });
+            if (simpleErr) {
+              console.warn("Users tablosu sade şema uyarısı:", simpleErr.message);
+            }
           }
         }
       } else {
         // Mevcut kullanıcıyı hafif güncelle (örneğin son profil adı)
-        await supabase.from("users").update({
+        const { error: updateErr } = await supabase.from("users").update({
           full_name: fullName,
           updated_at: new Date().toISOString()
-        }).eq("id", tenantId).catch(() => {});
+        }).eq("id", tenantId);
+        if (updateErr) {
+          console.warn("Users tablosu güncelleme uyarısı:", updateErr.message);
+        }
       }
     } catch (uErr) {
       console.warn("User kaydı bilgisi:", uErr);
