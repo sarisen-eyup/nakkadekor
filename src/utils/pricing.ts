@@ -264,17 +264,17 @@ export function saveArchiveOrdersToStorage(_orders: OrderArchiveItem[], _tenantI
   // localStorage'a kaydedilmez; doğrudan Supabase veritabanında saklanır.
 }
 
-export function addOrderToArchive(newOrder: OrderArchiveItem): OrderArchiveItem[] {
-  const existing = loadArchiveOrdersFromStorage();
-  // If order with same orderNumber exists, replace it, otherwise unshift to top
-  const filtered = existing.filter(o => o.orderNumber !== newOrder.orderNumber);
+export function addOrderToArchive(newOrder: OrderArchiveItem, currentOrders: OrderArchiveItem[] = []): OrderArchiveItem[] {
+  const existing = currentOrders.length > 0 ? currentOrders : loadArchiveOrdersFromStorage();
+  // If order with same orderNumber or id exists, replace it, otherwise unshift to top
+  const filtered = existing.filter(o => o.orderNumber !== newOrder.orderNumber && o.id !== newOrder.id);
   const updated = [newOrder, ...filtered];
   saveArchiveOrdersToStorage(updated);
   return updated;
 }
 
-export function deleteOrderFromArchive(orderId: string): OrderArchiveItem[] {
-  const existing = loadArchiveOrdersFromStorage();
+export function deleteOrderFromArchive(orderId: string, currentOrders: OrderArchiveItem[] = []): OrderArchiveItem[] {
+  const existing = currentOrders.length > 0 ? currentOrders : loadArchiveOrdersFromStorage();
   const updated = existing.filter(o => o.id !== orderId);
   saveArchiveOrdersToStorage(updated);
   return updated;

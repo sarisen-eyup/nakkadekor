@@ -295,6 +295,18 @@ export async function fetchOrdersFromSupabase(): Promise<{ data: OrderArchiveIte
         createdDateStr = row.created_at || "";
       }
 
+      let simulatorConfig: Record<string, any> | undefined = undefined;
+      if (row.notes) {
+        try {
+          const parsed = JSON.parse(row.notes);
+          if (typeof parsed === "object" && parsed !== null) {
+            simulatorConfig = parsed;
+          }
+        } catch {
+          // Normal text note
+        }
+      }
+
       return {
         id: String(row.id),
         orderNumber: row.order_number,
@@ -311,7 +323,20 @@ export async function fetchOrdersFromSupabase(): Promise<{ data: OrderArchiveIte
         currency: row.currency || "₺",
         status: (row.status as OrderStatus) || "quote",
         deliveryMethod: row.delivery_method === "store" ? "pickup" : (row.delivery_method || "pickup"),
-        authorUser: row.author_user_name || row.author_user || "Yetkili Personel"
+        authorUser: row.author_user_name || row.author_user || "Yetkili Personel",
+        simulatorConfig,
+        innerProfileId: simulatorConfig?.innerProfileId,
+        outerProfileId: simulatorConfig?.outerProfileId,
+        matWidthCm: simulatorConfig?.matWidthCm,
+        frameWidthCm: simulatorConfig?.frameWidthCm,
+        middleMatWidthCm: simulatorConfig?.middleMatWidthCm,
+        outerFrameWidthCm: simulatorConfig?.outerFrameWidthCm,
+        innerMatColor: simulatorConfig?.innerMatColor,
+        outerMatColor: simulatorConfig?.outerMatColor,
+        customPaintingUrl: simulatorConfig?.customPaintingUrl,
+        customPaintingFile: simulatorConfig?.customPaintingFile,
+        inclusionFlags: simulatorConfig?.flags,
+        customOverridePrice: simulatorConfig?.customOverridePrice
       };
     });
 
@@ -348,6 +373,21 @@ export async function createOrderInSupabase(
   const deliveryMethodCode = order.deliveryMethod === "pickup" ? "store" : (order.deliveryMethod || "store");
   const validDeliveryMethod = ["store", "shipping", "special_delivery"].includes(deliveryMethodCode) ? deliveryMethodCode : "store";
 
+  const simulatorSnapshot = order.simulatorConfig || {
+    innerProfileId: order.innerProfileId,
+    outerProfileId: order.outerProfileId,
+    matWidthCm: order.matWidthCm,
+    frameWidthCm: order.frameWidthCm,
+    middleMatWidthCm: order.middleMatWidthCm,
+    outerFrameWidthCm: order.outerFrameWidthCm,
+    innerMatColor: order.innerMatColor,
+    outerMatColor: order.outerMatColor,
+    customPaintingUrl: order.customPaintingUrl,
+    customPaintingFile: order.customPaintingFile,
+    flags: order.inclusionFlags,
+    customOverridePrice: order.customOverridePrice
+  };
+
   // Standard schema payload
   const primaryPayload: any = {
     tenant_id: tenantId,
@@ -366,7 +406,8 @@ export async function createOrderInSupabase(
     currency: order.currency || "₺",
     status: order.status || "quote",
     delivery_method: validDeliveryMethod,
-    author_user_name: order.authorUser || "Yetkili Personel"
+    author_user_name: order.authorUser || "Yetkili Personel",
+    notes: JSON.stringify(simulatorSnapshot)
   };
 
   try {

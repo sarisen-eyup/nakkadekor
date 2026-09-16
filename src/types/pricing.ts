@@ -333,6 +333,21 @@ export interface OrderArchiveItem {
   status: OrderStatus;
   deliveryMethod: "store" | "shipping";
   authorUser?: string;
+
+  // Genişletilmiş Simülatör Konfigürasyonu (Düzenleme ve Simülatöre Aktarma için)
+  innerProfileId?: string;
+  outerProfileId?: string;
+  matWidthCm?: number;
+  frameWidthCm?: number;
+  middleMatWidthCm?: number;
+  outerFrameWidthCm?: number;
+  innerMatColor?: string;
+  outerMatColor?: string;
+  customPaintingUrl?: string | null;
+  customPaintingFile?: string;
+  inclusionFlags?: MaterialInclusionFlags;
+  customOverridePrice?: number | null;
+  simulatorConfig?: Record<string, any>;
 }
 
 export const DEFAULT_ARCHIVE_ORDERS: OrderArchiveItem[] = [];

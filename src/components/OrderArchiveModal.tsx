@@ -525,13 +525,14 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
                               onClose();
                             }}
                             title="Bu Siparişi Simülatöre Aktar & Düzenle"
-                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold tracking-tight transition-all active:scale-95 cursor-pointer ${
                               isDarkMode 
-                                ? "bg-[#181b22] border-white/10 text-neutral-300 hover:text-white hover:border-white/30" 
-                                : "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200"
+                                ? "bg-blue-500/15 border-blue-500/30 text-blue-400 hover:bg-blue-500/25 hover:border-blue-400" 
+                                : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:border-blue-300"
                             }`}
                           >
-                            <RotateCcw className="w-3.5 h-3.5" />
+                            <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                            <span>Simülatöre Aktar</span>
                           </button>
 
                           {/* Sil */}

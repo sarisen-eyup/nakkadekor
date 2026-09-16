@@ -358,7 +358,17 @@ export default function App() {
   });
   const [customOverridePrice, setCustomOverridePrice] = useState<number | null>(null);
 
-  const [orderNumber] = useState<string>(() => generateOrderNumber());
+  const [orderNumber, setOrderNumber] = useState<string>(() => generateOrderNumber());
+  const [toastMessage, setToastMessage] = useState<{ text: string; type?: "success" | "info" } | null>(null);
+
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
   const [activeSidebarTab, setActiveSidebarTab] = useState<"artwork" | "framing" | "materials" | "all">("artwork");
   const [inclusionFlags, setInclusionFlags] = useState<MaterialInclusionFlags>({
     includeArtworkPrint: false,
@@ -522,8 +532,7 @@ export default function App() {
   };
 
   const handleDeleteArchiveOrder = (orderId: string) => {
-    const updated = deleteOrderFromArchive(orderId);
-    setArchiveOrders(updated);
+    setArchiveOrders(prev => prev.filter(o => o.id !== orderId));
     if (isSupabaseConfigured()) {
       (async () => {
         try {
@@ -722,16 +731,6 @@ export default function App() {
     };
   }, [authSession?.userId, authSession?.isLoggedIn]);
 
-  const handleLoadOrderToWorkspace = (order: OrderArchiveItem) => {
-    if (order.artworkWidthCm) setWidthInput(String(order.artworkWidthCm));
-    if (order.artworkHeightCm) setHeightInput(String(order.artworkHeightCm));
-    if (order.customerName) setCustomerName(order.customerName);
-    if (order.customerPhone) setCustomerPhone(order.customerPhone);
-    if (order.deliveryDate) setDeliveryDate(order.deliveryDate);
-    if (order.deliveryMethod) setDeliveryMethod(order.deliveryMethod);
-    setIsArchiveModalOpen(false);
-  };
-
   const handleUpdateSubscription = (sub: SubscriptionData) => {
     setSubscriptionData(sub);
     saveSubscriptionToStorage(sub);
@@ -860,6 +859,159 @@ export default function App() {
       setCustomOuterFrameFile("Yok");
       setInclusionFlags(prev => ({ ...prev, includeOuterFrame: false }));
     }
+  };
+
+  const handleLoadOrderToWorkspace = (order: OrderArchiveItem) => {
+    // 1. Sipariş Numarasını güncelle
+    if (order.orderNumber) {
+      setOrderNumber(order.orderNumber);
+    }
+
+    // 2. Müşteri ve Teslimat Bilgilerini yükle
+    if (order.customerName) setCustomerName(order.customerName);
+    if (order.customerPhone) setCustomerPhone(order.customerPhone);
+    if (order.deliveryDate) setDeliveryDate(order.deliveryDate);
+    if (order.deliveryMethod) {
+      setDeliveryMethod(order.deliveryMethod === "pickup" ? "store" : order.deliveryMethod);
+    }
+
+    // 3. Eser Ölçülerini yükle
+    if (order.artworkWidthCm) setWidthInput(String(order.artworkWidthCm));
+    if (order.artworkHeightCm) setHeightInput(String(order.artworkHeightCm));
+
+    // 4. Kayıtlı eser görselini yükle
+    const savedPainting = order.customPaintingUrl || order.simulatorConfig?.customPaintingUrl;
+    if (savedPainting) {
+      setCustomPaintingUrl(savedPainting);
+      setCustomPaintingFile(order.customPaintingFile || order.simulatorConfig?.customPaintingFile || "Kayıtlı Eser Görseli");
+    }
+
+    // 5. İç Çerçeve Profilini bul ve yükle
+    const targetInnerId = order.innerProfileId || order.simulatorConfig?.innerProfileId;
+    let foundInner = targetInnerId ? frameProfiles.find(p => p.id === targetInnerId) : null;
+    if (!foundInner && order.innerFrameTitle && order.innerFrameTitle !== "Çerçeve Seçilmedi" && order.innerFrameTitle !== "Yok") {
+      const cleanTitle = order.innerFrameTitle.toLowerCase().trim();
+      foundInner = frameProfiles.find(p => 
+        cleanTitle.includes(p.code.toLowerCase()) || 
+        p.name.toLowerCase().includes(cleanTitle) ||
+        cleanTitle.includes(p.name.toLowerCase())
+      );
+    }
+
+    if (foundInner) {
+      handleSelectInnerProfile(foundInner.id);
+      const customW = order.frameWidthCm || order.simulatorConfig?.frameWidthCm;
+      if (customW) {
+        setFrameWidthInput(String(customW));
+      }
+      setInclusionFlags(prev => ({ ...prev, includeInnerFrame: true }));
+    } else if (order.innerFrameTitle && order.innerFrameTitle !== "Çerçeve Seçilmedi" && order.innerFrameTitle !== "Yok") {
+      setCustomFrameFile(order.innerFrameTitle);
+      const widthMatch = order.innerFrameTitle.match(/([\d.,]+)\s*cm/i);
+      if (widthMatch) {
+        setFrameWidthInput(widthMatch[1].replace(",", "."));
+      } else if (order.frameWidthCm) {
+        setFrameWidthInput(String(order.frameWidthCm));
+      }
+      setInclusionFlags(prev => ({ ...prev, includeInnerFrame: true }));
+    }
+
+    // 6. Dış Çerçeve Profilini bul ve yükle
+    const targetOuterId = order.outerProfileId || order.simulatorConfig?.outerProfileId;
+    let foundOuter = targetOuterId ? frameProfiles.find(p => p.id === targetOuterId) : null;
+    if (!foundOuter && order.outerFrameTitle && order.outerFrameTitle !== "Yok" && order.outerFrameTitle !== "Çerçeve Seçilmedi") {
+      const cleanTitle = order.outerFrameTitle.toLowerCase().trim();
+      foundOuter = frameProfiles.find(p => 
+        cleanTitle.includes(p.code.toLowerCase()) || 
+        p.name.toLowerCase().includes(cleanTitle) ||
+        cleanTitle.includes(p.name.toLowerCase())
+      );
+    }
+
+    if (foundOuter) {
+      handleSelectOuterProfile(foundOuter.id);
+      const customOuterW = order.outerFrameWidthCm || order.simulatorConfig?.outerFrameWidthCm;
+      if (customOuterW) {
+        setOuterFrameWidthInput(String(customOuterW));
+      }
+      setInclusionFlags(prev => ({ ...prev, includeOuterFrame: true }));
+    } else if (order.outerFrameTitle && order.outerFrameTitle !== "Yok" && order.outerFrameTitle !== "Çerçeve Seçilmedi") {
+      setCustomOuterFrameFile(order.outerFrameTitle);
+      const widthMatch = order.outerFrameTitle.match(/([\d.,]+)\s*cm/i);
+      if (widthMatch) {
+        setOuterFrameWidthInput(widthMatch[1].replace(",", "."));
+      } else if (order.outerFrameWidthCm) {
+        setOuterFrameWidthInput(String(order.outerFrameWidthCm));
+      }
+      setInclusionFlags(prev => ({ ...prev, includeOuterFrame: true }));
+    } else {
+      handleSelectOuterProfile("");
+    }
+
+    // 7. Paspartu ve Renkleri
+    if (order.matWidthCm !== undefined) {
+      setMatWidthInput(String(order.matWidthCm));
+      setInclusionFlags(prev => ({ ...prev, includeInnerMat: Number(order.matWidthCm) > 0 }));
+    } else if (order.matInfo) {
+      if (order.matInfo.toLowerCase().includes("paspartusuz") || order.matInfo.toLowerCase().includes("yok")) {
+        setMatWidthInput("0");
+        setInclusionFlags(prev => ({ ...prev, includeInnerMat: false }));
+      } else {
+        const matMatch = order.matInfo.match(/([\d.,]+)\s*cm/i);
+        if (matMatch) {
+          const parsedWidth = matMatch[1].replace(",", ".");
+          setMatWidthInput(parsedWidth);
+          setInclusionFlags(prev => ({ ...prev, includeInnerMat: parseFloat(parsedWidth) > 0 }));
+        }
+        const matText = order.matInfo.toLowerCase();
+        if (matText.includes("siyah")) setInnerMatColor("#1C1C1E");
+        else if (matText.includes("beyaz")) setInnerMatColor("#FFFFFF");
+        else if (matText.includes("krem")) setInnerMatColor("#FAF9F5");
+        else if (matText.includes("antrasit")) setInnerMatColor("#2C2C2E");
+        else if (matText.includes("şeffaf") || matText.includes("seffaf") || matText.includes("cam")) setInnerMatColor("transparent");
+      }
+    }
+
+    if (order.innerMatColor || order.simulatorConfig?.innerMatColor) {
+      setInnerMatColor(order.innerMatColor || order.simulatorConfig?.innerMatColor);
+    }
+    if (order.outerMatColor || order.simulatorConfig?.outerMatColor) {
+      setOuterMatColor(order.outerMatColor || order.simulatorConfig?.outerMatColor);
+    }
+
+    // 8. 3D Ara Paspartu
+    const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm;
+    if (middleMatW !== undefined) {
+      setMiddleMatWidthInput(String(middleMatW));
+      setInclusionFlags(prev => ({ ...prev, includeMiddleMat: Number(middleMatW) > 0 }));
+    }
+
+    // 9. Malzeme Dahil Edilme Bayrakları
+    const flags = order.inclusionFlags || order.simulatorConfig?.flags;
+    if (flags) {
+      setInclusionFlags(flags);
+    }
+
+    // 10. Özel Fiyat
+    const override = order.customOverridePrice ?? order.simulatorConfig?.customOverridePrice;
+    if (override !== undefined) {
+      setCustomOverridePrice(override);
+    }
+
+    // 11. Modalı kapat
+    setIsArchiveModalOpen(false);
+
+    // 12. Çerçeveleme sekmesini aktif yap (kullanıcı hemen görseli ve ölçüleri görsün)
+    setActiveSidebarTab("framing");
+
+    // 13. Sayfayı simülatör görsel alanına kaydır
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // 14. Bilgilendirici Toast uyarısı ver
+    setToastMessage({
+      text: `${order.orderNumber} numaralı sipariş simülatöre aktarıldı. Çerçeve ve paspartuyu düzenleyebilirsiniz.`,
+      type: "success"
+    });
   };
 
   // Select initial inner frame profile if none selected
@@ -1729,17 +1881,56 @@ Durum: Onaylandi / Uretime Hazir`;
       currency: "₺",
       status: "quote",
       deliveryMethod: deliveryMethod,
-      authorUser: activeUser?.fullName || "Yetkili Personel"
+      authorUser: activeUser?.fullName || "Yetkili Personel",
+
+      // Simülatör yapılandırma anlık görüntüsü
+      innerProfileId: selectedInnerProfileId,
+      outerProfileId: selectedOuterProfileId,
+      matWidthCm: matWidth,
+      frameWidthCm: frameWidth,
+      middleMatWidthCm: middleMatWidth,
+      outerFrameWidthCm: outerFrameWidth,
+      innerMatColor: innerMatColor,
+      outerMatColor: outerMatColor,
+      customPaintingUrl: customPaintingUrl,
+      customPaintingFile: customPaintingFile,
+      inclusionFlags: effectiveInclusionFlags,
+      customOverridePrice: customOverridePrice,
+      simulatorConfig: {
+        innerProfileId: selectedInnerProfileId,
+        outerProfileId: selectedOuterProfileId,
+        matWidthCm: matWidth,
+        frameWidthCm: frameWidth,
+        middleMatWidthCm: middleMatWidth,
+        outerFrameWidthCm: outerFrameWidth,
+        innerMatColor: innerMatColor,
+        outerMatColor: outerMatColor,
+        customPaintingUrl: customPaintingUrl,
+        customPaintingFile: customPaintingFile,
+        flags: effectiveInclusionFlags,
+        customOverridePrice: customOverridePrice
+      }
     };
-    const updatedArchive = addOrderToArchive(newArchiveItem);
-    setArchiveOrders(updatedArchive);
+
+    // Mevcut siparişleri ezmeden yeni siparişi başa ekle
+    setArchiveOrders(prev => {
+      const filtered = prev.filter(o => o.orderNumber !== newArchiveItem.orderNumber && o.id !== newArchiveItem.id);
+      return [newArchiveItem, ...filtered];
+    });
+
+    setToastMessage({
+      text: `${orderNumber} numaralı sipariş başarıyla arşive eklendi.`,
+      type: "success"
+    });
 
     if (isSupabaseConfigured()) {
       (async () => {
         try {
-          const { error } = await createOrderInSupabase(newArchiveItem);
+          const { data, error } = await createOrderInSupabase(newArchiveItem);
           if (error) {
             console.warn("Supabase createOrder sync warning:", error);
+          } else if (data && data.id) {
+            setArchiveOrders(prev => prev.map(o => o.orderNumber === newArchiveItem.orderNumber ? { ...o, id: data.id } : o));
           }
         } catch (err) {
           console.warn("Supabase createOrder sync exception:", err);
@@ -2845,6 +3036,25 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         outerFrameLayoutMode={outerFrameLayoutMode}
         lightingStyle={lightingStyle}
       />
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-neutral-900/95 text-white px-4 py-3 rounded-2xl border border-[#C5A059]/40 shadow-2xl backdrop-blur-md flex items-center gap-3 animate-in fade-in slide-in-from-bottom-3 duration-300">
+          <div className="w-8 h-8 rounded-full bg-[#C5A059]/20 text-[#C5A059] flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <div className="flex-1 text-xs sm:text-sm font-medium">
+            {toastMessage.text}
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="text-neutral-400 hover:text-white p-1 rounded-lg cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
     </div>
   );
