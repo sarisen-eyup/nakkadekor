@@ -136,14 +136,14 @@ export function CostBreakdownModal({
         </div>
 
         {/* Content & Printable Area */}
-        <div ref={printRef} className="p-6 overflow-y-auto space-y-6 flex-1 print:p-0 print:bg-white print:text-black">
+        <div ref={printRef} className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 print:p-0 print:bg-white print:text-black">
           
           {/* Printable Corporate Header */}
           <div className="hidden print:block border-b-2 border-black pb-4 mb-4">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold font-mono uppercase tracking-wider">NAKKA DECOR & ART STUDIO</h1>
-                <p className="text-xs font-mono text-gray-600">KURUMSAL SİPARİŞ MALIYET VE TEKLİF DÖKÜMÜ</p>
+                <p className="text-xs font-mono text-gray-600">KURUMSAL SİPARİŞ MALİYET VE TEKLİF DÖKÜMÜ</p>
               </div>
               <div className="text-right font-mono text-xs">
                 <p className="font-bold text-sm text-black">SİPARİŞ NO: {orderNumber}</p>
@@ -158,142 +158,158 @@ export function CostBreakdownModal({
             </div>
           </div>
 
-          {/* Section 0: Material Toggles (Seçme Butonları) */}
-          <div className={`print:hidden border rounded-md p-4 space-y-3 ${
-            isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
+          {/* Section 0: Material Toggles (Derli Toplu & Modern Kompakt Görünüm) */}
+          <div className={`print:hidden border rounded-xl p-3.5 transition-all shadow-xs ${
+            isDarkMode 
+              ? "bg-[#181a1d] border-neutral-800" 
+              : "bg-[#fdfbf8] border-[#e8dfcf]"
           }`}>
-            <div className="flex items-center justify-between">
-              <h3 className={`text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 ${
-                isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
-              }`}>
-                <CheckSquare className="w-4 h-4" /> Fiyata Dahil Edilecek Ürünleri / Hizmetleri Seçin
-              </h3>
-              <span className={`text-[10px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                (İşaretlenmeyen ürünler maliyete eklenmez)
+            <div className="flex items-center justify-between mb-2.5 pb-2 border-b dark:border-neutral-800 border-[#e8dfcf]">
+              <div className="flex items-center gap-2">
+                <div className={`p-1 rounded ${isDarkMode ? "bg-[#C5A059]/15 text-[#C5A059]" : "bg-[#B88E3A]/15 text-[#B88E3A]"}`}>
+                  <CheckSquare className="w-3.5 h-3.5" />
+                </div>
+                <h3 className={`text-xs font-bold uppercase tracking-wider ${
+                  isDarkMode ? "text-neutral-200" : "text-[#7A5A19]"
+                }`}>
+                  Hesaba Dahil Edilen Malzeme & Hizmetler
+                </h3>
+              </div>
+              <span className={`text-[11px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                Tıklayarak fiyata ekleyip çıkarabilirsiniz
               </span>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-              <label 
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-xs">
+              <button 
+                type="button"
                 onClick={() => onToggleFlag('includeArtworkPrint')}
-                className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left cursor-pointer transition-all ${
                   flags.includeArtworkPrint 
-                    ? (isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059] text-white font-medium" : "bg-[#B88E3A]/15 border-[#B88E3A] text-slate-900 font-semibold")
-                    : (isDarkMode ? "bg-[#121415] border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white border-slate-200 text-slate-600 hover:text-slate-900")
+                    ? (isDarkMode ? "bg-[#C5A059]/15 border-[#C5A059]/60 text-white font-medium shadow-2xs" : "bg-white border-[#B88E3A] text-[#7A5A19] font-bold shadow-xs")
+                    : (isDarkMode ? "bg-[#121415]/60 border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white/60 border-slate-200 text-slate-400 hover:text-slate-700")
                 }`}
               >
-                {flags.includeArtworkPrint ? <CheckSquare className={`w-4 h-4 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-4 h-4 shrink-0" />}
-                <span className="truncate">Canvas Baskı</span>
-              </label>
+                {flags.includeArtworkPrint ? <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-3.5 h-3.5 shrink-0 text-neutral-400" />}
+                <span className="truncate">Kanvas / Tuval Baskı</span>
+              </button>
 
-              <label 
+              <button 
+                type="button"
                 onClick={() => onToggleFlag('includeInnerMat')}
-                className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left cursor-pointer transition-all ${
                   flags.includeInnerMat 
-                    ? (isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059] text-white font-medium" : "bg-[#B88E3A]/15 border-[#B88E3A] text-slate-900 font-semibold")
-                    : (isDarkMode ? "bg-[#121415] border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white border-slate-200 text-slate-600 hover:text-slate-900")
+                    ? (isDarkMode ? "bg-[#C5A059]/15 border-[#C5A059]/60 text-white font-medium shadow-2xs" : "bg-white border-[#B88E3A] text-[#7A5A19] font-bold shadow-xs")
+                    : (isDarkMode ? "bg-[#121415]/60 border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white/60 border-slate-200 text-slate-400 hover:text-slate-700")
                 }`}
               >
-                {flags.includeInnerMat ? <CheckSquare className={`w-4 h-4 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-4 h-4 shrink-0" />}
-                <span className="truncate">İç Paspartu</span>
-              </label>
+                {flags.includeInnerMat ? <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-3.5 h-3.5 shrink-0 text-neutral-400" />}
+                <span className="truncate">İç Paspartu Kartonu</span>
+              </button>
 
-              <label 
+              <button 
+                type="button"
                 onClick={() => onToggleFlag('includeInnerFrame')}
-                className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left cursor-pointer transition-all ${
                   flags.includeInnerFrame 
-                    ? (isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059] text-white font-medium" : "bg-[#B88E3A]/15 border-[#B88E3A] text-slate-900 font-semibold")
-                    : (isDarkMode ? "bg-[#121415] border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white border-slate-200 text-slate-600 hover:text-slate-900")
+                    ? (isDarkMode ? "bg-[#C5A059]/15 border-[#C5A059]/60 text-white font-medium shadow-2xs" : "bg-white border-[#B88E3A] text-[#7A5A19] font-bold shadow-xs")
+                    : (isDarkMode ? "bg-[#121415]/60 border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white/60 border-slate-200 text-slate-400 hover:text-slate-700")
                 }`}
               >
-                {flags.includeInnerFrame ? <CheckSquare className={`w-4 h-4 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-4 h-4 shrink-0" />}
-                <span className="truncate">Ana Çerçeve Profil</span>
-              </label>
+                {flags.includeInnerFrame ? <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-3.5 h-3.5 shrink-0 text-neutral-400" />}
+                <span className="truncate">Ana Çerçeve Profili</span>
+              </button>
 
-              <label 
+              <button 
+                type="button"
                 onClick={() => onToggleFlag('includeMiddleMat')}
-                className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left cursor-pointer transition-all ${
                   flags.includeMiddleMat 
-                    ? (isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059] text-white font-medium" : "bg-[#B88E3A]/15 border-[#B88E3A] text-slate-900 font-semibold")
-                    : (isDarkMode ? "bg-[#121415] border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white border-slate-200 text-slate-600 hover:text-slate-900")
+                    ? (isDarkMode ? "bg-[#C5A059]/15 border-[#C5A059]/60 text-white font-medium shadow-2xs" : "bg-white border-[#B88E3A] text-[#7A5A19] font-bold shadow-xs")
+                    : (isDarkMode ? "bg-[#121415]/60 border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white/60 border-slate-200 text-slate-400 hover:text-slate-700")
                 }`}
               >
-                {flags.includeMiddleMat ? <CheckSquare className={`w-4 h-4 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-4 h-4 shrink-0" />}
-                <span className="truncate">Ara Paspartu (3D)</span>
-              </label>
+                {flags.includeMiddleMat ? <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-3.5 h-3.5 shrink-0 text-neutral-400" />}
+                <span className="truncate">3D Ara Paspartu</span>
+              </button>
 
-              <label 
+              <button 
+                type="button"
                 onClick={() => onToggleFlag('includeOuterFrame')}
-                className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left cursor-pointer transition-all ${
                   flags.includeOuterFrame 
-                    ? (isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059] text-white font-medium" : "bg-[#B88E3A]/15 border-[#B88E3A] text-slate-900 font-semibold")
-                    : (isDarkMode ? "bg-[#121415] border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white border-slate-200 text-slate-600 hover:text-slate-900")
+                    ? (isDarkMode ? "bg-[#C5A059]/15 border-[#C5A059]/60 text-white font-medium shadow-2xs" : "bg-white border-[#B88E3A] text-[#7A5A19] font-bold shadow-xs")
+                    : (isDarkMode ? "bg-[#121415]/60 border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white/60 border-slate-200 text-slate-400 hover:text-slate-700")
                 }`}
               >
-                {flags.includeOuterFrame ? <CheckSquare className={`w-4 h-4 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-4 h-4 shrink-0" />}
-                <span className="truncate">Dış Kasa Çerçeve</span>
-              </label>
+                {flags.includeOuterFrame ? <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-3.5 h-3.5 shrink-0 text-neutral-400" />}
+                <span className="truncate">Dış Kasa Çerçeve Profili</span>
+              </button>
 
-              <label 
+              <button 
+                type="button"
                 onClick={() => onToggleFlag('includeGlass')}
-                className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left cursor-pointer transition-all ${
                   flags.includeGlass 
-                    ? (isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059] text-white font-medium" : "bg-[#B88E3A]/15 border-[#B88E3A] text-slate-900 font-semibold")
-                    : (isDarkMode ? "bg-[#121415] border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white border-slate-200 text-slate-600 hover:text-slate-900")
+                    ? (isDarkMode ? "bg-[#C5A059]/15 border-[#C5A059]/60 text-white font-medium shadow-2xs" : "bg-white border-[#B88E3A] text-[#7A5A19] font-bold shadow-xs")
+                    : (isDarkMode ? "bg-[#121415]/60 border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white/60 border-slate-200 text-slate-400 hover:text-slate-700")
                 }`}
               >
-                {flags.includeGlass ? <CheckSquare className={`w-4 h-4 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-4 h-4 shrink-0" />}
-                <span className="truncate">Koruyucu Cam</span>
-              </label>
+                {flags.includeGlass ? <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-3.5 h-3.5 shrink-0 text-neutral-400" />}
+                <span className="truncate">Koruyucu Cam / Pleksi</span>
+              </button>
 
-              <label 
+              <button 
+                type="button"
                 onClick={() => onToggleFlag('includeBackingBoard')}
-                className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left cursor-pointer transition-all ${
                   flags.includeBackingBoard 
-                    ? (isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059] text-white font-medium" : "bg-[#B88E3A]/15 border-[#B88E3A] text-slate-900 font-semibold")
-                    : (isDarkMode ? "bg-[#121415] border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white border-slate-200 text-slate-600 hover:text-slate-900")
+                    ? (isDarkMode ? "bg-[#C5A059]/15 border-[#C5A059]/60 text-white font-medium shadow-2xs" : "bg-white border-[#B88E3A] text-[#7A5A19] font-bold shadow-xs")
+                    : (isDarkMode ? "bg-[#121415]/60 border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white/60 border-slate-200 text-slate-400 hover:text-slate-700")
                 }`}
               >
-                {flags.includeBackingBoard ? <CheckSquare className={`w-4 h-4 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-4 h-4 shrink-0" />}
-                <span className="truncate">MDF Arkalık</span>
-              </label>
+                {flags.includeBackingBoard ? <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-3.5 h-3.5 shrink-0 text-neutral-400" />}
+                <span className="truncate">3mm MDF Arka Kapama</span>
+              </button>
 
-              <label 
-                onClick={() => onToggleFlag('includeBackingPaper')}
-                className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${
-                  (flags.includeBackingPaper || flags.includeBackingCloth || flags.includeKraftTape)
-                    ? (isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059] text-white font-medium" : "bg-[#B88E3A]/15 border-[#B88E3A] text-slate-900 font-semibold")
-                    : (isDarkMode ? "bg-[#121415] border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white border-slate-200 text-slate-600 hover:text-slate-900")
+              <button 
+                type="button"
+                onClick={() => onToggleFlag('includeBackingCloth')}
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left cursor-pointer transition-all ${
+                  (flags.includeBackingCloth || flags.includeBackingPaper)
+                    ? (isDarkMode ? "bg-[#C5A059]/15 border-[#C5A059]/60 text-white font-medium shadow-2xs" : "bg-white border-[#B88E3A] text-[#7A5A19] font-bold shadow-xs")
+                    : (isDarkMode ? "bg-[#121415]/60 border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white/60 border-slate-200 text-slate-400 hover:text-slate-700")
                 }`}
               >
-                {(flags.includeBackingPaper || flags.includeBackingCloth || flags.includeKraftTape) ? <CheckSquare className={`w-4 h-4 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-4 h-4 shrink-0" />}
-                <span className="truncate">Kapama Bezi / Kraft</span>
-              </label>
+                {(flags.includeBackingCloth || flags.includeBackingPaper) ? <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-3.5 h-3.5 shrink-0 text-neutral-400" />}
+                <span className="truncate">Arkalık Koruma Bezi</span>
+              </button>
 
-              <label 
+              <button 
+                type="button"
                 onClick={() => onToggleFlag('includeLaborCost')}
-                className={`flex items-center gap-2 p-2 rounded border cursor-pointer transition-all ${
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left cursor-pointer transition-all ${
                   flags.includeLaborCost 
-                    ? (isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059] text-white font-medium" : "bg-[#B88E3A]/15 border-[#B88E3A] text-slate-900 font-semibold")
-                    : (isDarkMode ? "bg-[#121415] border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white border-slate-200 text-slate-600 hover:text-slate-900")
+                    ? (isDarkMode ? "bg-[#C5A059]/15 border-[#C5A059]/60 text-white font-medium shadow-2xs" : "bg-white border-[#B88E3A] text-[#7A5A19] font-bold shadow-xs")
+                    : (isDarkMode ? "bg-[#121415]/60 border-neutral-800 text-neutral-500 hover:text-neutral-300" : "bg-white/60 border-slate-200 text-slate-400 hover:text-slate-700")
                 }`}
               >
-                {flags.includeLaborCost ? <CheckSquare className={`w-4 h-4 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-4 h-4 shrink-0" />}
-                <span className="truncate">Sabit İşçilik</span>
-              </label>
+                {flags.includeLaborCost ? <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> : <Square className="w-3.5 h-3.5 shrink-0 text-neutral-400" />}
+                <span className="truncate">Atölye Sabit El İşçiliği</span>
+              </button>
             </div>
           </div>
 
-          {/* Top Stat Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
+          {/* Top Stat Cards (Dengeli, Şık ve Yüksek Kontrastlı) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 print:grid-cols-3 print:gap-2">
             
             {isShopMode ? (
               <>
-                <div className={`print:bg-gray-100 border print:border-gray-300 p-4 rounded-md space-y-1 ${
-                  isDarkMode ? "bg-[#1a1d1f] border-neutral-800" : "bg-slate-50 border-slate-200"
+                <div className={`print:bg-gray-100 border print:border-gray-300 p-4 rounded-xl space-y-1 transition-all ${
+                  isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-white border-[#e8dfcf] shadow-2xs"
                 }`}>
-                  <span className={`text-[10px] font-mono uppercase tracking-wider print:text-gray-600 block ${
-                    isDarkMode ? "text-neutral-400" : "text-slate-500"
+                  <span className={`text-[10px] font-mono uppercase tracking-wider print:text-gray-600 block font-bold ${
+                    isDarkMode ? "text-neutral-400" : "text-[#7A5A19]"
                   }`}>
                     01. Toplam Malzeme & Atık
                   </span>
@@ -302,18 +318,18 @@ export function CostBreakdownModal({
                   }`}>
                     ₺{breakdown.totalMaterialCost.toFixed(2)}
                   </div>
-                  <span className={`text-[10px] print:text-gray-500 font-mono block ${
-                    isDarkMode ? "text-neutral-500" : "text-slate-500"
+                  <span className={`text-[11px] print:text-gray-500 font-mono block ${
+                    isDarkMode ? "text-neutral-400" : "text-slate-500"
                   }`}>
-                    Seçili Kalemler + %{settings.wastePercentage} Atık Payı
+                    Seçili Malzemeler + %{settings.wastePercentage} Atık Payı
                   </span>
                 </div>
 
-                <div className={`print:bg-gray-100 border print:border-gray-300 p-4 rounded-md space-y-1 ${
-                  isDarkMode ? "bg-[#1a1d1f] border-neutral-800" : "bg-slate-50 border-slate-200"
+                <div className={`print:bg-gray-100 border print:border-gray-300 p-4 rounded-xl space-y-1 transition-all ${
+                  isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-white border-[#e8dfcf] shadow-2xs"
                 }`}>
-                  <span className={`text-[10px] font-mono uppercase tracking-wider print:text-gray-600 block ${
-                    isDarkMode ? "text-neutral-400" : "text-slate-500"
+                  <span className={`text-[10px] font-mono uppercase tracking-wider print:text-gray-600 block font-bold ${
+                    isDarkMode ? "text-neutral-400" : "text-[#7A5A19]"
                   }`}>
                     02. Toplam Atölye Maliyeti
                   </span>
@@ -322,8 +338,8 @@ export function CostBreakdownModal({
                   }`}>
                     ₺{breakdown.totalDirectCost.toFixed(2)}
                   </div>
-                  <span className={`text-[10px] print:text-gray-500 font-mono block ${
-                    isDarkMode ? "text-neutral-500" : "text-slate-500"
+                  <span className={`text-[11px] print:text-gray-500 font-mono block ${
+                    isDarkMode ? "text-neutral-400" : "text-slate-500"
                   }`}>
                     Malzeme + {flags.includeLaborCost ? `₺${settings.laborFixedCost} Sabit İşçilik` : 'İşçiliksiz'}
                   </span>
@@ -331,11 +347,11 @@ export function CostBreakdownModal({
               </>
             ) : (
               <>
-                <div className={`print:bg-gray-100 border print:border-gray-300 p-4 rounded-md space-y-1 ${
-                  isDarkMode ? "bg-[#1a1d1f] border-neutral-800" : "bg-slate-50 border-slate-200"
+                <div className={`print:bg-gray-100 border print:border-gray-300 p-4 rounded-xl space-y-1 transition-all ${
+                  isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-white border-[#e8dfcf] shadow-2xs"
                 }`}>
-                  <span className={`text-[10px] font-mono uppercase tracking-wider print:text-gray-600 block ${
-                    isDarkMode ? "text-neutral-400" : "text-slate-500"
+                  <span className={`text-[10px] font-mono uppercase tracking-wider print:text-gray-600 block font-bold ${
+                    isDarkMode ? "text-neutral-400" : "text-[#7A5A19]"
                   }`}>
                     01. Teslimat Yöntemi
                   </span>
@@ -344,50 +360,52 @@ export function CostBreakdownModal({
                   }`}>
                     {breakdown.deliveryMethod === 'shipping' ? '🚚 Adrese Teslim Kargo' : '🏪 Mağazada Teslim'}
                   </div>
-                  <span className={`text-[10px] print:text-gray-500 font-mono block ${
-                    isDarkMode ? "text-neutral-500" : "text-slate-500"
+                  <span className={`text-[11px] print:text-gray-500 font-mono block ${
+                    isDarkMode ? "text-neutral-400" : "text-slate-500"
                   }`}>
                     {breakdown.deliveryMethod === 'shipping' ? `+₺${breakdown.shippingCost} Kargo Bedeli` : 'Ücretsiz'}
                   </span>
                 </div>
 
-                <div className={`print:bg-gray-100 border print:border-gray-300 p-4 rounded-md space-y-1 ${
-                  isDarkMode ? "bg-[#1a1d1f] border-neutral-800" : "bg-slate-50 border-slate-200"
+                <div className={`print:bg-gray-100 border print:border-gray-300 p-4 rounded-xl space-y-1 transition-all ${
+                  isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-white border-[#e8dfcf] shadow-2xs"
                 }`}>
-                  <span className={`text-[10px] font-mono uppercase tracking-wider print:text-gray-600 block ${
-                    isDarkMode ? "text-neutral-400" : "text-slate-500"
+                  <span className={`text-[10px] font-mono uppercase tracking-wider print:text-gray-600 block font-bold ${
+                    isDarkMode ? "text-neutral-400" : "text-[#7A5A19]"
                   }`}>
                     02. Atölye Maliyet Analizi
                   </span>
                   <div className={`text-sm font-mono font-bold flex items-center gap-1.5 ${
-                    isDarkMode ? "text-amber-400" : "text-amber-700"
+                    isDarkMode ? "text-[#C5A059]" : "text-[#8C6B23]"
                   }`}>
                     <Lock className="w-4 h-4" /> KİLİTLİ (GİZLİ)
                   </div>
-                  <span className={`text-[10px] print:text-gray-500 font-mono block ${
-                    isDarkMode ? "text-neutral-500" : "text-slate-500"
+                  <span className={`text-[11px] print:text-gray-500 font-mono block ${
+                    isDarkMode ? "text-neutral-400" : "text-slate-500"
                   }`}>
-                    Müşteri Görünümü
+                    Müşteri Görünümü (Maliyetler Korunuyor)
                   </span>
                 </div>
               </>
             )}
 
-            <div className={`print:bg-gray-200 border print:border-black p-4 rounded-md space-y-1 ${
-              isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/40 bg-[#C5A059]/5" : "bg-[#B88E3A]/10 border-[#B88E3A]/40"
+            <div className={`print:bg-gray-200 border print:border-black p-4 rounded-xl space-y-1 transition-all ${
+              isDarkMode 
+                ? "bg-[#1a1d1f] border-[#C5A059]/40 bg-[#C5A059]/10" 
+                : "bg-amber-50/80 border-amber-300/80 shadow-xs"
             }`}>
               <span className={`text-[10px] font-mono uppercase tracking-wider print:text-black font-bold block ${
-                isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                isDarkMode ? "text-[#C5A059]" : "text-[#7A5A19]"
               }`}>
                 03. Nihai Satış Fiyatı (KDV Dahil)
               </span>
               <div className={`text-2xl font-mono font-bold print:text-black ${
-                isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                isDarkMode ? "text-[#C5A059]" : "text-[#8C6B23]"
               }`}>
                 ₺{breakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}
               </div>
-              <span className={`text-[10px] print:text-gray-700 font-mono block ${
-                isDarkMode ? "text-[#C5A059]/80" : "text-[#B88E3A]"
+              <span className={`text-[11px] print:text-gray-700 font-mono block ${
+                isDarkMode ? "text-[#C5A059]/80" : "text-[#7A5A19]"
               }`}>
                 {isShopMode ? `%{settings.targetProfitMarginPercent} Kâr + %{settings.vatRatePercent} KDV` : "KDV Dahil Net Sipariş Tutarı"}
               </span>
@@ -401,7 +419,7 @@ export function CostBreakdownModal({
               <h3 className={`text-xs font-mono font-bold uppercase tracking-wider ${
                 isDarkMode ? "text-neutral-200" : "text-slate-800"
               } print:text-black`}>
-                {isShopMode ? "Kalem Kalem Hammadde & İşçilik Dağılımı" : "Seçili Malzeme & Hizmet Detay Fiyatları"}
+                {isShopMode ? "Malzeme & Hizmet Dağılımı (Hammadde & İşçilik)" : "Seçili Malzeme & Hizmet Detay Fiyatları"}
               </h3>
               <span className={`text-[11px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"} print:text-gray-600`}>
                 Tüm tutarlar ₺ (TL) cinsindendir
@@ -410,15 +428,15 @@ export function CostBreakdownModal({
 
             <div 
               data-drag-scroll="true"
-              className={`border rounded-md overflow-x-auto drag-scroll text-xs print:bg-white print:border-gray-300 ${
-              isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-white border-slate-200"
+              className={`border rounded-xl overflow-x-auto drag-scroll text-xs print:bg-white print:border-gray-300 transition-all ${
+              isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-white border-[#e8dfcf] shadow-2xs"
             }`}>
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className={`border-b text-[11px] font-bold uppercase tracking-wider print:bg-gray-100 print:border-gray-300 print:text-black ${
-                    isDarkMode ? "bg-[#141618] border-neutral-800 text-[#C5A059]" : "bg-slate-100 border-slate-200 text-[#B88E3A]"
+                    isDarkMode ? "bg-[#141618] border-neutral-800 text-[#C5A059]" : "bg-[#fbf8f2] border-[#e8dfcf] text-[#8C6B23]"
                   }`}>
-                    <th className="py-3 px-4 font-semibold">MALZEME / KALEM</th>
+                    <th className="py-3 px-4 font-semibold">MALZEME / HİZMET</th>
                     <th className="py-3 px-4 font-semibold">DURUM</th>
                     <th className="py-3 px-4 font-semibold">MİKTAR / BİRİM</th>
                     <th className="py-3 px-4 font-semibold text-right">{isShopMode ? "HAM BİRİM FİYAT" : "BİRİM FİYAT"}</th>
@@ -426,13 +444,13 @@ export function CostBreakdownModal({
                   </tr>
                 </thead>
                 <tbody className={`divide-y print:divide-gray-200 ${
-                  isDarkMode ? "divide-neutral-800/70 text-neutral-200" : "divide-slate-200 text-slate-800"
+                  isDarkMode ? "divide-neutral-800/70 text-neutral-200" : "divide-slate-100 text-slate-800"
                 } print:text-black`}>
                   
                   {/* Baskı / Tuval */}
                   <tr className={!flags.includeArtworkPrint ? `opacity-45 ${isDarkMode ? "bg-black/20" : "bg-slate-50"}` : ""}>
                     <td className={`py-2.5 px-4 font-medium print:text-black ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                      Sanat Baskı / Canvas Tuval
+                      Kanvas / Tuval Baskı
                     </td>
                     <td className="py-2.5 px-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
@@ -484,7 +502,7 @@ export function CostBreakdownModal({
                   {/* İç Çerçeve Profil */}
                   <tr className={!flags.includeInnerFrame ? `opacity-45 ${isDarkMode ? "bg-black/20" : "bg-slate-50"}` : ""}>
                     <td className={`py-2.5 px-4 font-medium print:text-black ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                      İç Çerçeve Profili
+                      Ana Çerçeve Profili
                     </td>
                     <td className="py-2.5 px-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
@@ -510,7 +528,7 @@ export function CostBreakdownModal({
                   {breakdown.middleMatSqm > 0 && (
                     <tr className={!flags.includeMiddleMat ? `opacity-45 ${isDarkMode ? "bg-black/20" : "bg-slate-50"}` : ""}>
                       <td className={`py-2.5 px-4 font-medium print:text-black ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                        Ara Paspartu {breakdown.isMiddleMatTransparent ? "(Şeffaf Cam / Akrilik)" : "(3D Mukavva)"}
+                        Ara Paspartu {breakdown.isMiddleMatTransparent ? "(Şeffaf Cam / Akrilik)" : "(3D)"}
                       </td>
                       <td className="py-2.5 px-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
@@ -537,7 +555,7 @@ export function CostBreakdownModal({
                   {breakdown.outerFrameMeter > 0 && (
                     <tr className={!flags.includeOuterFrame ? `opacity-45 ${isDarkMode ? "bg-black/20" : "bg-slate-50"}` : ""}>
                       <td className={`py-2.5 px-4 font-medium print:text-black ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                        Dış Çerçeve Kasa Profili
+                        Dış Kasa Çerçeve Profili
                       </td>
                       <td className="py-2.5 px-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
@@ -563,7 +581,7 @@ export function CostBreakdownModal({
                   {/* Cam */}
                   <tr className={!flags.includeGlass ? `opacity-45 ${isDarkMode ? "bg-black/20" : "bg-slate-50"}` : ""}>
                     <td className={`py-2.5 px-4 font-medium print:text-black ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                      Koruyucu Dereceli Cam / Akrilik
+                      Koruyucu Cam / Pleksi
                     </td>
                     <td className="py-2.5 px-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
@@ -588,7 +606,7 @@ export function CostBreakdownModal({
                   {/* MDF Arkalık */}
                   <tr className={!flags.includeBackingBoard ? `opacity-45 ${isDarkMode ? "bg-black/20" : "bg-slate-50"}` : ""}>
                     <td className={`py-2.5 px-4 font-medium print:text-black ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                      Arka MDF Levha Koruması
+                      3mm MDF Arka Kapama
                     </td>
                     <td className="py-2.5 px-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
@@ -616,7 +634,7 @@ export function CostBreakdownModal({
                     return (
                       <tr className={!isClothActive ? `opacity-45 ${isDarkMode ? "bg-black/20" : "bg-slate-50"}` : ""}>
                         <td className={`py-2.5 px-4 font-medium print:text-black ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                          Arkalık Kapama Bezi
+                          Arkalık Koruma Bezi
                         </td>
                         <td className="py-2.5 px-4">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
@@ -635,36 +653,6 @@ export function CostBreakdownModal({
                         </td>
                         <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs print:text-black ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
                           ₺{(isShopMode ? breakdown.backingClothCost : breakdown.backingClothSellingPrice).toFixed(2)}
-                        </td>
-                      </tr>
-                    );
-                  })()}
-
-                  {/* Kraft Bitiş Bandı */}
-                  {(() => {
-                    const isKraftActive = Boolean(flags.includeKraftTape || flags.includeBackingPaper);
-                    return (
-                      <tr className={!isKraftActive ? `opacity-45 ${isDarkMode ? "bg-black/20" : "bg-slate-50"}` : ""}>
-                        <td className={`py-2.5 px-4 font-medium print:text-black ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                          Kraft Bitiş / Islak Bandı
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
-                            isKraftActive 
-                              ? (isDarkMode ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" : "bg-emerald-50 text-emerald-700 border border-emerald-300")
-                              : (isDarkMode ? "bg-neutral-800 text-neutral-400 border border-neutral-700" : "bg-slate-100 text-slate-500 border border-slate-200")
-                          }`}>
-                            {isKraftActive ? "Dahil" : "Hariç"}
-                          </span>
-                        </td>
-                        <td className={`py-2.5 px-4 font-mono text-[11px] ${isDarkMode ? "text-neutral-300" : "text-slate-600"} print:text-black`}>
-                          {breakdown.kraftTapeMeter.toFixed(2)} mt
-                        </td>
-                        <td className={`py-2.5 px-4 font-mono text-right text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"} print:text-black`}>
-                          {isShopMode ? `₺${settings.kraftTapePricePerMeter ?? 20}/m` : "-"}
-                        </td>
-                        <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs print:text-black ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                          ₺{(isShopMode ? breakdown.kraftTapeCost : breakdown.kraftTapeSellingPrice).toFixed(2)}
                         </td>
                       </tr>
                     );
@@ -696,7 +684,7 @@ export function CostBreakdownModal({
                   {/* Sabit İşçilik */}
                   <tr className={!flags.includeLaborCost ? `opacity-45 ${isDarkMode ? "bg-black/20" : "bg-slate-50"}` : ""}>
                     <td className={`py-2.5 px-4 font-medium print:text-black ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                      Atölye Sabit El İşçiliği & Çatma Bedeli
+                      Atölye Sabit El İşçiliği
                     </td>
                     <td className="py-2.5 px-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
@@ -721,7 +709,7 @@ export function CostBreakdownModal({
                   {/* Kargo & Teslimat */}
                   <tr className={isDarkMode ? "bg-[#141618]/60" : "bg-slate-50"}>
                     <td className={`py-2.5 px-4 font-medium print:text-black ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                      {breakdown.deliveryMethod === 'shipping' ? '🚚 Kargo ile Adrese Teslim Gönderim Bedeli' : '🏪 Mağazada Teslim (Kargo Hariç)'}
+                      {breakdown.deliveryMethod === 'shipping' ? '🚚 Adrese Teslim Kargo' : '🏪 Mağazada Teslim'}
                     </td>
                     <td className="py-2.5 px-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
@@ -749,20 +737,21 @@ export function CostBreakdownModal({
           </div>
 
           {/* Special Custom Override / Discount Section */}
-          <div className={`print:hidden border p-4 rounded-md space-y-3 ${
-            isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
+          <div className={`print:hidden border p-4 rounded-xl space-y-3 transition-all shadow-xs ${
+            isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-[#fdfbf8] border-[#e8dfcf]"
           }`}>
             <div className="flex items-center justify-between">
-              <label className={`text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 ${
-                isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+              <label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
+                isDarkMode ? "text-neutral-200" : "text-[#7A5A19]"
               }`}>
-                <Tag className="w-4 h-4" /> Müşteriye Özel İskonto / Manuel Fiyat Belirleme
+                <Tag className={`w-4 h-4 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> Müşteriye Özel İskonto / Manuel Fiyat Belirleme
               </label>
 
               {customOverridePrice && (
                 <button
+                  type="button"
                   onClick={handleClearOverride}
-                  className="text-[11px] font-mono text-red-500 hover:underline cursor-pointer"
+                  className="text-[11px] font-mono font-bold text-red-500 hover:underline cursor-pointer"
                 >
                   Hesaplanan Fiyata Dön
                 </button>
@@ -776,16 +765,17 @@ export function CostBreakdownModal({
                   placeholder={`Örn: ${Math.ceil(breakdown.calculatedPriceWithVat)}`}
                   value={overrideInput}
                   onChange={(e) => setOverrideInput(e.target.value)}
-                  className={`w-full border rounded px-3 py-2 text-sm font-mono font-bold focus:outline-none ${
-                    isDarkMode ? "bg-[#121415] border-[#C5A059]/40 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                  className={`w-full border rounded-lg px-3 py-2 text-sm font-mono font-bold focus:outline-none transition-colors ${
+                    isDarkMode ? "bg-[#121415] border-[#C5A059]/40 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] shadow-2xs"
                   }`}
                 />
-                <span className={`absolute right-3 top-2.5 text-xs font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺ (KDV Dahil)</span>
+                <span className={`absolute right-3 top-2.5 text-xs font-mono font-bold ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>₺ (KDV Dahil)</span>
               </div>
 
               <button
+                type="button"
                 onClick={handleApplyOverride}
-                className={`px-4 py-2 font-mono font-bold text-xs rounded transition-colors shrink-0 shadow-sm cursor-pointer ${
+                className={`px-4 py-2 font-mono font-bold text-xs rounded-lg transition-all shrink-0 shadow-xs cursor-pointer ${
                   isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
                 }`}
               >
@@ -794,8 +784,8 @@ export function CostBreakdownModal({
             </div>
 
             {customOverridePrice ? (
-              <div className={`p-2.5 border rounded text-xs font-mono flex items-center gap-2 ${
-                isDarkMode ? "bg-green-900/20 border-green-500/30 text-green-300" : "bg-emerald-50 border-emerald-300 text-emerald-800"
+              <div className={`p-2.5 border rounded-lg text-xs font-mono flex items-center gap-2 ${
+                isDarkMode ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-300" : "bg-emerald-50 border-emerald-300 text-emerald-800"
               }`}>
                 <Check className="w-4 h-4 shrink-0 text-emerald-500" />
                 <span>
@@ -803,7 +793,7 @@ export function CostBreakdownModal({
                 </span>
               </div>
             ) : (
-              <p className={`text-[11px] font-sans ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
+              <p className={`text-[11px] font-sans ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
                 💡 İsterseniz yukarıdaki alana pazarlık sonucu anlaştığınız net fiyatı yazabilirsiniz. Boş bırakırsanız otomatik hesaplanan tutar kullanılır.
               </p>
             )}
@@ -825,25 +815,27 @@ export function CostBreakdownModal({
 
         {/* Footer */}
         <div className={`flex items-center justify-between px-6 py-4 border-t print:hidden ${
-          isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
+          isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-[#fdfbf8] border-[#e8dfcf]"
         }`}>
           <div className={`text-xs font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-            Geçerli Fiyat: <span className={`font-bold text-sm ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>₺{breakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}</span>
+            Geçerli Fiyat: <span className={`font-bold text-sm ${isDarkMode ? "text-[#C5A059]" : "text-[#7A5A19]"}`}>₺{breakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}</span>
           </div>
 
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={handlePrint}
-              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono rounded transition-colors cursor-pointer ${
-                isDarkMode ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono rounded-lg border transition-colors cursor-pointer ${
+                isDarkMode ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border-neutral-700" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-2xs"
               }`}
             >
               <Printer className="w-3.5 h-3.5" /> YAZDIR / PDF AL
             </button>
 
             <button
+              type="button"
               onClick={onClose}
-              className={`flex items-center gap-2 px-6 py-2.5 font-mono font-bold text-xs rounded shadow-lg transition-colors cursor-pointer ${
+              className={`flex items-center gap-2 px-6 py-2.5 font-mono font-bold text-xs rounded-lg shadow-md transition-all cursor-pointer ${
                 isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
               }`}
             >

@@ -69,7 +69,7 @@ export const DEFAULT_MATERIAL_INCLUSION: MaterialInclusionFlags = {
   includeBackingCloth: false,
   includeKraftTape: false,
   includeBackingPaper: false,
-  includeLaborCost: false,
+  includeLaborCost: true,
 };
 
 export const DEFAULT_UNIT_PRICES: UnitPricesSettings = {

@@ -413,45 +413,6 @@ export const ArtworkStep: React.FC<ArtworkStepProps> = ({
                 />
               </div>
             </div>
-
-            {/* HD Download and Presentation Buttons for Wall Color Mode */}
-            <div className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={onDownloadHdWallColor}
-                disabled={isDownloadingHD}
-                className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[#C5A059] via-[#d4b069] to-[#C5A059] hover:brightness-105 active:scale-[0.98] text-black font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-                title="Yüksek çözünürlüklü sunum görseli indir"
-              >
-                {isDownloadingHD ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
-                    <span>Hazırlanıyor...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-3.5 h-3.5 text-black" />
-                    <span>HD Görsel İndir</span>
-                  </>
-                )}
-              </button>
-
-              {onOpenCustomerPresentation && (
-                <button
-                  type="button"
-                  onClick={onOpenCustomerPresentation}
-                  className={`w-full py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    isDarkMode
-                      ? "border-white/15 bg-white/5 hover:bg-white/10 text-neutral-200"
-                      : "border-slate-300 bg-white hover:bg-slate-100 text-slate-800 shadow-sm"
-                  }`}
-                  title="Tam Ekran Müşteri Sunum Modu"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>Müşteri Sunumu Aç</span>
-                </button>
-              )}
-            </div>
           </div>
         ) : (
           /* Müşterinin Kendi Salonu / Duvarı Modu */
@@ -704,18 +665,6 @@ export const ArtworkStep: React.FC<ArtworkStepProps> = ({
                 </div>
               </div>
             </div>
-
-            {/* Müşteri Sunum Modu Butonu */}
-            {onOpenCustomerPresentation && (
-              <button
-                type="button"
-                onClick={onOpenCustomerPresentation}
-                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#C5A059] via-[#d6b26d] to-[#C5A059] hover:brightness-105 text-black font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Müşteri Sunumu Aç</span>
-              </button>
-            )}
           </div>
         )}
       </div>

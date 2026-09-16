@@ -112,20 +112,6 @@ export const OrderStep: React.FC<OrderStepProps> = ({
       desc: inclusionFlags.includeBackingCloth ? "Bezi kaplama dahil" : "Hariç",
       price: costBreakdown.backingClothSellingPrice,
       active: Boolean(inclusionFlags.includeBackingCloth)
-    },
-    {
-      key: "includeKraftTape" as const,
-      label: "Kraft İzolasyon Bandı",
-      desc: inclusionFlags.includeKraftTape ? "Kraft bant dahil" : "Hariç",
-      price: costBreakdown.kraftTapeSellingPrice,
-      active: Boolean(inclusionFlags.includeKraftTape)
-    },
-    {
-      key: "includeLaborCost" as const,
-      label: "Atölye Montaj İşçiliği",
-      desc: inclusionFlags.includeLaborCost ? "Usta montaj dahil" : "Hariç",
-      price: costBreakdown.laborSellingPrice,
-      active: Boolean(inclusionFlags.includeLaborCost)
     }
   ];
 

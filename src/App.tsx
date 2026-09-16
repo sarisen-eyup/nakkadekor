@@ -44,7 +44,9 @@ import {
   Coins,
   Printer,
   Home,
-  Move
+  Move,
+  RotateCcw,
+  Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import QRCode from "qrcode";
@@ -381,27 +383,18 @@ export default function App() {
     includeBackingCloth: false,
     includeKraftTape: false,
     includeBackingPaper: false,
-    includeLaborCost: false
+    includeLaborCost: true
   });
 
   const handleToggleFlag = (flagKey: keyof MaterialInclusionFlags) => {
     setInclusionFlags(prev => {
-      if (flagKey === 'includeBackingPaper') {
-        const nextState = !(prev.includeBackingPaper || prev.includeBackingCloth || prev.includeKraftTape);
+      if (flagKey === 'includeBackingPaper' || flagKey === 'includeBackingCloth') {
+        const nextVal = !prev.includeBackingCloth;
         return {
           ...prev,
-          includeBackingPaper: nextState,
-          includeBackingCloth: nextState,
-          includeKraftTape: nextState,
-        };
-      }
-      if (flagKey === 'includeBackingCloth' || flagKey === 'includeKraftTape') {
-        const nextVal = !prev[flagKey];
-        const otherKey = flagKey === 'includeBackingCloth' ? 'includeKraftTape' : 'includeBackingCloth';
-        return {
-          ...prev,
-          [flagKey]: nextVal,
-          includeBackingPaper: nextVal || prev[otherKey],
+          includeBackingCloth: nextVal,
+          includeBackingPaper: nextVal,
+          includeKraftTape: false,
         };
       }
       return {
@@ -2595,26 +2588,27 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
             )}
           </aside>
 
-          {/* Central High-Resolution Wide Virtual Wall Canvas Visualizer */}
-          <section 
-            ref={stageRef} 
-            data-no-drag-scroll="true"
-            onWheel={(e) => {
-              if (wallMode === "room") {
-                e.preventDefault();
-                const delta = e.deltaY < 0 ? 0.05 : -0.05;
-                if (roomActiveTarget === "frame") {
-                  setRoomFrameScale((prev) => Math.min(2.5, Math.max(0.15, Number((prev + delta).toFixed(2)))));
-                } else {
-                  setRoomBgScale((prev) => Math.min(2.5, Math.max(0.50, Number((prev + delta).toFixed(2)))));
+          {/* Central High-Resolution Wide Virtual Wall Canvas Visualizer & Bottom Actions Bar */}
+          <div className="flex-1 flex flex-col min-w-0 order-first lg:order-none overflow-hidden relative">
+            <section 
+              ref={stageRef} 
+              data-no-drag-scroll="true"
+              onWheel={(e) => {
+                if (wallMode === "room") {
+                  e.preventDefault();
+                  const delta = e.deltaY < 0 ? 0.05 : -0.05;
+                  if (roomActiveTarget === "frame") {
+                    setRoomFrameScale((prev) => Math.min(2.5, Math.max(0.15, Number((prev + delta).toFixed(2)))));
+                  } else {
+                    setRoomBgScale((prev) => Math.min(2.5, Math.max(0.50, Number((prev + delta).toFixed(2)))));
+                  }
                 }
-              }
-            }}
-            className="w-full h-[520px] sm:h-[650px] lg:h-auto lg:flex-grow relative flex items-center justify-center p-4 sm:p-6 overflow-hidden z-0 order-first lg:order-none transition-all duration-500 shadow-inner rounded-none border border-black/10 select-none"
-            style={{ 
-              backgroundColor: wallMode === "room" ? "#0a0c0f" : wallColor,
-            }}
-          >
+              }}
+              className="w-full flex-grow h-[460px] sm:h-[580px] lg:h-auto relative flex items-center justify-center p-4 sm:p-6 overflow-hidden z-0 transition-all duration-500 shadow-inner rounded-none border border-black/10 select-none min-h-[380px]"
+              style={{ 
+                backgroundColor: wallMode === "room" ? "#0a0c0f" : wallColor,
+              }}
+            >
             {/* Ambient Blurred Background for Contain Mode in Room */}
             {wallMode === "room" && roomBgFit === "contain" && (
               <div 
@@ -2774,12 +2768,21 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
                   {/* Customer Presentation Button */}
                   <button
                     type="button"
-                    onClick={() => setIsCustomerPresentationOpen(true)}
+                    onClick={() => setIsCustomerPresentationOpen((prev) => !prev)}
                     className="px-3 py-1 rounded-full bg-[#C5A059] hover:bg-[#b5924d] text-black text-xs font-bold shadow-lg transition-all flex items-center gap-1 cursor-pointer"
-                    title="Müşteri Satış Kapatma Sunum Modu"
+                    title={isCustomerPresentationOpen ? "Simülatöre Dön" : "Müşteri Satış Kapatma Sunum Modu"}
                   >
-                    <Sparkles className="w-3 h-3" />
-                    <span className="hidden sm:inline">Sunum Modu</span>
+                    {isCustomerPresentationOpen ? (
+                      <>
+                        <RotateCcw className="w-3 h-3 text-black" />
+                        <span className="hidden sm:inline">Simülatöre Dön</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3 h-3" />
+                        <span className="hidden sm:inline">Sunum Modu</span>
+                      </>
+                    )}
                   </button>
 
                   {/* Return to wall color */}
@@ -2831,6 +2834,77 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
             </div>
 
           </section>
+
+          {/* Always-Visible Bottom Action Bar directly under Live Preview Screen */}
+          <div className={`w-full px-4 py-3 sm:px-6 sm:py-3.5 border-t flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 backdrop-blur-md z-20 transition-colors ${
+            isDarkMode 
+              ? "bg-[#14171d] border-white/10 text-white shadow-lg" 
+              : "bg-white border-slate-200 text-slate-800 shadow-sm"
+          }`}>
+            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-start">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span className={`text-xs font-bold tracking-tight ${isDarkMode ? "text-neutral-200" : "text-slate-800"}`}>
+                  Canlı Önizleme &amp; Mekan
+                </span>
+              </div>
+              <div className={`text-[11px] font-mono px-2 py-0.5 rounded-md border ${
+                isDarkMode ? "bg-white/5 border-white/10 text-[#C5A059]" : "bg-slate-100 border-slate-200 text-[#8F6A1E]"
+              }`}>
+                Dış Çerçeve: {Math.round(totalW)}×{Math.round(totalH)} cm
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              {/* 1. HD Görsel İndir */}
+              <button
+                type="button"
+                onClick={handleDownloadHdWallColor}
+                disabled={isDownloadingHD}
+                className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#C5A059] via-[#d4b069] to-[#C5A059] hover:brightness-105 active:scale-[0.98] text-black font-bold text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                title="Yüksek çözünürlüklü sunum görseli indir"
+              >
+                {isDownloadingHD ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-black" />
+                    <span>Hazırlanıyor...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 text-black" />
+                    <span>HD Görsel İndir</span>
+                  </>
+                )}
+              </button>
+
+              {/* 2. Müşteri Sunumu Aç / Simülatöre Dön */}
+              <button
+                type="button"
+                onClick={() => setIsCustomerPresentationOpen((prev) => !prev)}
+                className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl border text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98] ${
+                  isCustomerPresentationOpen
+                    ? "border-[#C5A059] bg-[#C5A059]/20 text-[#C5A059] hover:bg-[#C5A059]/30"
+                    : isDarkMode
+                      ? "border-white/20 bg-white/5 hover:bg-white/10 text-white shadow-sm"
+                      : "border-slate-300 bg-white hover:bg-slate-50 text-slate-800 shadow-sm"
+                }`}
+                title={isCustomerPresentationOpen ? "Simülatöre Dön" : "Tam Ekran Müşteri Sunum Modu"}
+              >
+                {isCustomerPresentationOpen ? (
+                  <>
+                    <RotateCcw className="w-4 h-4 text-[#C5A059]" />
+                    <span>Simülatöre Dön</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-[#C5A059]" />
+                    <span>Müşteri Sunumu Aç</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
 
         </main>
 

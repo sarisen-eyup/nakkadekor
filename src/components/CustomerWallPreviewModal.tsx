@@ -560,10 +560,21 @@ export const CustomerWallPreviewModal: React.FC<CustomerWallPreviewModalProps> =
             title="Yüksek çözünürlüklü sunum görselini indirin"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>{isExporting ? "Hazırlanıyor..." : "HD İndir"}</span>
+            <span>{isExporting ? "Hazırlanıyor..." : "HD Görsel İndir"}</span>
           </button>
 
-          {/* Close Modal */}
+          {/* Simülatöre Dön Button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-[#C5A059]/60 bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#FAE2B3] hover:text-white font-bold text-xs transition-all cursor-pointer ml-1 active:scale-95 shadow-sm"
+            title="Müşteri sunumunu kapat ve simülatöre dön"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Simülatöre Dön</span>
+          </button>
+
+          {/* Close Modal Icon */}
           <button
             type="button"
             onClick={onClose}

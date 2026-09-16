@@ -3,7 +3,8 @@ import {
   X, Settings, Database, Plus, Trash2, Check, RefreshCw, DollarSign, 
   Tag, Image as ImageIcon, Lock, Unlock, KeyRound, ShieldCheck, 
   Eye, EyeOff, Upload, AlertCircle, Users, Shield, Building2, Phone, Mail, MapPin, Globe, CreditCard,
-  Camera, Scan, Crop as CropIcon, Sparkles, TrendingUp, RotateCcw, CheckCircle2, Coins, LogOut, User
+  Camera, Scan, Crop as CropIcon, Sparkles, TrendingUp, RotateCcw, CheckCircle2, Coins, LogOut, User,
+  Truck, Percent
 } from "lucide-react";
 import { 
   UnitPricesSettings, 
@@ -166,7 +167,6 @@ export function SettingsModal({
   const [cropDimensionLabel, setCropDimensionLabel] = useState<string>("Profil Dokusu");
 
   // Bulk Price Update / Toptancı Zammı States (Sadeleştirilmiş)
-  const [bulkTargetMaterial, setBulkTargetMaterial] = useState<"wood" | "all" | "polystyrene" | "aluminum">("wood");
   const [bulkPercent, setBulkPercent] = useState<number>(20);
   const [bulkUndoStack, setBulkUndoStack] = useState<FrameProfileItem[][]>([]);
   const [bulkSuccessMsg, setBulkSuccessMsg] = useState<string | null>(null);
@@ -331,12 +331,8 @@ export function SettingsModal({
     );
   };
 
-  // Toplu Zam Uygula (Sade & Hızlı)
-  const handleApplyBulkPrice = (
-    customTarget?: "wood" | "all" | "polystyrene" | "aluminum",
-    customPct?: number
-  ) => {
-    const targetMat = customTarget || bulkTargetMaterial;
+  // Toplu Zam Uygula (Tüm Profillere Doğrudan Uygulanır)
+  const handleApplyBulkPrice = (customPct?: number) => {
     const pct = customPct !== undefined ? customPct : bulkPercent;
 
     if (isNaN(pct) || pct <= 0) return;
@@ -345,8 +341,6 @@ export function SettingsModal({
     setBulkUndoStack((prev) => [localProfiles, ...prev.slice(0, 5)]);
 
     const updated = localProfiles.map((prof) => {
-      const isTarget = targetMat === "all" || prof.materialType === targetMat;
-      if (!isTarget) return prof;
       // % pct zam yap, en yakın 5 TL'ye yuvarla
       const raw = prof.unitPricePerMeter * (1 + pct / 100);
       const newPrice = Math.max(0, Math.round(raw / 5) * 5);
@@ -359,10 +353,7 @@ export function SettingsModal({
     setLocalProfiles(updated);
     onSaveProfiles(updated);
 
-    const affectedCount = localProfiles.filter((p) => targetMat === "all" || p.materialType === targetMat).length;
-    const matLabel = targetMat === "wood" ? "Ahşap" : targetMat === "all" ? "Tüm" : targetMat === "polystyrene" ? "Polistren" : "Alüminyum";
-
-    setBulkSuccessMsg(`✓ ${affectedCount} adet ${matLabel} profile %${pct} zam uygulandı ve kaydedildi.`);
+    setBulkSuccessMsg(`✓ ${updated.length} adet çerçeve profiline %${pct} zam uygulandı ve kaydedildi.`);
     setTimeout(() => {
       setBulkSuccessMsg(null);
     }, 4000);
@@ -495,7 +486,7 @@ export function SettingsModal({
                 </span>
               </div>
               <p className={`text-xs font-medium ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                Birim maliyetler, profil veritabanı, ekran gizlilik modu ve yetkilendirme ayarları
+                Birim maliyetler, profil veritabanı ve ekran gizlilik modu
               </p>
             </div>
           </div>
@@ -510,310 +501,316 @@ export function SettingsModal({
           </button>
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Navigation Tabs (Yüksek Kontrastlı, Görünürlüğü Artırılmış 3 Sütunlu Izgara) */}
         <div 
-          data-drag-scroll="true"
-          className={`flex border-b px-6 overflow-x-auto shrink-0 drag-scroll select-none ${
-          isDarkMode ? "bg-[#181b20] border-[#C5A059]/20" : "bg-slate-100 border-slate-200"
+          className={`grid grid-cols-3 border-b shrink-0 select-none ${
+          isDarkMode ? "bg-[#141619] border-neutral-800" : "bg-slate-100 border-slate-200"
         }`}>
           <button
             onClick={() => setActiveTab("prices")}
-            className={`flex items-center gap-2 px-4 py-3 text-xs font-bold tracking-wider whitespace-nowrap transition-all border-b-2 cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 text-xs tracking-wider transition-all border-b-2 cursor-pointer ${
               activeTab === "prices"
-                ? (isDarkMode ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/10" : "border-[#B88E3A] text-[#B88E3A] bg-[#B88E3A]/10")
-                : (isDarkMode ? "border-transparent text-neutral-400 hover:text-white" : "border-transparent text-slate-600 hover:text-slate-900")
+                ? (isDarkMode ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/15 font-bold shadow-2xs" : "border-[#B88E3A] text-[#8C6B23] bg-white font-bold shadow-2xs")
+                : (isDarkMode ? "border-transparent text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/50 font-medium" : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium")
             }`}
           >
-            <DollarSign className="w-4 h-4" />
-            01. BİRİM MALİYET & KÂR AYARLARI
+            <DollarSign className={`w-4 h-4 shrink-0 ${activeTab === "prices" ? (isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]") : (isDarkMode ? "text-neutral-400" : "text-slate-500")}`} />
+            <span className="truncate">1. Maliyet & Kâr</span>
           </button>
 
           <button
             onClick={() => setActiveTab("profiles")}
-            className={`flex items-center gap-2 px-4 py-3 text-xs font-bold tracking-wider whitespace-nowrap transition-all border-b-2 cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 text-xs tracking-wider transition-all border-b-2 cursor-pointer ${
               activeTab === "profiles"
-                ? (isDarkMode ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/10" : "border-[#B88E3A] text-[#B88E3A] bg-[#B88E3A]/10")
-                : (isDarkMode ? "border-transparent text-neutral-400 hover:text-white" : "border-transparent text-slate-600 hover:text-slate-900")
+                ? (isDarkMode ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/15 font-bold shadow-2xs" : "border-[#B88E3A] text-[#8C6B23] bg-white font-bold shadow-2xs")
+                : (isDarkMode ? "border-transparent text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/50 font-medium" : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium")
             }`}
           >
-            <Database className="w-4 h-4" />
-            02. ÇERÇEVE PROFİL VERİTABANI ({localProfiles.length})
+            <Database className={`w-4 h-4 shrink-0 ${activeTab === "profiles" ? (isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]") : (isDarkMode ? "text-neutral-400" : "text-slate-500")}`} />
+            <span className="truncate">2. Profiller ({localProfiles.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab("privacy")}
-            className={`flex items-center gap-2 px-4 py-3 text-xs font-bold tracking-wider whitespace-nowrap transition-all border-b-2 cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 text-xs tracking-wider transition-all border-b-2 cursor-pointer ${
               activeTab === "privacy"
-                ? (isDarkMode ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/10" : "border-[#B88E3A] text-[#B88E3A] bg-[#B88E3A]/10")
-                : (isDarkMode ? "border-transparent text-neutral-400 hover:text-white" : "border-transparent text-slate-600 hover:text-slate-900")
+                ? (isDarkMode ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/15 font-bold shadow-2xs" : "border-[#B88E3A] text-[#8C6B23] bg-white font-bold shadow-2xs")
+                : (isDarkMode ? "border-transparent text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/50 font-medium" : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium")
             }`}
           >
-            <ShieldCheck className="w-4 h-4" />
-            03. EKRAN GÖRÜNÜM & GİZLİLİK MODU
+            <ShieldCheck className={`w-4 h-4 shrink-0 ${activeTab === "privacy" ? (isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]") : (isDarkMode ? "text-neutral-400" : "text-slate-500")}`} />
+            <span className="truncate">3. Gizlilik Modu</span>
           </button>
         </div>
 
         {/* Tab Content */}
         <div className="p-6 overflow-y-auto flex-1 min-h-[500px] space-y-6">
           {activeTab === "prices" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex flex-col gap-5">
               
-              {/* Box 1: Hammadde & Baskı Birim Fiyatları */}
-              <div className={`border rounded-md p-4 space-y-4 ${
-                isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/20" : "bg-slate-50 border-slate-200"
+              {/* Grup 1: Hammadde & Alan/Metre Maliyetleri */}
+              <div className={`border rounded-xl p-4.5 space-y-4 transition-all shadow-xs ${
+                isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-white border-slate-200"
               }`}>
-                <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-2 ${
-                  isDarkMode ? "text-[#C5A059] border-[#C5A059]/20" : "text-[#B88E3A] border-slate-200"
-                }`}>
-                  <Tag className="w-4 h-4" /> Hammadde & Alan / Metre Fiyatları
-                </h3>
+                <div className="flex items-center justify-between border-b pb-2.5 dark:border-neutral-800 border-slate-200">
+                  <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
+                    isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                  }`}>
+                    <Tag className="w-4 h-4" /> 1. Hammadde & Malzeme Birim Fiyatları
+                  </h3>
+                  <span className={`text-[11px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                    (Alan m² / Metre Başına Alış)
+                  </span>
+                </div>
 
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      Tuval / Baskı m² Fiyatı (₺/m²)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="10"
-                        value={localSettings.canvasPrintPricePerSqm}
-                        onChange={(e) => handleSettingChange("canvasPrintPricePerSqm", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺/m²</span>
+                {/* Alt Bölüm A: Baskı & Paspartu */}
+                <div className="space-y-2">
+                  <span className={`text-[11px] font-bold uppercase tracking-wider block ${
+                    isDarkMode ? "text-neutral-300" : "text-slate-700"
+                  }`}>
+                    Baskı & Paspartu Grubu
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        Kanvas / Tuval Baskı
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="10"
+                          value={localSettings.canvasPrintPricePerSqm}
+                          onChange={(e) => handleSettingChange("canvasPrintPricePerSqm", parseFloat(e.target.value))}
+                          className={`w-full border rounded-lg pl-3 pr-14 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>₺/m²</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        İç Paspartu Kartonu
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="10"
+                          value={localSettings.matBoardPricePerSqm}
+                          onChange={(e) => handleSettingChange("matBoardPricePerSqm", parseFloat(e.target.value))}
+                          className={`w-full border rounded-lg pl-3 pr-14 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>₺/m²</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        Ara Paspartu (3D)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="10"
+                          value={localSettings.middleMatBoardPricePerSqm}
+                          onChange={(e) => handleSettingChange("middleMatBoardPricePerSqm", parseFloat(e.target.value))}
+                          className={`w-full border rounded-lg pl-3 pr-14 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>₺/m²</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        Şeffaf / Akrilik Paspartu
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="10"
+                          value={localSettings.transparentMatBoardPricePerSqm ?? 520}
+                          onChange={(e) => handleSettingChange("transparentMatBoardPricePerSqm", parseFloat(e.target.value))}
+                          className={`w-full border rounded-lg pl-3 pr-14 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>₺/m²</span>
+                      </div>
                     </div>
                   </div>
+                </div>
 
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      İç Paspartu Kartonu (₺/m²)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="10"
-                        value={localSettings.matBoardPricePerSqm}
-                        onChange={(e) => handleSettingChange("matBoardPricePerSqm", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺/m²</span>
+                {/* Alt Bölüm B: Cam & Arkalık */}
+                <div className="space-y-2 pt-2 border-t dark:border-neutral-800/80 border-slate-100">
+                  <span className={`text-[11px] font-bold uppercase tracking-wider block ${
+                    isDarkMode ? "text-neutral-300" : "text-slate-700"
+                  }`}>
+                    Cam, Koruma & Arkalık Grubu
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        Koruyucu Cam / Pleksi
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="10"
+                          value={localSettings.glassPricePerSqm}
+                          onChange={(e) => handleSettingChange("glassPricePerSqm", parseFloat(e.target.value))}
+                          className={`w-full border rounded-lg pl-3 pr-14 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>₺/m²</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      Ara Paspartu (3D Derinlik Mukavvası) (₺/m²)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="10"
-                        value={localSettings.middleMatBoardPricePerSqm}
-                        onChange={(e) => handleSettingChange("middleMatBoardPricePerSqm", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺/m²</span>
+                    <div>
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        3mm MDF Arka Kapama
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="10"
+                          value={localSettings.backingBoardPricePerSqm}
+                          onChange={(e) => handleSettingChange("backingBoardPricePerSqm", parseFloat(e.target.value))}
+                          className={`w-full border rounded-lg pl-3 pr-14 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>₺/m²</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      Şeffaf Cam / Akrilik Paspartu (₺/m²)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="10"
-                        value={localSettings.transparentMatBoardPricePerSqm ?? 520}
-                        onChange={(e) => handleSettingChange("transparentMatBoardPricePerSqm", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺/m²</span>
+                    <div>
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        Arkalık Koruma Bezi
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="5"
+                          value={localSettings.backingClothPricePerSqm ?? localSettings.backingPaperPricePerSqm ?? 90}
+                          onChange={(e) => handleSettingChange("backingClothPricePerSqm", parseFloat(e.target.value))}
+                          className={`w-full border rounded-lg pl-3 pr-14 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>₺/m²</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      Cam / Koruyucu Akrilik (₺/m²)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="10"
-                        value={localSettings.glassPricePerSqm}
-                        onChange={(e) => handleSettingChange("glassPricePerSqm", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺/m²</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      MDF / Arkalık Kartonu (₺/m²)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="10"
-                        value={localSettings.backingBoardPricePerSqm}
-                        onChange={(e) => handleSettingChange("backingBoardPricePerSqm", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺/m²</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      Arkalık Kapama Bezi (₺/m²)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="5"
-                        value={localSettings.backingClothPricePerSqm ?? localSettings.backingPaperPricePerSqm ?? 90}
-                        onChange={(e) => handleSettingChange("backingClothPricePerSqm", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺/m²</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      Kraft Bitiş / Islak Bandı (₺/m)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="2"
-                        value={localSettings.kraftTapePricePerMeter ?? 20}
-                        onChange={(e) => handleSettingChange("kraftTapePricePerMeter", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺/m</span>
+                    <div>
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        Kraft Bitiş Bandı & Sarf
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="2"
+                          value={localSettings.kraftTapePricePerMeter ?? 20}
+                          onChange={(e) => handleSettingChange("kraftTapePricePerMeter", parseFloat(e.target.value))}
+                          className={`w-full border rounded-lg pl-3 pr-14 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>₺/m</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Box 2: Varsayılan Çerçeve Metre Fiyatları, İşçilik & Kâr */}
-              <div className={`border rounded-md p-4 space-y-4 ${
-                isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/20" : "bg-slate-50 border-slate-200"
-              }`}>
-                <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-2 ${
-                  isDarkMode ? "text-[#C5A059] border-[#C5A059]/20" : "text-[#B88E3A] border-slate-200"
+              {/* Grup 2 & 3: İşçilik/Kargo ve Kâr/KDV Oranları */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                
+                {/* Sol: Sabit Giderler & Kesim Firesi */}
+                <div className={`border rounded-xl p-4.5 space-y-3.5 transition-all shadow-xs ${
+                  isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-white border-slate-200"
                 }`}>
-                  <DollarSign className="w-4 h-4" /> Çerçeve, İşçilik, Kâr & KDV
-                </h3>
+                  <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-2 ${
+                    isDarkMode ? "text-neutral-200 border-neutral-800" : "text-slate-800 border-slate-200"
+                  }`}>
+                    <Truck className="w-4 h-4 text-[#B88E3A] dark:text-[#C5A059]" /> 2. İşçilik, Lojistik & Fire Oranı
+                  </h3>
 
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      Varsayılan İç Çerçeve Metre Tül Fiyatı (₺/m)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="5"
-                        value={localSettings.defaultInnerFramePricePerMeter}
-                        onChange={(e) => handleSettingChange("defaultInnerFramePricePerMeter", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺/mt</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      Varsayılan Dış Çerçeve Metre Tül Fiyatı (₺/m)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="5"
-                        value={localSettings.defaultOuterFramePricePerMeter}
-                        onChange={(e) => handleSettingChange("defaultOuterFramePricePerMeter", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺/mt</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      Varsayılan Kargo & Teslimat Ücreti (₺)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="10"
-                        value={localSettings.defaultShippingCost ?? 150}
-                        onChange={(e) => handleSettingChange("defaultShippingCost", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      Sabit Atölye İşçilik Bedeli (₺)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="25"
-                        value={localSettings.laborFixedCost}
-                        onChange={(e) => handleSettingChange("laborFixedCost", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div>
-                      <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                        Kesim File/Atık (%)
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        Atölye Sabit El İşçiliği
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="25"
+                          value={localSettings.laborFixedCost}
+                          onChange={(e) => handleSettingChange("laborFixedCost", parseFloat(e.target.value))}
+                          className={`w-full border rounded-lg pl-3 pr-10 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>₺</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        Kargo & Teslimat
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="10"
+                          value={localSettings.defaultShippingCost ?? 150}
+                          onChange={(e) => handleSettingChange("defaultShippingCost", parseFloat(e.target.value))}
+                          className={`w-full border rounded-lg pl-3 pr-10 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>₺</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        Kesim Fire / Atık
                       </label>
                       <div className="relative">
                         <input
@@ -822,16 +819,33 @@ export function SettingsModal({
                           max="100"
                           value={localSettings.wastePercentage}
                           onChange={(e) => handleSettingChange("wastePercentage", parseFloat(e.target.value))}
-                          className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                          className={`w-full border rounded-lg pl-3 pr-10 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                           }`}
                         />
-                        <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>%</span>
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>%</span>
                       </div>
                     </div>
+                  </div>
+                </div>
 
+                {/* Sağ: Hedef Kâr Marjı ve KDV */}
+                <div className={`border rounded-xl p-4.5 space-y-3.5 transition-all shadow-xs ${
+                  isDarkMode 
+                    ? "bg-[#1d1f23] border-[#C5A059]/40" 
+                    : "bg-amber-50/40 border-amber-200"
+                }`}>
+                  <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-2 ${
+                    isDarkMode ? "text-[#C5A059] border-[#C5A059]/30" : "text-[#B88E3A] border-amber-200"
+                  }`}>
+                    <Percent className="w-4 h-4" /> 3. Hedef Kâr Marjı & Vergi
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div>
-                      <label className={`block font-bold mb-1 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
+                      <label className={`block font-bold mb-1 truncate ${isDarkMode ? "text-[#C5A059]" : "text-[#9E7728]"}`}>
                         Hedef Kâr Marjı (%)
                       </label>
                       <div className="relative">
@@ -841,35 +855,41 @@ export function SettingsModal({
                           max="500"
                           value={localSettings.targetProfitMarginPercent}
                           onChange={(e) => handleSettingChange("targetProfitMarginPercent", parseFloat(e.target.value))}
-                          className={`w-full border rounded px-3 py-2 font-mono font-bold focus:outline-none ${
-                            isDarkMode ? "bg-[#121415] border-[#C5A059]/50 text-[#C5A059] focus:border-[#C5A059]" : "bg-white border-[#B88E3A]/50 text-[#B88E3A] focus:border-[#B88E3A]"
+                          className={`w-full border rounded-lg pl-3 pr-10 py-2 font-mono font-bold text-xs focus:outline-none transition-colors ${
+                            isDarkMode 
+                              ? "bg-[#121415] border-[#C5A059]/60 text-[#C5A059] focus:border-[#C5A059]" 
+                              : "bg-white border-[#B88E3A]/60 text-[#9E7728] focus:border-[#B88E3A] shadow-xs"
                           }`}
                         />
-                        <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>%</span>
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-bold px-1.5 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-[#C5A059]/20 text-[#C5A059]" : "bg-amber-100 text-amber-900"
+                        }`}>%</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        KDV Oranı (%)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={localSettings.vatRatePercent}
+                          onChange={(e) => handleSettingChange("vatRatePercent", parseFloat(e.target.value))}
+                          className={`w-full border rounded-lg pl-3 pr-10 py-2 font-mono text-xs focus:outline-none transition-colors ${
+                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                          }`}
+                        />
+                        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded pointer-events-none ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                        }`}>%</span>
                       </div>
                     </div>
                   </div>
-
-                  <div>
-                    <label className={`block font-medium mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                      KDV Oranı (%)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={localSettings.vatRatePercent}
-                        onChange={(e) => handleSettingChange("vatRatePercent", parseFloat(e.target.value))}
-                        className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                        }`}
-                      />
-                      <span className={`absolute right-3 top-2 font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>%</span>
-                    </div>
-                  </div>
-
                 </div>
+
               </div>
 
             </div>
@@ -878,343 +898,208 @@ export function SettingsModal({
           {activeTab === "profiles" && (
             <div className="space-y-6">
 
-              {/* SADE TOPTANCI ZAMMI PANELİ */}
-              <div 
-                id="bulk-price-section"
-                className={`p-3.5 sm:p-4 rounded-xl border transition-all shadow-sm ${
-                  isDarkMode 
-                    ? "bg-[#16181b] border-[#C5A059]/35" 
-                    : "bg-amber-50/70 border-amber-200"
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  {/* Sol: Seçim + Yüzde + Buton */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className={`p-2 rounded-lg shrink-0 ${
-                      isDarkMode ? "bg-[#C5A059]/15 text-[#C5A059]" : "bg-amber-100 text-amber-800"
-                    }`}>
-                      <TrendingUp className="w-4 h-4" />
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <select
-                        value={bulkTargetMaterial}
-                        onChange={(e) => setBulkTargetMaterial(e.target.value as any)}
-                        className={`text-xs font-bold px-2.5 py-1.5 rounded-lg border focus:outline-none cursor-pointer ${
-                          isDarkMode 
-                            ? "bg-[#101214] border-neutral-700 text-neutral-100 focus:border-[#C5A059]" 
-                            : "bg-white border-slate-300 text-slate-800 focus:border-[#B88E3A]"
-                        }`}
-                      >
-                        <option value="wood">🪵 Tüm Ahşap Profillere</option>
-                        <option value="all">🌐 Tüm Profillere (Koleksiyon)</option>
-                        <option value="polystyrene">🏛️ Polistren Profillere</option>
-                        <option value="aluminum">✨ Alüminyum Profillere</option>
-                      </select>
-
-                      <div className="flex items-center gap-1">
-                        <span className={`text-xs font-mono font-bold ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>%</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="300"
-                          value={bulkPercent}
-                          onChange={(e) => setBulkPercent(parseFloat(e.target.value) || 0)}
-                          className={`w-14 px-2 py-1.5 text-xs font-mono font-bold text-center rounded-lg border focus:outline-none ${
-                            isDarkMode 
-                              ? "bg-[#101214] border-neutral-700 text-[#C5A059] focus:border-[#C5A059]" 
-                              : "bg-white border-slate-300 text-[#B88E3A] focus:border-[#B88E3A]"
-                          }`}
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleApplyBulkPrice()}
-                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer hover:opacity-90 active:scale-95 ${
-                          isDarkMode 
-                            ? "bg-[#C5A059] text-black font-extrabold" 
-                            : "bg-[#B88E3A] text-white"
-                        }`}
-                      >
-                        <TrendingUp className="w-3.5 h-3.5" />
-                        <span>Zam Yap</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Sağ: Geri Al Butonu (Varsa) */}
-                  {bulkUndoStack.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleUndoBulkPrice}
-                      className={`px-2.5 py-1 rounded-lg border text-xs font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-center ${
-                        isDarkMode 
-                          ? "bg-neutral-800 hover:bg-neutral-700 text-amber-300 border-amber-500/40" 
-                          : "bg-white hover:bg-slate-100 text-amber-800 border-amber-300 shadow-sm"
-                      }`}
-                      title="Son zammı geri al"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Son Zammı Geri Al</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Hızlı Butonlar */}
-                <div className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-neutral-700/30 dark:border-neutral-800/60 flex-wrap">
-                  <span className={`text-[11px] font-medium mr-1 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                    Hızlı:
-                  </span>
-                  {[10, 15, 20, 25, 30, 50].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() => {
-                        setBulkPercent(pct);
-                        handleApplyBulkPrice(undefined, pct);
-                      }}
-                      className={`px-2 py-0.5 rounded text-xs font-mono font-bold border transition-colors cursor-pointer ${
-                        isDarkMode 
-                          ? "bg-[#212429] hover:bg-[#C5A059] text-neutral-200 hover:text-black border-neutral-700 hover:border-[#C5A059]" 
-                          : "bg-white hover:bg-amber-100 text-slate-700 hover:text-amber-900 border-slate-200 hover:border-amber-300 shadow-xs"
-                      }`}
-                    >
-                      +%{pct}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Bildirim Mesajı */}
-                {bulkSuccessMsg && (
-                  <div className="mt-2 text-xs font-medium text-emerald-400 flex items-center gap-1.5 animate-fade-in">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>{bulkSuccessMsg}</span>
-                  </div>
-                )}
-              </div>
-              
-              {/* Form: Add New Frame Profile */}
-              <form onSubmit={handleAddProfile} className={`border rounded-md p-4 space-y-4 ${
-                isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
+              {/* Form: Add New Frame Profile (Derli Toplu & Modern) */}
+              <form onSubmit={handleAddProfile} className={`border rounded-xl p-4.5 space-y-4 shadow-xs transition-all ${
+                isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-white border-slate-200"
               }`}>
-                <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
-                  isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
-                }`}>
-                  <Plus className="w-4 h-4" /> Yeni Çerçeve Profili Ekle
-                </h3>
+                <div className="flex items-center justify-between border-b pb-2.5 dark:border-neutral-800 border-slate-200">
+                  <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
+                    isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                  }`}>
+                    <Plus className="w-4 h-4" /> Yeni Çerçeve Profili Ekle
+                  </h3>
+                  <span className={`text-[11px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                    Özel çıta ve doku tanımlama
+                  </span>
+                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                   <div>
-                    <label className={`block mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Profil Adı</label>
+                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Profil Adı</label>
                     <input
                       type="text"
                       placeholder="Örn: Altın Oymalı Klasik"
                       value={newProfile.name}
                       onChange={(e) => setNewProfile({ ...newProfile, name: e.target.value })}
-                      className={`w-full border rounded px-3 py-2 font-sans focus:outline-none ${
-                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                      className={`w-full border rounded-lg px-3 py-2 text-xs font-sans focus:outline-none transition-colors ${
+                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                       }`}
                       required
                     />
                   </div>
 
                   <div>
-                    <label className={`block mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Profil Kodu</label>
+                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Profil Kodu</label>
                     <input
                       type="text"
                       placeholder="Örn: AK-101"
                       value={newProfile.code}
                       onChange={(e) => setNewProfile({ ...newProfile, code: e.target.value })}
-                      className={`w-full border rounded px-3 py-2 font-mono uppercase focus:outline-none ${
-                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                      className={`w-full border rounded-lg px-3 py-2 text-xs font-mono uppercase focus:outline-none transition-colors ${
+                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                       }`}
                       required
                     />
                   </div>
 
                   <div>
-                    <label className={`block mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Metre Tül Fiyatı (₺/m)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="5"
-                      placeholder="150"
-                      value={newProfile.unitPricePerMeter}
-                      onChange={(e) => setNewProfile({ ...newProfile, unitPricePerMeter: parseFloat(e.target.value) })}
-                      className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                      }`}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className={`block mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Profil Genişliği (cm)</label>
-                    <input
-                      type="number"
-                      min="0.1"
-                      step="0.01"
-                      placeholder="5.00"
-                      value={newProfile.widthCm}
-                      onChange={(e) => setNewProfile({ ...newProfile, widthCm: parseFloat(e.target.value) })}
-                      className={`w-full border rounded px-3 py-2 font-mono focus:outline-none ${
-                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                      }`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={`block mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Malzeme Türü</label>
-                    <select
-                      value={newProfile.materialType}
-                      onChange={(e) => setNewProfile({ ...newProfile, materialType: e.target.value as any })}
-                      className={`w-full border rounded px-3 py-2 font-sans focus:outline-none ${
-                        isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                      }`}
-                    >
-                      <option value="wood">Doğal Ahşap</option>
-                      <option value="polystyrene">Polistren Lamine</option>
-                      <option value="aluminum">Alüminyum</option>
-                      <option value="composite">Kompozit</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center pt-5">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Metre Tül Fiyatı</label>
+                    <div className="relative">
                       <input
-                        type="checkbox"
-                        checked={newProfile.isRepeatingPattern ?? true}
-                        onChange={(e) => setNewProfile({ ...newProfile, isRepeatingPattern: e.target.checked })}
-                        className="w-4 h-4 accent-[#C5A059] rounded cursor-pointer"
+                        type="number"
+                        min="0"
+                        step="5"
+                        placeholder="150"
+                        value={newProfile.unitPricePerMeter}
+                        onChange={(e) => setNewProfile({ ...newProfile, unitPricePerMeter: parseFloat(e.target.value) })}
+                        className={`w-full border rounded-lg pl-3 pr-12 py-2 text-xs font-mono focus:outline-none transition-colors ${
+                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                        }`}
+                        required
                       />
-                      <span className={`text-xs font-medium select-none ${isDarkMode ? "text-neutral-200" : "text-slate-700"}`}>Tekrarlayan Desen (Pattern)</span>
-                    </label>
+                      <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                        isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                      }`}>₺/m</span>
+                    </div>
                   </div>
 
-                  <div className="md:col-span-2 border rounded-lg p-3.5 space-y-3 bg-neutral-900/40 border-neutral-700/60 dark:bg-[#151718] dark:border-neutral-800">
-                    <div className="flex items-center justify-between">
-                      <label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isDarkMode ? "text-neutral-200" : "text-slate-800"}`}>
-                        <Camera className="w-4 h-4 text-[#C5A059]" /> Profil Görseli, Mobil Kamera & Kırpma
-                      </label>
+                  <div>
+                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Çıta Genişliği</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.01"
+                        placeholder="5.00"
+                        value={newProfile.widthCm}
+                        onChange={(e) => setNewProfile({ ...newProfile, widthCm: parseFloat(e.target.value) })}
+                        className={`w-full border rounded-lg pl-3 pr-10 py-2 text-xs font-mono focus:outline-none transition-colors ${
+                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                        }`}
+                      />
+                      <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                        isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                      }`}>cm</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={newProfile.isRepeatingPattern ?? true}
+                      onChange={(e) => setNewProfile({ ...newProfile, isRepeatingPattern: e.target.checked })}
+                      className="w-4 h-4 accent-[#C5A059] rounded cursor-pointer"
+                    />
+                    <span className={`text-xs font-medium ${isDarkMode ? "text-neutral-200" : "text-slate-700"}`}>
+                      Tekrarlayan Desen (Pattern Olarak Uç Uca Döşensin)
+                    </span>
+                  </label>
+                </div>
+
+                {/* Profil Görseli, Mobil Kamera & Kırpma (Açık ve Koyu Mod Renk Paletine Tam Uyumlu) */}
+                <div className={`w-full border rounded-xl p-3.5 space-y-3 transition-all ${
+                  isDarkMode 
+                    ? "bg-[#151718] border-neutral-800" 
+                    : "bg-slate-50/90 border-slate-200 shadow-xs"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                      isDarkMode ? "text-neutral-200" : "text-slate-800"
+                    }`}>
+                      <Camera className={`w-4 h-4 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> Profil Görseli, Mobil Kamera & Kırpma
+                    </label>
+                    {newProfile.imageUrl && (
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold flex items-center gap-1 border ${
+                        isDarkMode 
+                          ? "bg-[#C5A059]/15 text-[#C5A059] border-[#C5A059]/30" 
+                          : "bg-amber-50 text-amber-800 border-amber-300 shadow-2xs"
+                      }`}>
+                        <Check className="w-3 h-3 text-[#B88E3A] dark:text-[#C5A059]" /> Doku Yüklü
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3.5 items-start sm:items-center">
+                    {/* Visual Preview Box */}
+                    <div className={`relative group shrink-0 w-28 h-20 sm:w-32 sm:h-20 rounded-lg border overflow-hidden flex items-center justify-center shadow-inner transition-colors ${
+                      isDarkMode ? "border-neutral-700 bg-neutral-950" : "border-slate-300 bg-white"
+                    }`}>
+                      {newProfile.imageUrl ? (
+                        <img
+                          src={newProfile.imageUrl}
+                          alt="Profil Doku Önizleme"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className={`flex flex-col items-center justify-center text-[10px] p-2 text-center ${
+                          isDarkMode ? "text-neutral-500" : "text-slate-400"
+                        }`}>
+                          <ImageIcon className="w-5 h-5 mb-1 opacity-50" />
+                          <span>Görsel Yok</span>
+                        </div>
+                      )}
                       {newProfile.imageUrl && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30 font-semibold flex items-center gap-1">
-                          <Check className="w-3 h-3 text-[#C5A059]" /> Doku Yüklü
-                        </span>
+                        <button
+                          type="button"
+                          onClick={handleOpenCropForNewProfile}
+                          className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity cursor-pointer p-1 text-center"
+                          title="Kırpma ve 90° Döndürme Aracını Aç"
+                        >
+                          <CropIcon className="w-4 h-4 text-[#C5A059] mb-0.5 animate-pulse" />
+                          <span className="text-[10px] font-bold text-[#C5A059]">Kırp & Çevir</span>
+                        </button>
                       )}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3.5 items-start sm:items-center">
-                      {/* Visual Preview Box */}
-                      <div className="relative group shrink-0 w-28 h-20 sm:w-32 sm:h-20 rounded border border-neutral-700 dark:border-neutral-700 bg-neutral-950 overflow-hidden flex items-center justify-center shadow-inner">
-                        {newProfile.imageUrl ? (
-                          <img
-                            src={newProfile.imageUrl}
-                            alt="Profil Doku Önizleme"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center text-neutral-500 text-[10px] p-2 text-center">
-                            <ImageIcon className="w-5 h-5 mb-1 opacity-50" />
-                            <span>Görsel Yok</span>
-                          </div>
-                        )}
-                        {newProfile.imageUrl && (
-                          <button
-                            type="button"
-                            onClick={handleOpenCropForNewProfile}
-                            className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity cursor-pointer p-1 text-center"
-                            title="Kırpma ve 90° Döndürme Aracını Aç"
-                          >
-                            <Scan className="w-4 h-4 text-[#C5A059] mb-0.5 animate-pulse" />
-                            <span className="text-[10px] font-bold text-[#C5A059]">Kırp & Çevir</span>
-                          </button>
-                        )}
-                      </div>
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Direct Camera Button */}
+                      <label className={`cursor-pointer px-3.5 py-2 text-xs font-mono font-bold rounded-lg border flex items-center gap-1.5 transition-all shadow-xs ${
+                        isDarkMode 
+                          ? "bg-[#C5A059] hover:bg-[#b08c48] text-black border-[#C5A059]" 
+                          : "bg-[#B88E3A] hover:bg-[#9E7728] text-white border-[#B88E3A]"
+                      }`}>
+                        <Camera className="w-3.5 h-3.5" /> Fotoğraf Çek (Kamera)
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          capture="environment" 
+                          onChange={(e) => handleProfileImageFileUpload(e, true)} 
+                          className="hidden" 
+                        />
+                      </label>
 
-                      {/* Action Buttons & Helpers */}
-                      <div className="flex-1 min-w-0 space-y-2.5 w-full">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {/* Direct Camera Button (with capture="environment" for phones) */}
-                          <label className={`cursor-pointer px-3 py-1.5 text-xs font-mono font-bold rounded border flex items-center gap-1.5 transition-all shadow-sm ${
+                      {/* Gallery File Upload */}
+                      <label className={`cursor-pointer px-3.5 py-2 text-xs font-mono font-medium rounded-lg border flex items-center gap-1.5 transition-colors shadow-xs ${
+                        isDarkMode 
+                          ? "bg-[#222628] hover:bg-neutral-700 text-neutral-200 border-neutral-700 hover:border-neutral-500" 
+                          : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
+                      }`}>
+                        <Upload className="w-3.5 h-3.5 text-[#B88E3A] dark:text-[#C5A059]" /> Galeriden Seç
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleProfileImageFileUpload(e, true)} 
+                          className="hidden" 
+                        />
+                      </label>
+
+                      {/* Crop Existing button */}
+                      {newProfile.imageUrl && (
+                        <button
+                          type="button"
+                          onClick={handleOpenCropForNewProfile}
+                          className={`px-3.5 py-2 text-xs font-mono font-bold rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
                             isDarkMode 
-                              ? "bg-[#C5A059] hover:bg-[#b08c48] text-black border-[#C5A059]" 
-                              : "bg-[#B88E3A] hover:bg-[#9E7728] text-white border-[#B88E3A]"
-                          }`}>
-                            <Camera className="w-3.5 h-3.5" /> Fotoğraf Çek (Kamera)
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              capture="environment"
-                              onChange={(e) => handleProfileImageFileUpload(e, true)} 
-                              className="hidden" 
-                            />
-                          </label>
-
-                          {/* Gallery File Upload */}
-                          <label className={`cursor-pointer px-3 py-1.5 text-xs font-mono font-medium rounded border flex items-center gap-1.5 transition-colors ${
-                            isDarkMode 
-                              ? "bg-[#222628] hover:bg-neutral-700 text-neutral-200 border-neutral-700 hover:border-neutral-500" 
-                              : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
-                          }`}>
-                            <Upload className="w-3.5 h-3.5 text-[#C5A059]" /> Galeriden Seç
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              onChange={(e) => handleProfileImageFileUpload(e, true)} 
-                              className="hidden" 
-                            />
-                          </label>
-
-                          {/* Crop Existing button */}
-                          {newProfile.imageUrl && (
-                            <button
-                              type="button"
-                              onClick={handleOpenCropForNewProfile}
-                              className={`px-3 py-1.5 text-xs font-mono font-bold rounded border flex items-center gap-1.5 transition-all cursor-pointer ${
-                                isDarkMode 
-                                  ? "bg-[#C5A059]/20 hover:bg-[#C5A059]/30 text-[#C5A059] border-[#C5A059]/50" 
-                                  : "bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300"
-                              }`}
-                            >
-                              <Scan className="w-3.5 h-3.5 text-[#C5A059]" /> Kırp & 90° Çevir
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Optional URL Input */}
-                        <div className="flex gap-2 items-center">
-                          <input
-                            type="text"
-                            placeholder="veya Görsel URL'si yapıştırın: https://..."
-                            value={newProfile.imageUrl}
-                            onChange={(e) => setNewProfile({ ...newProfile, imageUrl: e.target.value })}
-                            className={`w-full border rounded px-3 py-1.5 font-mono text-[11px] focus:outline-none truncate ${
-                              isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                            }`}
-                          />
-                          {newProfile.imageUrl && (
-                            <button
-                              type="button"
-                              onClick={handleOpenCropForNewProfile}
-                              className="px-2.5 py-1.5 rounded border border-neutral-700 text-neutral-300 hover:text-white text-[10px] font-mono shrink-0 transition-colors cursor-pointer"
-                              title="Bu linkteki görseli kırpma aracında aç"
-                            >
-                              Kırp
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Guidance Tip */}
-                    <div className={`text-[10px] rounded px-2.5 py-1.5 flex items-start gap-1.5 ${
-                      isDarkMode ? "bg-[#121415] text-neutral-400 border border-neutral-800" : "bg-slate-100 text-slate-600 border border-slate-200"
-                    }`}>
-                      <Sparkles className="w-3.5 h-3.5 text-[#C5A059] shrink-0 mt-0.5" />
-                      <span>
-                        <strong>Mobil Atölye Kolaylığı:</strong> Telefon kameranızla çerçeve çıtasını fotoğrafladığınızda otomatik olarak kırpma arayüzü açılır. <strong>90° Döndür</strong> ve <strong>Yatay Şerit (Çıta)</strong> butonlarıyla açıyı düzelterek arka planı ayırabilir ve kusursuz köşe gönye dokusu elde edebilirsiniz.
-                      </span>
+                              ? "bg-[#C5A059]/20 hover:bg-[#C5A059]/30 text-[#C5A059] border-[#C5A059]/50" 
+                              : "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300"
+                          }`}
+                        >
+                          <CropIcon className="w-3.5 h-3.5 text-[#B88E3A] dark:text-[#C5A059]" /> Kırp & 90° Çevir
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1239,20 +1124,6 @@ export function SettingsModal({
                   }`}>
                     Kayıtlı Profil Listesi ({localProfiles.length})
                   </h3>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      document.getElementById("bulk-price-section")?.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-md border flex items-center gap-1.5 transition-colors cursor-pointer ${
-                      isDarkMode
-                        ? "bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#C5A059] border-[#C5A059]/30"
-                        : "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300"
-                    }`}
-                  >
-                    <TrendingUp className="w-3 h-3 text-[#C5A059]" />
-                    <span>Toplu Zam Bölümüne Git</span>
-                  </button>
                 </div>
 
                 {localProfiles.length === 0 ? (
@@ -1277,32 +1148,123 @@ export function SettingsModal({
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                     {localProfiles.map((prof) => (
                     <div
                       key={prof.id}
-                      className={`flex items-center gap-3 border p-3 rounded-md transition-colors ${
-                        isDarkMode ? "bg-[#1a1d1f] border-neutral-800 hover:border-[#C5A059]/40" : "bg-slate-50 border-slate-200 hover:border-[#B88E3A]/40"
+                      className={`flex items-start sm:items-center gap-4 border p-4 rounded-2xl transition-all shadow-2xs ${
+                        isDarkMode 
+                          ? "bg-[#181a1d] border-neutral-800 hover:border-[#C5A059]/40" 
+                          : "bg-white border-slate-200 hover:border-amber-300 shadow-xs"
                       }`}
                     >
-                      <div className="relative group shrink-0 w-14 h-14 rounded border border-neutral-300 dark:border-neutral-700 overflow-hidden bg-black/40">
+                      {/* Büyütülmüş Doku Küçük Resmi & Kırpma Overlay */}
+                      <div className="relative group shrink-0 w-20 h-20 sm:w-22 sm:h-22 rounded-xl border overflow-hidden bg-black/50 shadow-inner dark:border-neutral-700 border-slate-200">
                         <img
                           src={prof.imageUrl}
                           alt={prof.name}
                           className="w-full h-full object-cover"
                         />
-                        {/* Hover Quick Actions */}
-                        <div className="absolute inset-0 bg-black/85 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 transition-opacity p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCropForExistingProfile(prof)}
+                          className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity cursor-pointer p-1"
+                          title="Görseli Kırp ve Döndür"
+                        >
+                          <CropIcon className="w-5 h-5 text-[#C5A059] mb-1 animate-pulse" />
+                          <span className="text-[10px] font-bold text-[#C5A059] tracking-wide">Kırp & Çevir</span>
+                        </button>
+                      </div>
+
+                      {/* Bilgiler, Girişler & Alt Butonlar */}
+                      <div className="flex-1 min-w-0 space-y-2.5">
+                        {/* Üst Satır: Sadece Profil Adı ve Büyütülmüş Tekrarlayan/Sünek Butonu */}
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className={`font-bold text-sm sm:text-base truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                            {prof.name}
+                          </h4>
+
+                          {/* Büyütülmüş Desen Tipi Butonu */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleRepeating(prof.id)}
+                            className={`px-3 py-1 text-xs rounded-lg font-mono font-bold transition-all cursor-pointer border shadow-2xs hover:scale-102 active:scale-98 shrink-0 ${
+                              prof.isRepeatingPattern ?? true
+                                ? (isDarkMode ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/35 hover:bg-emerald-500/25" : "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100")
+                                : (isDarkMode ? "bg-sky-500/15 text-sky-400 border-sky-500/35 hover:bg-sky-500/25" : "bg-sky-50 text-sky-800 border-sky-300 hover:bg-sky-100")
+                            }`}
+                            title="Tıklayarak desen tekrarını değiştirin"
+                          >
+                            {prof.isRepeatingPattern ?? true ? "Tekrarlayan" : "Sünek"}
+                          </button>
+                        </div>
+
+                        {/* Orta Satır: Genişlik ve Fiyat Girişleri */}
+                        <div className="flex items-center gap-3 text-xs flex-wrap">
+                          {/* Genişlik */}
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[11px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Genişlik:</span>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min="0.1"
+                                step="0.01"
+                                value={prof.widthCm}
+                                onChange={(e) => handleProfileWidthChange(prof.id, parseFloat(e.target.value))}
+                                className={`w-18 border pl-2 pr-6 py-1 rounded-lg text-xs font-mono font-bold focus:outline-none transition-colors ${
+                                  isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                                }`}
+                              />
+                              <span className={`absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-mono pointer-events-none ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>cm</span>
+                            </div>
+                          </div>
+
+                          {/* Metre Fiyatı */}
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[11px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Fiyat:</span>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min="0"
+                                value={prof.unitPricePerMeter}
+                                onChange={(e) => handleProfilePriceChange(prof.id, parseFloat(e.target.value))}
+                                className={`w-22 border pl-2 pr-7 py-1 rounded-lg text-xs font-mono font-bold focus:outline-none transition-colors ${
+                                  isDarkMode ? "bg-[#121415] border-neutral-700 text-[#C5A059] focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-[#B88E3A] focus:border-[#B88E3A] focus:bg-white"
+                                }`}
+                              />
+                              <span className={`absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold pointer-events-none ${isDarkMode ? "text-[#C5A059]/70" : "text-amber-800/70"}`}>₺/m</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Alt Satır: Girişlerin Altında Yan Yana Sıralanan 3 Buton (Kırp, Fotoğraf, Sil) */}
+                        <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                          {/* 1. Kırp & Çevir */}
                           <button
                             type="button"
                             onClick={() => handleOpenCropForExistingProfile(prof)}
-                            className="w-full py-0.5 px-1 bg-[#C5A059] hover:bg-[#B28E46] text-black text-[9px] font-bold rounded flex items-center justify-center gap-1 cursor-pointer"
-                            title="Kırpma ve Döndürme Aracını Aç"
+                            className={`h-7.5 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-mono font-semibold transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 ${
+                              isDarkMode 
+                                ? "bg-amber-500/10 hover:bg-amber-500/20 text-[#C5A059] border border-amber-500/30 hover:border-[#C5A059]/60" 
+                                : "bg-amber-50 hover:bg-amber-100 text-[#9E7728] border border-amber-200 hover:border-amber-300"
+                            }`}
+                            title="Görseli Kırp & 90° Döndür"
                           >
-                            <Scan className="w-2.5 h-2.5" /> Kırp
+                            <CropIcon className="w-3.5 h-3.5" />
+                            <span className="text-[11px]">Kırp</span>
                           </button>
-                          <label className="w-full py-0.5 px-1 bg-neutral-800 hover:bg-neutral-700 text-white text-[9px] font-medium rounded flex items-center justify-center gap-1 cursor-pointer">
-                            <Camera className="w-2.5 h-2.5 text-[#C5A059]" /> Çek
+
+                          {/* 2. Yeni Fotoğraf Yükle / Kamera */}
+                          <label 
+                            className={`h-7.5 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-mono font-semibold transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 ${
+                              isDarkMode 
+                                ? "bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 hover:border-sky-400/60" 
+                                : "bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 hover:border-sky-300"
+                            }`}
+                            title="Yeni Fotoğraf Çek / Görsel Değiştir"
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                            <span className="text-[11px]">Fotoğraf</span>
                             <input
                               type="file"
                               accept="image/*"
@@ -1311,415 +1273,361 @@ export function SettingsModal({
                               className="hidden"
                             />
                           </label>
-                        </div>
-                      </div>
 
-                      <div className="flex-1 min-w-0 text-xs space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={`font-bold truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}>{prof.name}</span>
-                          <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded border font-semibold shrink-0 ${
-                            isDarkMode ? "bg-[#C5A059]/20 text-[#C5A059] border-[#C5A059]/30" : "bg-[#B88E3A]/15 text-[#B88E3A] border-[#B88E3A]/30"
-                          }`}>
-                            {prof.code}
-                          </span>
-                        </div>
-
-                        <div className={`text-[11px] flex items-center gap-1.5 flex-wrap ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                          <span className="capitalize">{prof.materialType === 'wood' ? 'Ahşap' : prof.materialType === 'polystyrene' ? 'Polistren' : 'Alüminyum'}</span>
-                          <span>•</span>
+                          {/* 3. Sil */}
                           <button
                             type="button"
-                            onClick={() => handleToggleRepeating(prof.id)}
-                            className={`px-1.5 py-0.5 text-[9px] rounded font-mono font-semibold transition-colors cursor-pointer ${
-                              prof.isRepeatingPattern ?? true
-                                ? (isDarkMode ? "bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30" : "bg-amber-50 text-amber-800 border border-amber-300")
-                                : (isDarkMode ? "bg-sky-500/15 text-sky-400 border border-sky-500/30" : "bg-sky-50 text-sky-800 border border-sky-300")
+                            onClick={() => handleDeleteProfile(prof.id)}
+                            className={`h-7.5 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-mono font-semibold transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 ${
+                              isDarkMode 
+                                ? "bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 hover:border-red-400/60" 
+                                : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 hover:border-red-300"
                             }`}
-                            title="Tıklayarak desen modunu değiştirin"
+                            title="Profili Sil"
                           >
-                            {prof.isRepeatingPattern ?? true ? "Tekrarlayan Pattern" : "Sünek Kaplama"}
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="text-[11px]">Sil</span>
                           </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleOpenCropForExistingProfile(prof)}
-                            className={`px-1.5 py-0.5 text-[9px] rounded font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer ${
-                              isDarkMode ? "bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#C5A059] border border-[#C5A059]/30" : "bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300"
-                            }`}
-                            title="Görseli kırpma ve 90° döndürme arayüzünde aç"
-                          >
-                            <Scan className="w-2.5 h-2.5" /> Kırp & Çevir
-                          </button>
-                        </div>
-
-                        <div className="flex items-center gap-3 pt-1">
-                          <div className="flex items-center gap-1">
-                            <span className={`text-[10px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Genişlik:</span>
-                            <input
-                              type="number"
-                              min="0.1"
-                              step="0.01"
-                              value={prof.widthCm}
-                              onChange={(e) => handleProfileWidthChange(prof.id, parseFloat(e.target.value))}
-                              className={`w-16 border px-1.5 py-0.5 rounded text-xs font-mono font-bold focus:outline-none ${
-                                isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                              }`}
-                            />
-                            <span className={`text-[10px] font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>cm</span>
-                          </div>
-
-                          <div className="flex items-center gap-1">
-                            <span className={`text-[10px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Fiyat:</span>
-                            <div className="relative w-24">
-                              <input
-                                type="number"
-                                min="0"
-                                value={prof.unitPricePerMeter}
-                                onChange={(e) => handleProfilePriceChange(prof.id, parseFloat(e.target.value))}
-                                className={`w-full border px-1.5 py-0.5 rounded text-xs font-mono font-bold focus:outline-none ${
-                                  isDarkMode ? "bg-[#121415] border-neutral-700 text-[#C5A059] focus:border-[#C5A059]" : "bg-white border-slate-300 text-[#B88E3A] focus:border-[#B88E3A]"
-                                }`}
-                              />
-                              <span className={`absolute right-1.5 top-0.5 text-[10px] font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>₺</span>
-                            </div>
-                          </div>
                         </div>
                       </div>
-
-                      <button
-                        onClick={() => handleDeleteProfile(prof.id)}
-                        className={`p-1.5 rounded transition-colors shrink-0 ${
-                          isDarkMode ? "text-neutral-500 hover:text-red-400 hover:bg-red-500/10" : "text-slate-400 hover:text-red-600 hover:bg-red-50"
-                        }`}
-                        title="Profili Sil"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                   ))}
                 </div>
                 )}
               </div>
 
+              {/* HIZLI TOPLU ZAM PANELİ (TEK SATIRDA DERLİ TOPLU) */}
+              <div 
+                id="bulk-price-section"
+                className={`p-2.5 sm:p-3 rounded-xl border transition-all shadow-xs ${
+                  isDarkMode 
+                    ? "bg-[#16181b] border-[#C5A059]/35" 
+                    : "bg-amber-50/80 border-amber-200"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+                  {/* Sol Bölüm: Başlık, Özel % Girişi ve Zam Yap Butonu */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className={`p-1.5 rounded-lg shrink-0 ${
+                      isDarkMode ? "bg-[#C5A059]/15 text-[#C5A059]" : "bg-amber-100 text-amber-800"
+                    }`}>
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+
+                    <span className={`text-xs font-bold whitespace-nowrap ${isDarkMode ? "text-neutral-200" : "text-slate-800"}`}>
+                      Toplu Zam:
+                    </span>
+
+                    <div className="flex items-center gap-0.5">
+                      <span className={`text-[11px] font-mono font-bold ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>%</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="300"
+                        value={bulkPercent}
+                        onChange={(e) => setBulkPercent(parseFloat(e.target.value) || 0)}
+                        className={`w-11 px-1 py-1 text-xs font-mono font-bold text-center rounded-md border focus:outline-none ${
+                          isDarkMode 
+                            ? "bg-[#101214] border-neutral-700 text-[#C5A059] focus:border-[#C5A059]" 
+                            : "bg-white border-slate-300 text-[#B88E3A] focus:border-[#B88E3A]"
+                        }`}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleApplyBulkPrice()}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1 shadow-xs cursor-pointer hover:opacity-90 active:scale-95 whitespace-nowrap ${
+                        isDarkMode 
+                          ? "bg-[#C5A059] text-black font-extrabold" 
+                          : "bg-[#B88E3A] text-white"
+                      }`}
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      <span>Uygula</span>
+                    </button>
+                  </div>
+
+                  <div className={`h-4 w-px mx-0.5 shrink-0 ${isDarkMode ? "bg-neutral-800" : "bg-amber-200"}`} />
+
+                  {/* Orta Bölüm: Hızlı Zam Butonları 10, 20, 30, 40, 50 */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {[10, 20, 30, 40, 50].map((pct) => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => {
+                          setBulkPercent(pct);
+                          handleApplyBulkPrice(pct);
+                        }}
+                        className={`px-2 py-1 rounded-md text-xs font-mono font-bold border transition-colors cursor-pointer whitespace-nowrap ${
+                          isDarkMode 
+                            ? "bg-[#212429] hover:bg-[#C5A059] text-neutral-200 hover:text-black border-neutral-700 hover:border-[#C5A059]" 
+                            : "bg-white hover:bg-amber-100 text-slate-700 hover:text-amber-900 border-slate-300 hover:border-amber-300 shadow-2xs"
+                        }`}
+                      >
+                        +%{pct}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Sağ Bölüm: Zammı Geri Al Butonu */}
+                  <div className="flex items-center shrink-0">
+                    {bulkUndoStack.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={handleUndoBulkPrice}
+                        className={`px-2.5 py-1 rounded-md border text-xs font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shadow-xs ${
+                          isDarkMode 
+                            ? "bg-neutral-800 hover:bg-neutral-700 text-amber-300 border-amber-500/40" 
+                            : "bg-white hover:bg-amber-50 text-amber-800 border-amber-300"
+                        }`}
+                        title="Son zammı geri al"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Geri Al ({bulkUndoStack.length})</span>
+                      </button>
+                    ) : (
+                      <span className={`text-[11px] font-mono px-2 py-0.5 rounded ${
+                        isDarkMode ? "text-neutral-500" : "text-slate-400"
+                      }`}>
+                        Geri alma yok
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bildirim Mesajı */}
+                {bulkSuccessMsg && (
+                  <div className="mt-1.5 text-xs font-medium text-emerald-500 flex items-center gap-1.5 animate-fade-in">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span className="truncate">{bulkSuccessMsg}</span>
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
 
-          {/* TAB 3: EKRAN GÖRÜNÜM & GİZLİLİK MODU */}
+          {/* TAB 3: EKRAN GÖRÜNÜM & GİZLİLİK MODU (Sade ve Anlaşılır) */}
           {activeTab === "privacy" && (
-            <div className="space-y-6">
-              {/* Header Overview Card */}
-              <div className={`border rounded-xl p-5 ${
-                isDarkMode ? "bg-[#181a1e] border-[#C5A059]/30" : "bg-white border-slate-200 shadow-sm"
+            <div className="space-y-6 max-w-2xl mx-auto py-2">
+              
+              {/* Ana Seçici: Müşteri Modu vs Atölye Modu */}
+              <div className={`p-6 rounded-2xl border transition-all ${
+                isDarkMode 
+                  ? "bg-[#181a1d] border-neutral-800" 
+                  : "bg-white border-[#e8dfcf] shadow-sm"
               }`}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2.5 rounded-xl shrink-0 mt-0.5 ${
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className={`text-sm font-bold uppercase tracking-wider ${
+                      isDarkMode ? "text-white" : "text-slate-900"
+                    }`}>
+                      Aktif Ekran Görünümü
+                    </h3>
+                    <p className={`text-xs mt-0.5 ${
+                      isDarkMode ? "text-neutral-400" : "text-slate-500"
+                    }`}>
+                      Müşteri yanınızdayken maliyetleri gizleyebilir veya atölye hesaplarını açabilirsiniz.
+                    </p>
+                  </div>
+                  
+                  <span className={`text-xs font-mono font-bold px-3 py-1 rounded-full border ${
+                    isShopMode
+                      ? (isDarkMode ? "bg-amber-500/20 text-amber-400 border-amber-500/40" : "bg-amber-100 text-amber-800 border-amber-300")
+                      : (isDarkMode ? "bg-blue-500/20 text-blue-400 border-blue-500/40" : "bg-blue-100 text-blue-800 border-blue-300")
+                  }`}>
+                    {isShopMode ? "ATÖLYE MODU AÇIK" : "MÜŞTERİ MODU AKTİF"}
+                  </span>
+                </div>
+
+                {/* İki Seçenek Butonu (Segmented Cards) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                  {/* Müşteri Modu Butonu */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onToggleShopMode(false);
+                      setShowPinPrompt(false);
+                      setPinError(null);
+                    }}
+                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                      !isShopMode
+                        ? (isDarkMode ? "bg-blue-950/30 border-blue-500 ring-2 ring-blue-500/30" : "bg-blue-50/90 border-blue-500 ring-2 ring-blue-200")
+                        : (isDarkMode ? "bg-neutral-900/60 border-neutral-800 hover:border-neutral-700 opacity-70 hover:opacity-100" : "bg-slate-50 border-slate-200 hover:border-slate-300 opacity-70 hover:opacity-100")
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`p-2 rounded-lg ${
+                          !isShopMode 
+                            ? "bg-blue-500 text-white" 
+                            : (isDarkMode ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-600")
+                        }`}>
+                          <EyeOff className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                            Müşteri Modu
+                          </div>
+                          <div className="text-[11px] text-blue-500 dark:text-blue-400 font-mono">
+                            Maliyetler Gizli
+                          </div>
+                        </div>
+                      </div>
+                      {!isShopMode && (
+                        <CheckCircle2 className="w-5 h-5 text-blue-500" />
+                      )}
+                    </div>
+                    <p className={`text-xs leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
+                      Alış fiyatları, fire ve kâr marjı gizlenir. Yalnızca net müşteri satış fiyatı gösterilir.
+                    </p>
+                  </button>
+
+                  {/* Atölye Modu Butonu */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isShopMode) return;
+                      setShowPinPrompt(true);
+                      setPinError(null);
+                      setPinInput("");
+                    }}
+                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-3 ${
                       isShopMode
-                        ? (isDarkMode ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-amber-100 text-amber-800 border border-amber-200")
-                        : (isDarkMode ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" : "bg-blue-100 text-blue-800 border border-blue-200")
-                    }`}>
-                      {isShopMode ? <Unlock className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className={`text-sm font-bold tracking-wide uppercase ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                          Ekran Görünüm & Gizlilik Yönetimi
-                        </h3>
-                        <span className={`px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase rounded-md border ${
-                          isShopMode
-                            ? (isDarkMode ? "bg-amber-500/15 border-amber-500/40 text-amber-300" : "bg-amber-100 border-amber-300 text-amber-800")
-                            : (isDarkMode ? "bg-blue-500/15 border-blue-500/40 text-blue-300" : "bg-blue-100 border-blue-200 text-blue-800")
-                        }`}>
-                          {isShopMode ? "ATÖLYE MODU ETKİN" : "MÜŞTERİ MODU ETKİN"}
-                        </span>
-                      </div>
-                      <p className={`text-xs mt-1 leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                        Müşteri önünde yapılacak teklif sunumlarında hammadde maliyetlerini gizleyebilir veya imalat aşamasında atölye modunu PIN ile açarak tüm girdi maliyetlerini detaylı görebilirsiniz.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Mode Selection Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Mode Card 1: Müşteri Modu */}
-                <div className={`border rounded-xl p-5 flex flex-col justify-between transition-all ${
-                  !isShopMode
-                    ? (isDarkMode ? "bg-blue-950/20 border-blue-500/50 ring-1 ring-blue-500/30" : "bg-blue-50/70 border-blue-300 ring-1 ring-blue-300")
-                    : (isDarkMode ? "bg-[#181a1d] border-neutral-800 opacity-80 hover:opacity-100" : "bg-slate-50 border-slate-200 opacity-85 hover:opacity-100")
-                }`}>
-                  <div className="space-y-3">
+                        ? (isDarkMode ? "bg-amber-950/30 border-[#C5A059] ring-2 ring-[#C5A059]/30" : "bg-amber-50/90 border-amber-500 ring-2 ring-amber-200")
+                        : (isDarkMode ? "bg-neutral-900/60 border-neutral-800 hover:border-neutral-700 opacity-70 hover:opacity-100" : "bg-slate-50 border-slate-200 hover:border-slate-300 opacity-70 hover:opacity-100")
+                    }`}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className={`p-2 rounded-lg ${
-                          !isShopMode
-                            ? (isDarkMode ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700")
+                          isShopMode 
+                            ? "bg-[#B88E3A] text-white" 
                             : (isDarkMode ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-600")
                         }`}>
-                          <Users className="w-5 h-5" />
+                          <Unlock className="w-4 h-4" />
                         </div>
                         <div>
-                          <h4 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                            MÜŞTERİ MODU
-                          </h4>
-                          <span className="text-[10px] text-blue-400 font-mono">Gizlilik Korumalı Sunum</span>
+                          <div className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                            Atölye Modu
+                          </div>
+                          <div className="text-[11px] text-amber-600 dark:text-amber-400 font-mono">
+                            PIN Korumalı
+                          </div>
                         </div>
                       </div>
-                      <span className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded ${
-                        !isShopMode
-                          ? (isDarkMode ? "bg-blue-500/20 text-blue-300 border border-blue-500/40" : "bg-blue-100 text-blue-800 border border-blue-200")
-                          : (isDarkMode ? "bg-neutral-800 text-neutral-500" : "bg-slate-200 text-slate-600")
-                      }`}>
-                        {!isShopMode ? "Şu Anda Aktif" : "Pasif"}
+                      {isShopMode && (
+                        <CheckCircle2 className="w-5 h-5 text-amber-600 dark:text-[#C5A059]" />
+                      )}
+                    </div>
+                    <p className={`text-xs leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
+                      Hammadde birim maliyetleri, kesim firesi, işçilik ve net kâr dökümü tam olarak açılır.
+                    </p>
+                  </button>
+                </div>
+
+                {/* PIN Giriş Alanı (Atölye moduna geçerken açılır) */}
+                {showPinPrompt && !isShopMode && (
+                  <div className={`mt-5 p-4 rounded-xl border animate-fade-in ${
+                    isDarkMode ? "bg-[#121415] border-[#C5A059]/40" : "bg-amber-50/60 border-amber-300"
+                  }`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <KeyRound className="w-4 h-4 text-[#C5A059]" />
+                      <span className={`text-xs font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                        Atölye Modu için PIN Kodunu Girin:
                       </span>
                     </div>
 
-                    <p className={`text-xs leading-relaxed ${isDarkMode ? "text-neutral-300" : "text-slate-600"}`}>
-                      Müşteriye fiyat teklifi & hesaplama dökümü gösterilirken hammadde birim alış maliyetleri, kesim firesi yüzdesi, atölye el işçiliği ve net kâr marjı gizlenir. Dökümde yalnızca KDV dahil net satış fiyatı yer alır.
-                    </p>
-
-                    <div className={`p-3 rounded-lg text-xs space-y-1.5 font-mono ${
-                      isDarkMode ? "bg-black/30 border border-neutral-800" : "bg-white/80 border border-slate-200"
-                    }`}>
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Hammadde Alış Fiyatları:</span>
-                        <span className="text-emerald-500 font-bold flex items-center gap-1"><EyeOff className="w-3.5 h-3.5" /> Gizli</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Fire ve Net Kâr Oranı:</span>
-                        <span className="text-emerald-500 font-bold flex items-center gap-1"><EyeOff className="w-3.5 h-3.5" /> Gizli</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Nihai Satış Fiyatı:</span>
-                        <span className={isDarkMode ? "text-blue-400 font-bold" : "text-blue-600 font-bold"}>Görünür</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 mt-3 border-t border-neutral-700/30">
-                    {!isShopMode ? (
-                      <div className="flex items-center justify-center gap-2 py-2 text-xs font-mono font-bold text-blue-400 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                        <Check className="w-4 h-4" /> BU MOD ŞU ANDA ETKİN
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onToggleShopMode(false);
-                          setShowPinPrompt(false);
+                    <form onSubmit={handleConfirmPin} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <input
+                        type="password"
+                        maxLength={6}
+                        placeholder="PIN Girin"
+                        autoFocus
+                        value={pinInput}
+                        onChange={(e) => {
+                          setPinInput(e.target.value);
+                          if (pinError) setPinError(null);
                         }}
-                        className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs font-bold font-mono transition-all cursor-pointer shadow-sm ${
-                          isDarkMode
-                            ? "bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700"
-                            : "bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-300"
+                        className={`px-4 py-2 text-center font-mono font-bold text-sm tracking-widest rounded-lg border focus:outline-none transition-colors ${
+                          pinError
+                            ? "border-red-500 bg-red-500/10 text-red-400"
+                            : (isDarkMode ? "bg-black/40 border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]")
                         }`}
+                      />
+                      <button
+                        type="submit"
+                        className="px-5 py-2 bg-[#B88E3A] hover:bg-[#a0792a] text-white font-mono font-bold text-xs rounded-lg transition-all cursor-pointer shadow-xs whitespace-nowrap"
                       >
-                        <Lock className="w-4 h-4 text-blue-400" />
-                        MÜŞTERİ MODUNA GEÇ (KİLİTLE)
+                        Atölye Modunu Aç
                       </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Mode Card 2: Atölye Modu */}
-                <div className={`border rounded-xl p-5 flex flex-col justify-between transition-all ${
-                  isShopMode
-                    ? (isDarkMode ? "bg-amber-950/20 border-amber-500/50 ring-1 ring-amber-500/30" : "bg-amber-50/70 border-amber-300 ring-1 ring-amber-300")
-                    : (isDarkMode ? "bg-[#181a1d] border-neutral-800 opacity-80 hover:opacity-100" : "bg-slate-50 border-slate-200 opacity-85 hover:opacity-100")
-                }`}>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`p-2 rounded-lg ${
-                          isShopMode
-                            ? (isDarkMode ? "bg-amber-500/20 text-amber-300" : "bg-amber-100 text-amber-700")
-                            : (isDarkMode ? "bg-neutral-800 text-neutral-400" : "bg-slate-200 text-slate-600")
-                        }`}>
-                          <ShieldCheck className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                            ATÖLYE & İMALAT MODU
-                          </h4>
-                          <span className="text-[10px] text-amber-400 font-mono">Tam Maliyet & İmalat Detayları</span>
-                        </div>
-                      </div>
-                      <span className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded ${
-                        isShopMode
-                          ? (isDarkMode ? "bg-amber-500/20 text-amber-300 border border-amber-500/40" : "bg-amber-100 text-amber-800 border border-amber-200")
-                          : (isDarkMode ? "bg-neutral-800 text-neutral-500" : "bg-slate-200 text-slate-600")
-                      }`}>
-                        {isShopMode ? "Şu Anda Aktif" : "PIN Korumalı"}
-                      </span>
-                    </div>
-
-                    <p className={`text-xs leading-relaxed ${isDarkMode ? "text-neutral-300" : "text-slate-600"}`}>
-                      Fiyat teklifi & hesaplama dökümünde hammadde alış birim fiyatları, kesim atık oranları (%10-%25), sabit el işçiliği ve hedeflenen net kâr marjı detayları açık olarak gösterilir.
-                    </p>
-
-                    <div className={`p-3 rounded-lg text-xs space-y-1.5 font-mono ${
-                      isDarkMode ? "bg-black/30 border border-neutral-800" : "bg-white/80 border border-slate-200"
-                    }`}>
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Hammadde Alış Fiyatları:</span>
-                        <span className="text-amber-400 font-bold flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> Görünür (₺/m², ₺/m)</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Fire ve Net Kâr Oranı:</span>
-                        <span className="text-amber-400 font-bold flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> Görünür (%)</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Nihai Satış Fiyatı:</span>
-                        <span className="text-amber-400 font-bold">Görünür</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 mt-3 border-t border-neutral-700/30">
-                    {isShopMode ? (
-                      <div className="flex items-center justify-center gap-2 py-2 text-xs font-mono font-bold text-amber-400 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                        <Check className="w-4 h-4" /> BU MOD ŞU ANDA ETKİN
-                      </div>
-                    ) : !showPinPrompt ? (
                       <button
                         type="button"
                         onClick={() => {
-                          setShowPinPrompt(true);
+                          setShowPinPrompt(false);
                           setPinError(null);
                           setPinInput("");
                         }}
-                        className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs font-bold font-mono transition-all cursor-pointer shadow-sm ${
-                          isDarkMode
-                            ? "bg-[#C5A059] hover:bg-[#b5924d] text-black"
-                            : "bg-[#B88E3A] hover:bg-[#a67e2f] text-white"
+                        className={`px-3 py-2 text-xs font-mono rounded-lg transition-colors cursor-pointer border ${
+                          isDarkMode ? "border-neutral-700 text-neutral-400 hover:text-white" : "border-slate-300 text-slate-600 hover:text-slate-900"
                         }`}
                       >
-                        <Unlock className="w-4 h-4" />
-                        ATÖLYE MODUNA GEÇ (PIN)
+                        Vazgeç
                       </button>
-                    ) : (
-                      <form onSubmit={handleConfirmPin} className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="password"
-                            maxLength={6}
-                            placeholder="PIN Kodu"
-                            autoFocus
-                            value={pinInput}
-                            onChange={(e) => {
-                              setPinInput(e.target.value);
-                              if (pinError) setPinError(null);
-                            }}
-                            className={`w-full px-3 py-2 text-center font-mono font-bold text-sm tracking-widest rounded border focus:outline-none ${
-                              pinError
-                                ? "border-red-500 bg-red-950/20 text-red-300"
-                                : (isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]")
-                            }`}
-                          />
-                          <button
-                            type="submit"
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono font-bold text-xs rounded transition-all cursor-pointer shadow-sm whitespace-nowrap"
-                          >
-                            Aç
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowPinPrompt(false);
-                              setPinError(null);
-                              setPinInput("");
-                            }}
-                            className={`px-3 py-2 text-xs font-mono rounded transition-colors cursor-pointer border ${
-                              isDarkMode ? "border-neutral-700 text-neutral-400 hover:text-white" : "border-slate-300 text-slate-600 hover:text-slate-900"
-                            }`}
-                          >
-                            İptal
-                          </button>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] font-mono">
-                          {pinError ? (
-                            <span className="text-red-400 font-bold">{pinError}</span>
-                          ) : (
-                            <span className={isDarkMode ? "text-neutral-500" : "text-slate-400"}>
-                              Varsayılan PIN: <strong className="text-amber-400">1234</strong>
-                            </span>
-                          )}
-                        </div>
-                      </form>
-                    )}
+                    </form>
+
+                    <div className="flex items-center justify-between text-[11px] font-mono mt-2">
+                      {pinError ? (
+                        <span className="text-red-400 font-bold">{pinError}</span>
+                      ) : (
+                        <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>
+                          Varsayılan PIN: <strong className="text-amber-500">1234</strong>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Başarı Mesajı */}
+                {pinSuccessMsg && (
+                  <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-medium flex items-center gap-2 animate-fade-in">
+                    <Check className="w-4 h-4 shrink-0" />
+                    <span>{pinSuccessMsg}</span>
+                  </div>
+                )}
               </div>
 
-              {pinSuccessMsg && (
-                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium flex items-center gap-2 animate-fade-in">
-                  <Check className="w-4 h-4 shrink-0" />
-                  <span>{pinSuccessMsg}</span>
-                </div>
-              )}
-
-              {/* Visibility Matrix Table */}
-              <div className={`border rounded-xl p-5 space-y-3 ${
-                isDarkMode ? "bg-[#181a1e] border-neutral-800" : "bg-white border-slate-200 shadow-sm"
+              {/* Sade Karşılaştırma / Bilgilendirme Kartı */}
+              <div className={`p-5 rounded-2xl border ${
+                isDarkMode ? "bg-[#181a1d]/60 border-neutral-800 text-neutral-300" : "bg-slate-50/80 border-slate-200 text-slate-700"
               }`}>
-                <h4 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
-                  isDarkMode ? "text-neutral-300" : "text-slate-700"
+                <h4 className={`text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2 ${
+                  isDarkMode ? "text-neutral-300" : "text-slate-800"
                 }`}>
-                  <Shield className="w-4 h-4 text-[#C5A059]" /> Modlara Göre Bilgi Görünürlük Matrisi
+                  <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
+                  <span>Kısaca Görünüm Kuralları</span>
                 </h4>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className={`border-b text-[11px] font-mono ${
-                        isDarkMode ? "border-neutral-800 text-neutral-400" : "border-slate-200 text-slate-500"
-                      }`}>
-                        <th className="text-left py-2 px-3 font-semibold">BİLGİ / HESAPLAMA KALEMİ</th>
-                        <th className="text-center py-2 px-3 font-semibold text-blue-400">MÜŞTERİ MODU</th>
-                        <th className="text-center py-2 px-3 font-semibold text-amber-400">ATÖLYE MODU</th>
-                      </tr>
-                    </thead>
-                    <tbody className={`divide-y font-mono ${
-                      isDarkMode ? "divide-neutral-800 text-neutral-300" : "divide-slate-200 text-slate-700"
-                    }`}>
-                      <tr>
-                        <td className="py-2.5 px-3">Eser, Çerçeve & Paspartu Ölçüleri</td>
-                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">✓ Görünür</td>
-                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">✓ Görünür</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3">Seçili Malzeme & Hizmet İsimleri</td>
-                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">✓ Görünür</td>
-                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">✓ Görünür</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3">Hammadde Birim Alış Fiyatları (₺/m², ₺/m)</td>
-                        <td className="py-2.5 px-3 text-center text-rose-400 font-bold">✕ Gizli</td>
-                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">✓ Görünür</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3">Kesim Atık / Zayiat Oranları (%10-%25)</td>
-                        <td className="py-2.5 px-3 text-center text-rose-400 font-bold">✕ Gizli</td>
-                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">✓ Görünür</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3">Sabit El İşçiliği Ham Maliyet Tutarı</td>
-                        <td className="py-2.5 px-3 text-center text-rose-400 font-bold">✕ Gizli</td>
-                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">✓ Görünür</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3">Kâr Marjı Yüzdesi ve Net Kâr Tutarı</td>
-                        <td className="py-2.5 px-3 text-center text-rose-400 font-bold">✕ Gizli</td>
-                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">✓ Görünür</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-3 font-bold">Nihai Satış Fiyatı & KDV Tutarı</td>
-                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">✓ Görünür</td>
-                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">✓ Görünür</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div className="space-y-1.5">
+                    <div className="font-bold flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                      <Check className="w-3.5 h-3.5" /> Müşterinin Gördükleri:
+                    </div>
+                    <p className={`text-[11px] leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
+                      Seçilen çerçeve ve cam türü, net eser ölçüleri, kargo seçeneği ve KDV dahil nihai satış tutarı.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="font-bold flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                      <Lock className="w-3.5 h-3.5" /> Müşteriden Gizlenenler:
+                    </div>
+                    <p className={`text-[11px] leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
+                      Hammadde alış birim fiyatları (₺/m, ₺/m²), atölye kesim firesi (%), net kâr marjı ve atölye ham maliyeti.
+                    </p>
+                  </div>
                 </div>
               </div>
 

@@ -666,9 +666,9 @@ export function triggerImagePrintWindow(
                   <td><span class="${isGlassActive ? 'badge-active' : 'badge-inactive'}">${isGlassActive ? 'VAR' : 'YOK'}</span></td>
                 </tr>
 
-                <!-- 07. Arka Kapama Bezi -->
+                <!-- 07. Arkalık Koruma Bezi -->
                 <tr class="${isBackingClothActive ? 'row-active' : 'row-inactive'}">
-                  <td><strong>07. Arka Kapama Bezi</strong></td>
+                  <td><strong>07. Arkalık Koruma Bezi</strong></td>
                   <td>${isBackingClothActive ? 'Toz & Nem İzolasyon Bezi' : 'Yok'}</td>
                   <td>${isBackingClothActive ? 'Asitsiz Koruyucu Bitiş Kapama Bezi' : 'Kapama Bezi Kullanılmıyor'}</td>
                   <td><span class="${isBackingClothActive ? 'badge-active' : 'badge-inactive'}">${isBackingClothActive ? 'VAR' : 'YOK'}</span></td>
@@ -676,15 +676,15 @@ export function triggerImagePrintWindow(
 
                 <!-- 08. Kraft Bitiş Bandı -->
                 <tr class="${isKraftTapeActive ? 'row-active' : 'row-inactive'}">
-                  <td><strong>08. Kraft Bitiş / Islak Bandı</strong></td>
+                  <td><strong>08. Kraft Bitiş Bandı</strong></td>
                   <td>${isKraftTapeActive ? '4 Kenar Çevre Bandı' : 'Yok'}</td>
                   <td>${isKraftTapeActive ? 'Asitsiz Koruyucu Yapışkanlı Bitiş Bandı' : 'Bitiş Bandı Kullanılmıyor'}</td>
                   <td><span class="${isKraftTapeActive ? 'badge-active' : 'badge-inactive'}">${isKraftTapeActive ? 'VAR' : 'YOK'}</span></td>
                 </tr>
 
-                <!-- 09. Arka Koruma MDF -->
+                <!-- 09. 3mm MDF Arka Kapama -->
                 <tr class="${isBackingBoardActive ? 'row-active' : 'row-inactive'}">
-                  <td><strong>09. Arka Koruma MDF (Arkalık)</strong></td>
+                  <td><strong>09. 3mm MDF Arka Kapama</strong></td>
                   <td>${isBackingBoardActive ? '3 mm Pres MDF Arkalık' : 'Yok'}</td>
                   <td>${isBackingBoardActive ? 'Sertleştirilmiş Arka Koruma Plakası' : 'MDF Arkalık Kullanılmıyor'}</td>
                   <td><span class="${isBackingBoardActive ? 'badge-active' : 'badge-inactive'}">${isBackingBoardActive ? 'VAR' : 'YOK'}</span></td>
@@ -1479,7 +1479,7 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
     <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:12px; font-family:monospace;">
       <thead>
         <tr style="background-color:#f2f2f2;">
-          <th style="border:1px solid #ccc; padding:8px; text-align:left;">MALZEME / HİZMET KALEMİ</th>
+          <th style="border:1px solid #ccc; padding:8px; text-align:left;">MALZEME / HİZMET</th>
           <th style="border:1px solid #ccc; padding:8px; text-align:left;">DURUM</th>
           <th style="border:1px solid #ccc; padding:8px; text-align:left;">MİKTAR</th>
           <th style="border:1px solid #ccc; padding:8px; text-align:right;">BİRİM FİYAT</th>
@@ -1488,7 +1488,7 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
       </thead>
       <tbody>
         <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Sanat Baskı / Canvas Tuval</td>
+          <td style="border:1px solid #ccc; padding:8px;">Kanvas / Tuval Baskı</td>
           <td style="border:1px solid #ccc; padding:8px;">${flags.includeArtworkPrint ? "Dahil" : "Müşteriden (Hariç)"}</td>
           <td style="border:1px solid #ccc; padding:8px;">${(breakdown.artworkSqm ?? 0).toFixed(3)} m²</td>
           <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${settings.canvasPrintPricePerSqm}/m²</td>
@@ -1503,7 +1503,7 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
           <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.innerMatCost ?? 0).toFixed(2)}</td>
         </tr>` : ''}
         <tr>
-          <td style="border:1px solid #ccc; padding:8px;">İç Çerçeve Profili</td>
+          <td style="border:1px solid #ccc; padding:8px;">Ana Çerçeve Profili</td>
           <td style="border:1px solid #ccc; padding:8px;">${flags.includeInnerFrame ? "Dahil" : "Hariç"}</td>
           <td style="border:1px solid #ccc; padding:8px;">${(breakdown.innerFrameMeter ?? 0).toFixed(2)} mt</td>
           <td style="border:1px solid #ccc; padding:8px; text-align:right;">Metre Tül</td>
@@ -1511,7 +1511,7 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
         </tr>
         ${(breakdown.middleMatSqm ?? 0) > 0 ? `
         <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Ara Paspartu (3D)</td>
+          <td style="border:1px solid #ccc; padding:8px;">3D Ara Paspartu</td>
           <td style="border:1px solid #ccc; padding:8px;">${flags.includeMiddleMat ? "Dahil" : "Hariç"}</td>
           <td style="border:1px solid #ccc; padding:8px;">${(breakdown.middleMatSqm ?? 0).toFixed(3)} m²</td>
           <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${breakdown.middleMatUnitPrice ?? settings.middleMatBoardPricePerSqm}/m²</td>
@@ -1526,28 +1526,28 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
           <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.outerFrameCost ?? 0).toFixed(2)}</td>
         </tr>` : ''}
         <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Cam / Koruyucu Pleksi</td>
+          <td style="border:1px solid #ccc; padding:8px;">Koruyucu Cam / Pleksi</td>
           <td style="border:1px solid #ccc; padding:8px;">${flags.includeGlass ? "Dahil" : "Hariç"}</td>
           <td style="border:1px solid #ccc; padding:8px;">${(breakdown.glassBackingSqm ?? 0).toFixed(3)} m²</td>
           <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${settings.glassPricePerSqm}/m²</td>
           <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.glassCost ?? 0).toFixed(2)}</td>
         </tr>
         <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Arkalık Panel (MDF)</td>
+          <td style="border:1px solid #ccc; padding:8px;">3mm MDF Arka Kapama</td>
           <td style="border:1px solid #ccc; padding:8px;">${flags.includeBackingBoard ? "Dahil" : "Hariç"}</td>
           <td style="border:1px solid #ccc; padding:8px;">${(breakdown.glassBackingSqm ?? 0).toFixed(3)} m²</td>
           <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${settings.backingBoardPricePerSqm}/m²</td>
           <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.backingBoardCost ?? 0).toFixed(2)}</td>
         </tr>
         <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Arka İzolasyon (Bez & Kraft Bant)</td>
-          <td style="border:1px solid #ccc; padding:8px;">${flags.includeBackingPaper || flags.includeBackingCloth || flags.includeKraftTape ? "Dahil" : "Hariç"}</td>
-          <td style="border:1px solid #ccc; padding:8px;">${(breakdown.backingClothSqm ?? 0).toFixed(3)} m² / ${(breakdown.kraftTapeMeter ?? 0).toFixed(2)} mt</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right;">Sarf Malzeme</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${((breakdown.backingClothCost ?? 0) + (breakdown.kraftTapeCost ?? 0)).toFixed(2)}</td>
+          <td style="border:1px solid #ccc; padding:8px;">Arkalık Koruma Bezi</td>
+          <td style="border:1px solid #ccc; padding:8px;">${flags.includeBackingCloth || flags.includeBackingPaper ? "Dahil" : "Hariç"}</td>
+          <td style="border:1px solid #ccc; padding:8px;">${(breakdown.backingClothSqm ?? 0).toFixed(3)} m²</td>
+          <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${settings.backingClothPricePerSqm ?? 90}/m²</td>
+          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.backingClothCost ?? 0).toFixed(2)}</td>
         </tr>
         <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Usta İşçilik / Montaj Emeği</td>
+          <td style="border:1px solid #ccc; padding:8px;">Atölye Sabit El İşçiliği</td>
           <td style="border:1px solid #ccc; padding:8px;">${flags.includeLaborCost ? "Dahil" : "Hariç"}</td>
           <td style="border:1px solid #ccc; padding:8px;">1 Adet</td>
           <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${settings.laborFixedCost}</td>
