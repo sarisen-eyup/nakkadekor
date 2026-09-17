@@ -7,7 +7,12 @@
 ALTER TABLE IF EXISTS public.quotes_orders 
 ADD COLUMN IF NOT EXISTS delivery_date_str VARCHAR(100);
 
--- 2. FRAME_PROFILES ve VISUALIZATIONS için TEXT ID Desteği (Opsiyonel / Esnek ID Desteği)
+-- 2. VISUALIZATIONS Tablosundaki Foreign Key Kısıtlamasını Kaldırmak İsterseniz (Opsiyonel / Tam Esneklik):
+-- Bu komut, henüz tabloda olmayan bir çerçeve ID'si gelse bile görsel kaydetmenin ASLA 409 Foreign Key hatası vermemesini sağlar:
+ALTER TABLE IF EXISTS public.visualizations 
+  DROP CONSTRAINT IF EXISTS visualizations_inner_frame_profile_id_fkey;
+
+-- 3. FRAME_PROFILES ve VISUALIZATIONS için TEXT ID Desteği (Opsiyonel / Esnek ID Desteği)
 -- Eğer Supabase tablolarında 'default-av-501' veya 'prof_123' gibi metinsel ID'ler saklamak isterseniz:
 DO $$
 BEGIN

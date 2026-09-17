@@ -7,7 +7,8 @@ import {
   UnitPricesSettings,
   CompanyProfile,
   EMPTY_COMPANY_PROFILE,
-  sanitizeUnitPricesSettings
+  sanitizeUnitPricesSettings,
+  isUUID
 } from "../types/pricing";
 import { compressImage } from "../utils/imageCompressor";
 
@@ -147,6 +148,90 @@ export async function testSupabaseConnection(): Promise<{
 // FRAME PROFILES CRUD (Çerçeve Profilleri)
 // ==========================================
 
+/**
+ * Veritabanında tenant (atölye) kaydının varlığını garantiler (Foreign key kısıtları için).
+ */
+export async function ensureTenantRecord(tenantId: string): Promise<boolean> {
+  if (!isSupabaseConfigured() || !isUUID(tenantId)) return false;
+  try {
+    const { error } = await supabase.from("tenants").upsert({
+      id: tenantId,
+      name: "Atölye",
+      slug: `tenant-${tenantId.slice(0, 8)}`,
+      status: "active"
+    }, { onConflict: "id" });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * frame_profiles tablosu boş olduğunda varsayılan çerçeve profillerini veritabanına otomatik ekler/upsert eder.
+ */
+export async function seedDefaultFrameProfiles(tenantId: string): Promise<FrameProfileItem[]> {
+  if (!isSupabaseConfigured()) {
+    return DEFAULT_FRAME_PROFILES;
+  }
+
+  try {
+    await ensureTenantRecord(tenantId);
+
+    const rows = DEFAULT_FRAME_PROFILES.map((prof) => ({
+      id: prof.id,
+      tenant_id: tenantId,
+      code: prof.code,
+      name: prof.name,
+      material_type: prof.materialType || "wood",
+      width_cm: Number(prof.widthCm || 4),
+      unit_price_per_meter: Number(prof.unitPricePerMeter || 120),
+      unit_cost_per_meter: 60,
+      image_url: prof.imageUrl || "",
+      texture_url: prof.textureUrl || prof.imageUrl || "",
+      is_repeating_pattern: prof.isRepeatingPattern ?? true,
+      layout_mode: prof.layoutMode || "repeat",
+      category: prof.category || "both",
+      is_active: prof.inStock ?? true,
+      in_stock: prof.inStock ?? true
+    }));
+
+    // Toplu upsert dene
+    const { data, error } = await supabase
+      .from("frame_profiles")
+      .upsert(rows, { onConflict: "id" })
+      .select();
+
+    if (!error && data && data.length > 0) {
+      console.log(`[Supabase] ${data.length} adet varsayılan çerçeve profili veritabanına otomatik eklendi.`);
+      return data.map((row: any) => ({
+        id: String(row.id),
+        code: row.code,
+        name: row.name,
+        materialType: (row.material_type as any) || "wood",
+        widthCm: Number(row.width_cm || 4),
+        unitPricePerMeter: Number(row.unit_price_per_meter || 120),
+        imageUrl: row.image_url || "",
+        textureUrl: row.texture_url || row.image_url || "",
+        isRepeatingPattern: row.is_repeating_pattern ?? true,
+        layoutMode: (row.layout_mode as any) || "repeat",
+        category: (row.category as any) || "both",
+        inStock: row.in_stock ?? true
+      }));
+    }
+
+    if (error) {
+      console.warn("[Supabase] Toplu çerçeve ekleme uyarısı, tekil deneniyor:", error.message);
+      for (const row of rows) {
+        await supabase.from("frame_profiles").upsert(row, { onConflict: "id" });
+      }
+    }
+  } catch (err) {
+    console.warn("[Supabase] seedDefaultFrameProfiles istisnası:", err);
+  }
+
+  return DEFAULT_FRAME_PROFILES;
+}
+
 export async function fetchFrameProfilesFromSupabase(): Promise<{ 
   data: FrameProfileItem[] | null; 
   error: any;
@@ -177,8 +262,10 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{
     }
 
     if (!data || data.length === 0) {
-      // Veritabanı boşsa kullanıcıya başlangıç kataloğu sağla
-      return { data: DEFAULT_FRAME_PROFILES, error: null };
+      // Veritabanı boşsa varsayılan profilleri Supabase'e otomatik ekle (seed/upsert)
+      console.log("[Supabase] frame_profiles tablosu boş tespit edildi. Varsayılan profiller veritabanına otomatik ekleniyor...");
+      const seeded = await seedDefaultFrameProfiles(tenantId);
+      return { data: seeded, error: null };
     }
 
     const profiles: FrameProfileItem[] = data.map((row: any) => ({
@@ -211,6 +298,7 @@ export async function createFrameProfileInSupabase(
   }
 
   const tenantId = getTenantId();
+  await ensureTenantRecord(tenantId);
 
   const insertPayload: any = {
     tenant_id: tenantId,
@@ -969,7 +1057,59 @@ export async function createVisualizationInSupabase(
     }
   }
 
-  const isInnerFrameUuid = Boolean(innerFrameId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(innerFrameId));
+  await ensureTenantRecord(tenantId);
+
+  // Foreign Key Güvencesi: Kullanılan profilin frame_profiles tablosunda var olduğundan emin ol
+  let verifiedInnerFrameId: string | null = null;
+  if (innerFrameId && isUUID(innerFrameId)) {
+    try {
+      const { data: profileRow } = await supabase
+        .from("frame_profiles")
+        .select("id")
+        .eq("id", innerFrameId)
+        .maybeSingle();
+
+      if (profileRow?.id) {
+        verifiedInnerFrameId = profileRow.id;
+      } else {
+        // Tabloda henüz yoksa, DEFAULT_FRAME_PROFILES içinde mi kontrol et
+        const defaultMatch = DEFAULT_FRAME_PROFILES.find((p) => p.id === innerFrameId);
+        if (defaultMatch) {
+          // Bu varsayılan profili veritabanına hemen ekle
+          try {
+            await supabase.from("frame_profiles").upsert({
+              id: defaultMatch.id,
+              tenant_id: tenantId,
+              code: defaultMatch.code,
+              name: defaultMatch.name,
+              material_type: defaultMatch.materialType || "wood",
+              width_cm: Number(defaultMatch.widthCm || 4),
+              unit_price_per_meter: Number(defaultMatch.unitPricePerMeter || 120),
+              unit_cost_per_meter: 60,
+              image_url: defaultMatch.imageUrl || "",
+              texture_url: defaultMatch.textureUrl || defaultMatch.imageUrl || "",
+              is_repeating_pattern: defaultMatch.isRepeatingPattern ?? true,
+              layout_mode: defaultMatch.layoutMode || "repeat",
+              category: defaultMatch.category || "both",
+              is_active: true,
+              in_stock: true
+            }, { onConflict: "id" });
+            verifiedInnerFrameId = defaultMatch.id;
+          } catch (seedErr) {
+            console.warn("[createVisualizationInSupabase] Varsayılan profil eklenemedi:", seedErr);
+            verifiedInnerFrameId = null;
+          }
+        } else {
+          // Veritabanında ve varsayılanlarda yoksa foreign key hatası vermemesi için null yap
+          console.warn(`[createVisualizationInSupabase] innerFrameId (${innerFrameId}) veritabanında bulunamadı. FK hatasını önlemek için null yapılıyor.`);
+          verifiedInnerFrameId = null;
+        }
+      }
+    } catch (checkErr) {
+      console.warn("[createVisualizationInSupabase] Profil kontrolü uyarısı:", checkErr);
+      verifiedInnerFrameId = null;
+    }
+  }
 
   const payload: any = {
     tenant_id: tenantId,
@@ -977,17 +1117,37 @@ export async function createVisualizationInSupabase(
     artwork_name: artworkName,
     artwork_width_cm: artworkWidth,
     artwork_height_cm: artworkHeight,
-    inner_frame_profile_id: isInnerFrameUuid ? innerFrameId : null,
+    inner_frame_profile_id: verifiedInnerFrameId,
     rendered_preview_url: finalPreviewUrl,
     updated_at: new Date().toISOString()
   };
 
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("visualizations")
       .insert([payload])
       .select()
       .single();
+
+    // Foreign Key hatası (23503 veya frame_profiles FK violation / 409 Conflict) yakalanırsa:
+    if (error && (
+      error.code === "23503" || 
+      error.code === "409" || 
+      String(error.message || "").toLowerCase().includes("foreign key") ||
+      String(error.message || "").toLowerCase().includes("frame_profiles") ||
+      String(error.message || "").toLowerCase().includes("violates")
+    )) {
+      console.warn("[createVisualizationInSupabase] Foreign Key ihlali yakalandı. inner_frame_profile_id: null olarak yeniden deneniyor...", error.message);
+      payload.inner_frame_profile_id = null;
+      const retryRes = await supabase
+        .from("visualizations")
+        .insert([payload])
+        .select()
+        .single();
+
+      data = retryRes.data;
+      error = retryRes.error;
+    }
 
     if (error) {
       if (isSchemaMissingError(error)) {
