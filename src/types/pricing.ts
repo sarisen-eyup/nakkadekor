@@ -122,9 +122,77 @@ export function sanitizeUnitPricesSettings(raw: any): UnitPricesSettings {
   };
 }
 
-export const INITIAL_FRAME_PROFILES: FrameProfileItem[] = [];
+export const DEFAULT_FRAME_PROFILES: FrameProfileItem[] = [
+  {
+    id: "default-av-501",
+    code: "AV-501",
+    name: "Altın Varak Klasik Oymalı",
+    widthCm: 5.0,
+    unitPricePerMeter: 150.0,
+    materialType: "wood",
+    category: "both",
+    layoutMode: "repeat",
+    isRepeatingPattern: true,
+    imageUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=500&auto=format&fit=crop&q=80",
+    textureUrl: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=500&auto=format&fit=crop&q=80"
+  },
+  {
+    id: "default-sm-302",
+    code: "SM-302",
+    name: "Siyah Mat Minimalist Galeri",
+    widthCm: 3.0,
+    unitPricePerMeter: 95.0,
+    materialType: "polystyrene",
+    category: "both",
+    layoutMode: "repeat",
+    isRepeatingPattern: true,
+    imageUrl: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80",
+    textureUrl: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80"
+  },
+  {
+    id: "default-cr-405",
+    code: "CR-405",
+    name: "Doğal Masif Meşe",
+    widthCm: 4.0,
+    unitPricePerMeter: 180.0,
+    materialType: "wood",
+    category: "both",
+    layoutMode: "repeat",
+    isRepeatingPattern: true,
+    imageUrl: "https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80",
+    textureUrl: "https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80"
+  },
+  {
+    id: "default-bl-201",
+    code: "BL-201",
+    name: "Fırçalanmış İnce Alüminyum",
+    widthCm: 2.0,
+    unitPricePerMeter: 120.0,
+    materialType: "aluminum",
+    category: "inner",
+    layoutMode: "repeat",
+    isRepeatingPattern: true,
+    imageUrl: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=80",
+    textureUrl: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=80"
+  },
+  {
+    id: "default-gv-602",
+    code: "GV-602",
+    name: "Gümüş Varak Barok Kasa",
+    widthCm: 6.0,
+    unitPricePerMeter: 220.0,
+    materialType: "composite",
+    category: "outer",
+    layoutMode: "repeat",
+    isRepeatingPattern: true,
+    imageUrl: "https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=500&auto=format&fit=crop&q=80",
+    textureUrl: "https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=500&auto=format&fit=crop&q=80"
+  }
+];
 
-export const SAMPLE_FRAME_PROFILES: FrameProfileItem[] = [];
+export const INITIAL_FRAME_PROFILES: FrameProfileItem[] = DEFAULT_FRAME_PROFILES;
+
+export const SAMPLE_FRAME_PROFILES: FrameProfileItem[] = DEFAULT_FRAME_PROFILES;
 
 export interface CostCalculationBreakdown {
   // Quantities & Dimensions

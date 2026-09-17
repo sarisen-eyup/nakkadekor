@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured, getTenantId, setAuthenticatedTenantId } from "../lib/supabase";
 import { 
   FrameProfileItem, 
+  DEFAULT_FRAME_PROFILES,
   OrderArchiveItem, 
   OrderStatus, 
   UnitPricesSettings,
@@ -8,9 +9,100 @@ import {
   EMPTY_COMPANY_PROFILE,
   sanitizeUnitPricesSettings
 } from "../types/pricing";
+import { compressImage } from "../utils/imageCompressor";
+
+/**
+ * PostgREST veya PostgreSQL'in henüz tablo oluşturulmamış / şema önbelleğinde bulunamadı hatalarını tespit eder.
+ */
+export function isSchemaMissingError(error: any): boolean {
+  if (!error) return false;
+  const code = String(error.code || "");
+  const msg = String(error.message || "").toLowerCase();
+  return (
+    code === "PGRST205" ||
+    code === "42P01" ||
+    msg.includes("schema cache") ||
+    msg.includes("could not find the table") ||
+    msg.includes("relation") && msg.includes("does not exist") ||
+    msg.includes("does not exist")
+  );
+}
+
+/**
+ * Görseli Supabase Storage ('uploads' veya 'visualizations' bucket) üzerine yükler ve public URL döner.
+ * Asla Base64 metnini veritabanına kaydetmez; yüklemeden önce sıkıştırarak sadece kısa public URL'i döner.
+ */
+export async function uploadImageToSupabaseStorage(
+  fileOrBlobOrDataUrl: Blob | File | string,
+  folder: string = "artworks",
+  fileName?: string
+): Promise<{ publicUrl: string | null; error: any }> {
+  if (!isSupabaseConfigured()) {
+    return { publicUrl: null, error: new Error("Supabase henüz yapılandırılmamış") };
+  }
+
+  try {
+    // 1. Tarayıcı tarafında maksimum 1920px genişliğe ve %80 kaliteye sıkıştır
+    const compressed = await compressImage(fileOrBlobOrDataUrl, {
+      maxWidth: 1920,
+      maxHeight: 1920,
+      quality: 0.80,
+      mimeType: "image/jpeg"
+    });
+
+    const tenantId = getTenantId();
+    const timestamp = Date.now();
+    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    const cleanFileName = fileName 
+      ? fileName.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 30) + `_${timestamp}.jpg`
+      : `${timestamp}_${randomSuffix}.jpg`;
+    
+    const filePath = `${tenantId}/${folder}/${cleanFileName}`;
+
+    // 'uploads' ve 'visualizations' bucketlarını dene
+    const candidateBuckets = ["uploads", "visualizations"];
+    let lastError: any = null;
+
+    for (const bucket of candidateBuckets) {
+      try {
+        const { data, error } = await supabase.storage
+          .from(bucket)
+          .upload(filePath, compressed.blob, {
+            contentType: "image/jpeg",
+            cacheControl: "31536000",
+            upsert: true
+          });
+
+        if (!error && data) {
+          const { data: urlData } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(filePath);
+
+          if (urlData?.publicUrl) {
+            console.log(`[Storage] Başarıyla yüklendi: ${bucket}/${filePath} -> ${urlData.publicUrl}`);
+            return { publicUrl: urlData.publicUrl, error: null };
+          }
+        }
+        lastError = error;
+      } catch (uploadErr) {
+        lastError = uploadErr;
+      }
+    }
+
+    console.warn("Supabase Storage yükleme uyarısı:", lastError);
+    return { publicUrl: null, error: lastError };
+  } catch (err) {
+    console.warn("Supabase Storage yükleme istisnası:", err);
+    return { publicUrl: null, error: err };
+  }
+}
 
 // Test connection to Supabase
-export async function testSupabaseConnection(): Promise<{ success: boolean; message: string }> {
+export async function testSupabaseConnection(): Promise<{ 
+  success: boolean; 
+  message: string;
+  isSchemaMissing?: boolean;
+}> {
   if (!isSupabaseConfigured()) {
     return {
       success: false,
@@ -25,6 +117,13 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; mess
       .limit(1);
 
     if (error) {
+      if (isSchemaMissingError(error)) {
+        return {
+          success: true,
+          isSchemaMissing: true,
+          message: "Supabase projenize başarıyla bağlanıldı! Ancak 'frame_profiles' tablosu henüz oluşturulmamış. Lütfen 'src/db/schema.sql' dosyasını Supabase SQL Editor'de çalıştırın."
+        };
+      }
       console.warn("Supabase connection check warning:", error);
       return {
         success: false,
@@ -34,7 +133,7 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; mess
 
     return {
       success: true,
-      message: "Supabase veritabanına başarıyla bağlanıldı."
+      message: "Supabase veritabanına ve tablolara başarıyla bağlanıldı."
     };
   } catch (err: any) {
     return {
@@ -48,9 +147,13 @@ export async function testSupabaseConnection(): Promise<{ success: boolean; mess
 // FRAME PROFILES CRUD (Çerçeve Profilleri)
 // ==========================================
 
-export async function fetchFrameProfilesFromSupabase(): Promise<{ data: FrameProfileItem[] | null; error: any }> {
+export async function fetchFrameProfilesFromSupabase(): Promise<{ 
+  data: FrameProfileItem[] | null; 
+  error: any;
+  isSchemaMissing?: boolean;
+}> {
   if (!isSupabaseConfigured()) {
-    return { data: null, error: new Error("Supabase is not configured") };
+    return { data: DEFAULT_FRAME_PROFILES, error: null };
   }
 
   const tenantId = getTenantId();
@@ -63,11 +166,22 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{ data: FramePro
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching frame profiles from Supabase:", error);
-      return { data: null, error };
+      if (isSchemaMissingError(error)) {
+        console.warn(
+          "[Supabase] 'frame_profiles' tablosu şema önbelleğinde bulunamadı (PGRST205). Varsayılan profiller yükleniyor. 'src/db/schema.sql' dosyasını Supabase SQL Editor'de çalıştırabilirsiniz."
+        );
+        return { data: DEFAULT_FRAME_PROFILES, error: null, isSchemaMissing: true };
+      }
+      console.warn("Could not fetch frame profiles from Supabase (using default profiles):", error.message || error);
+      return { data: DEFAULT_FRAME_PROFILES, error };
     }
 
-    const profiles: FrameProfileItem[] = (data || []).map((row: any) => ({
+    if (!data || data.length === 0) {
+      // Veritabanı boşsa kullanıcıya başlangıç kataloğu sağla
+      return { data: DEFAULT_FRAME_PROFILES, error: null };
+    }
+
+    const profiles: FrameProfileItem[] = data.map((row: any) => ({
       id: String(row.id),
       code: row.code,
       name: row.name,
@@ -83,9 +197,9 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{ data: FramePro
     }));
 
     return { data: profiles, error: null };
-  } catch (err) {
-    console.error("Exception fetching frame profiles:", err);
-    return { data: null, error: err };
+  } catch (err: any) {
+    console.warn("Exception fetching frame profiles (using fallback catalog):", err?.message || err);
+    return { data: DEFAULT_FRAME_PROFILES, error: err };
   }
 }
 
@@ -114,10 +228,19 @@ export async function createFrameProfileInSupabase(
     is_active: profile.inStock ?? true
   };
 
-  // Only pass UUID if it looks like a valid UUID, otherwise let postgres generate one
+  // Sadece valid UUID ise id gönder, yoksa PostgreSQL otomatik gen_random_uuid() üretsin
   const isUuid = profile.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profile.id);
   if (isUuid) {
     insertPayload.id = profile.id;
+  }
+
+  // Base64 görsel koruması: Storage'a yükle ve sadece public URL sakla
+  if (insertPayload.image_url && (insertPayload.image_url.startsWith("data:") || insertPayload.image_url.startsWith("blob:"))) {
+    const uploadRes = await uploadImageToSupabaseStorage(insertPayload.image_url, "profiles", insertPayload.code);
+    if (uploadRes.publicUrl) {
+      insertPayload.image_url = uploadRes.publicUrl;
+      insertPayload.texture_url = uploadRes.publicUrl;
+    }
   }
 
   try {
@@ -146,7 +269,11 @@ export async function createFrameProfileInSupabase(
     }
 
     if (res.error) {
-      console.error("Error creating frame profile in Supabase:", res.error);
+      if (isSchemaMissingError(res.error)) {
+        console.warn("[Supabase] 'frame_profiles' tablosu henüz mevcut değil. Lütfen schema.sql çalıştırın.");
+      } else {
+        console.warn("Supabase create frame profile warning:", res.error.message || res.error);
+      }
       return { data: null, error: res.error };
     }
 
@@ -168,7 +295,7 @@ export async function createFrameProfileInSupabase(
 
     return { data: created, error: null };
   } catch (err) {
-    console.error("Exception creating frame profile:", err);
+    console.warn("Exception creating frame profile:", err);
     return { data: null, error: err };
   }
 }
@@ -190,8 +317,20 @@ export async function updateFrameProfileInSupabase(
   if (updates.materialType !== undefined) payload.material_type = updates.materialType;
   if (updates.widthCm !== undefined) payload.width_cm = updates.widthCm;
   if (updates.unitPricePerMeter !== undefined) payload.unit_price_per_meter = updates.unitPricePerMeter;
-  if (updates.imageUrl !== undefined) payload.image_url = updates.imageUrl;
-  if (updates.textureUrl !== undefined) payload.texture_url = updates.textureUrl;
+  if (updates.imageUrl !== undefined) {
+    if (updates.imageUrl && (updates.imageUrl.startsWith("data:") || updates.imageUrl.startsWith("blob:"))) {
+      const uploadRes = await uploadImageToSupabaseStorage(updates.imageUrl, "profiles", id);
+      if (uploadRes.publicUrl) {
+        payload.image_url = uploadRes.publicUrl;
+        payload.texture_url = uploadRes.publicUrl;
+      }
+    } else {
+      payload.image_url = updates.imageUrl;
+    }
+  }
+  if (updates.textureUrl !== undefined && !payload.texture_url) {
+    payload.texture_url = updates.textureUrl;
+  }
   if (updates.isRepeatingPattern !== undefined) payload.is_repeating_pattern = updates.isRepeatingPattern;
   if (updates.layoutMode !== undefined) payload.layout_mode = updates.layoutMode;
   if (updates.category !== undefined) payload.category = updates.category;
@@ -206,13 +345,13 @@ export async function updateFrameProfileInSupabase(
       .eq("id", id);
 
     if (error) {
-      console.error("Error updating frame profile in Supabase:", error);
+      console.warn("Supabase update frame profile warning:", error.message || error);
       return { success: false, error };
     }
 
     return { success: true, error: null };
   } catch (err) {
-    console.error("Exception updating frame profile:", err);
+    console.warn("Exception updating frame profile:", err);
     return { success: false, error: err };
   }
 }
@@ -229,13 +368,13 @@ export async function deleteFrameProfileFromSupabase(id: string): Promise<{ succ
       .eq("id", id);
 
     if (error) {
-      console.error("Error deleting frame profile from Supabase:", error);
+      console.warn("Supabase delete frame profile warning:", error.message || error);
       return { success: false, error };
     }
 
     return { success: true, error: null };
   } catch (err) {
-    console.error("Exception deleting frame profile:", err);
+    console.warn("Exception deleting frame profile:", err);
     return { success: false, error: err };
   }
 }
@@ -258,7 +397,7 @@ export async function bulkUpdateFramePricesInSupabase(
     await Promise.all(promises);
     return { success: true, error: null };
   } catch (err) {
-    console.error("Exception bulk updating frame prices:", err);
+    console.warn("Exception bulk updating frame prices:", err);
     return { success: false, error: err };
   }
 }
@@ -759,25 +898,58 @@ export async function createVisualizationInSupabase(
 
   const tenantId = getTenantId();
 
-  const artworkUrl = visual.artworkUrl || visual.artwork_url || visual.imageUrl || visual.image_url || "";
+  let rawArtworkUrl = visual.artworkUrl || visual.artwork_url || visual.imageUrl || visual.image_url || "";
   const artworkName = visual.artworkName || visual.artwork_name || visual.title || "Yeni Eser";
   const artworkWidth = Number(visual.artworkWidthCm || visual.artwork_width_cm || 50);
   const artworkHeight = Number(visual.artworkHeightCm || visual.artwork_height_cm || 70);
   const innerFrameId = visual.innerFrameProfileId || visual.inner_frame_profile_id || null;
-  const previewUrl = visual.renderedPreviewUrl || visual.rendered_preview_url || null;
+  let rawPreviewUrl = visual.renderedPreviewUrl || visual.rendered_preview_url || null;
 
-  if (!artworkUrl) {
+  if (!rawArtworkUrl) {
     return { data: null, error: new Error("Artwork URL is required") };
+  }
+
+  // BASE64 ENGELLEME & STORAGE ENTEGRASYONU:
+  // Veritabanı şişmesini ve 500 timeout hatalarını önlemek için:
+  // Eğer gelen URL Base64 data: veya blob: ise, önce sıkıştırıp Supabase Storage'a yükle!
+  let finalArtworkUrl = rawArtworkUrl;
+  if (rawArtworkUrl.startsWith("data:") || rawArtworkUrl.startsWith("blob:")) {
+    console.log("[createVisualizationInSupabase] Base64/Blob tespit edildi. Supabase Storage'a yükleniyor...");
+    const storageRes = await uploadImageToSupabaseStorage(rawArtworkUrl, "artworks", artworkName);
+    if (storageRes.publicUrl) {
+      finalArtworkUrl = storageRes.publicUrl;
+      console.log("[createVisualizationInSupabase] Storage Public URL elde edildi:", finalArtworkUrl);
+    } else {
+      console.warn("[createVisualizationInSupabase] Storage yüklenemedi:", storageRes.error);
+      // Eğer storage henüz hazır değilse, büyük base64'ü veritabanına basıp 500 hatası almamak için engelle
+      if (rawArtworkUrl.length > 5000) {
+        return {
+          data: null,
+          error: new Error("Görsel Storage'a yüklenemedi. Veritabanı şişmesini önlemek için doğrudan Base64 kaydı durduruldu.")
+        };
+      }
+    }
+  }
+
+  // Rendered preview için de base64 koruması
+  let finalPreviewUrl = rawPreviewUrl;
+  if (rawPreviewUrl && rawPreviewUrl.startsWith("data:")) {
+    const previewStorageRes = await uploadImageToSupabaseStorage(rawPreviewUrl, "previews", "preview_" + artworkName);
+    if (previewStorageRes.publicUrl) {
+      finalPreviewUrl = previewStorageRes.publicUrl;
+    } else {
+      finalPreviewUrl = null; // Veritabanına devasa base64 girmesin
+    }
   }
 
   const payload: any = {
     tenant_id: tenantId,
-    artwork_url: artworkUrl,
+    artwork_url: finalArtworkUrl,
     artwork_name: artworkName,
     artwork_width_cm: artworkWidth,
     artwork_height_cm: artworkHeight,
     inner_frame_profile_id: innerFrameId,
-    rendered_preview_url: previewUrl,
+    rendered_preview_url: finalPreviewUrl,
     updated_at: new Date().toISOString()
   };
 
@@ -789,7 +961,11 @@ export async function createVisualizationInSupabase(
       .single();
 
     if (error) {
-      console.error("Error creating visualization in Supabase:", error);
+      if (isSchemaMissingError(error)) {
+        console.warn("[Supabase] 'visualizations' tablosu henüz mevcut değil. Lütfen schema.sql çalıştırın.");
+      } else {
+        console.warn("Supabase create visualization warning:", error.message || error);
+      }
       return { data: null, error };
     }
 
@@ -807,7 +983,7 @@ export async function createVisualizationInSupabase(
 
     return { data: created, error: null };
   } catch (err) {
-    console.error("Exception creating visualization:", err);
+    console.warn("Exception creating visualization:", err);
     return { data: null, error: err };
   }
 }
@@ -829,13 +1005,13 @@ export async function deleteVisualizationFromSupabase(
       .eq("tenant_id", tenantId);
 
     if (error) {
-      console.error("Error deleting visualization from Supabase:", error);
+      console.warn("Supabase delete visualization warning:", error.message || error);
       return { success: false, error };
     }
 
     return { success: true, error: null };
   } catch (err) {
-    console.error("Exception deleting visualization:", err);
+    console.warn("Exception deleting visualization:", err);
     return { success: false, error: err };
   }
 }
@@ -949,7 +1125,7 @@ export async function fetchCompanyProfileFromSupabase(
 
     return { data: profile, error: null };
   } catch (err) {
-    console.error("Exception fetching company profile from Supabase:", err);
+    console.warn("Exception fetching company profile from Supabase:", err);
     return { data: null, error: err };
   }
 }
@@ -986,6 +1162,15 @@ export async function saveCompanyProfileToSupabase(
   }
 
   try {
+    let cleanLogoUrl = profile.logoUrl || "";
+    if (cleanLogoUrl.startsWith("data:") || cleanLogoUrl.startsWith("blob:")) {
+      const logoUpload = await uploadImageToSupabaseStorage(cleanLogoUrl, "logos", "company_logo");
+      if (logoUpload.publicUrl) {
+        cleanLogoUrl = logoUpload.publicUrl;
+        profile.logoUrl = cleanLogoUrl;
+      }
+    }
+
     // 1. Tenants tablosuna Upsert (kayıt yoksa ekle, varsa güncelle)
     const tenantPayload: any = {
       id: tenantId,
@@ -1001,7 +1186,7 @@ export async function saveCompanyProfileToSupabase(
       address: profile.address || "",
       city: profile.city || "",
       iban: profile.iban || "",
-      logo_url: profile.logoUrl || "",
+      logo_url: cleanLogoUrl,
       primary_color: profile.primaryColor || "#C5A059",
       updated_at: new Date().toISOString()
     };
@@ -1050,7 +1235,7 @@ export async function saveCompanyProfileToSupabase(
       error: tenantError && settingsError ? (tenantError || settingsError) : null 
     };
   } catch (err) {
-    console.error("Exception saving company profile to Supabase:", err);
+    console.warn("Exception saving company profile to Supabase:", err);
     return { success: false, error: err };
   }
 }

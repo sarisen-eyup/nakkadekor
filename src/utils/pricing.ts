@@ -131,9 +131,9 @@ export function saveSettingsToStorage(settings: UnitPricesSettings): void {
 }
 
 export function loadProfilesFromStorage(_tenantId?: string): FrameProfileItem[] {
-  // LocalStorage / Cache mantığı tamamen iptal edildi.
-  // Çerçeve profilleri daima doğrudan Supabase veritabanından çekilir.
-  return [];
+  // Varsayılan başlangıç çıtaları (AV-501, SM-302, CR-405, BL-201, GV-602)
+  // Supabase'den veri çekilene kadar veya şema henüz oluşturulmamışken kesintisiz simülasyon sağlar.
+  return INITIAL_FRAME_PROFILES;
 }
 
 export function saveProfilesToStorage(_profiles: FrameProfileItem[], _tenantId?: string): void {

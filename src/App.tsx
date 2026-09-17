@@ -80,7 +80,8 @@ import {
   OrderArchiveItem,
   OrderStatus,
   isProPlan,
-  EMPTY_COMPANY_PROFILE
+  EMPTY_COMPANY_PROFILE,
+  DEFAULT_FRAME_PROFILES
 } from "./types/pricing";
 import { 
   fetchFrameProfilesFromSupabase, 
@@ -92,8 +93,10 @@ import {
   deleteOrderFromSupabase,
   updateOrderStatusInSupabase,
   saveTenantSettingsToSupabase,
-  fetchCompanyProfileFromSupabase
+  fetchCompanyProfileFromSupabase,
+  uploadImageToSupabaseStorage
 } from "./services/supabaseService";
+import { compressImage } from "./utils/imageCompressor";
 import { 
   isSupabaseConfigured,
   supabase,
@@ -362,6 +365,7 @@ export default function App() {
 
   const [orderNumber, setOrderNumber] = useState<string>(() => generateOrderNumber());
   const [toastMessage, setToastMessage] = useState<{ text: string; type?: "success" | "info" } | null>(null);
+  const [isSchemaPending, setIsSchemaPending] = useState<boolean>(false);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -669,11 +673,16 @@ export default function App() {
     if (!isSupabaseConfigured() || !authSession?.isLoggedIn) return;
     let isMounted = true;
 
-    // 1. Fetch Cloud Frame Profiles for this tenant (Doğrudan Supabase'den çekilir, localStorage'a yazılmaz)
-    fetchFrameProfilesFromSupabase().then(({ data, error }) => {
+    // 1. Fetch Cloud Frame Profiles for this tenant (Doğrudan Supabase'den çekilir, şema yoksa varsayılan kataloğu korur)
+    fetchFrameProfilesFromSupabase().then(({ data, isSchemaMissing }) => {
       if (!isMounted) return;
-      if (data && !error) {
+      if (data && data.length > 0) {
         setFrameProfiles(data);
+      } else {
+        setFrameProfiles(DEFAULT_FRAME_PROFILES);
+      }
+      if (isSchemaMissing) {
+        setIsSchemaPending(true);
       }
     });
 
@@ -1172,62 +1181,99 @@ export default function App() {
   const frameFileInputRef = useRef<HTMLInputElement | null>(null);
   const outerFrameFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Handle local image uploads
-  const handlePaintingUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle local image uploads - Base64 İptali & Supabase Storage Entegrasyonu
+  const handlePaintingUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        setCustomPaintingUrl(dataUrl);
-        setCustomPaintingFile(file.name);
-        setIsCropModalOpen(true); // Open corner scanner & crop modal automatically on image selection
+    if (!file) return;
 
-        if (isSupabaseConfigured()) {
-          (async () => {
-            try {
-              const { error } = await createVisualizationInSupabase({
-                image_url: dataUrl,
-                title: file.name,
-                artwork_width_cm: artworkWidth,
-                artwork_height_cm: artworkHeight,
-                mat_width_cm: matWidth,
-                frame_profile_id: selectedInnerProfileId || undefined
-              });
-              if (error) {
-                console.warn("Supabase visualization save warning:", error);
-              }
-            } catch (err) {
-              console.warn("Supabase visualization save exception:", err);
-            }
-          })();
+    // 1. Tarayıcıda anında yerel önizleme aç (kullanıcı hiç beklemesin)
+    const localBlobPreview = URL.createObjectURL(file);
+    setCustomPaintingUrl(localBlobPreview);
+    setCustomPaintingFile(file.name);
+    setIsCropModalOpen(true); // Otomatik kırpma & köşe hizalama modalını aç
+
+    // 2. Tarayıcı tarafında maksimum 1920px genişlik ve %80 kaliteye sıkıştır
+    try {
+      const compressed = await compressImage(file, {
+        maxWidth: 1920,
+        maxHeight: 1920,
+        quality: 0.80,
+        mimeType: "image/jpeg"
+      });
+
+      // 3. Sıkıştırılmış binary dosyayı Supabase Storage'a yükle
+      if (isSupabaseConfigured()) {
+        const { publicUrl, error: uploadErr } = await uploadImageToSupabaseStorage(
+          compressed.blob,
+          "artworks",
+          file.name
+        );
+
+        if (publicUrl) {
+          // Kalıcı Storage Public URL'ine güncelle
+          setCustomPaintingUrl(publicUrl);
+
+          // 4. Veritabanına ASLA Base64 metni kaydetme! Sadece kısa Storage public URL'ini yaz
+          const { error: dbErr } = await createVisualizationInSupabase({
+            artwork_url: publicUrl,
+            artwork_name: file.name,
+            artwork_width_cm: artworkWidth,
+            artwork_height_cm: artworkHeight,
+            mat_width_cm: matWidth,
+            inner_frame_profile_id: selectedInnerProfileId || undefined
+          });
+
+          if (dbErr) {
+            console.warn("Supabase visualization save warning:", dbErr);
+          }
+        } else if (uploadErr) {
+          console.warn("Supabase Storage upload warning:", uploadErr);
         }
-      };
-      reader.readAsDataURL(file);
+      }
+    } catch (err) {
+      console.error("Görsel sıkıştırma veya Storage aktarım hatası:", err);
     }
   };
 
-  const handleFrameUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFrameUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setCustomFrameUrl(reader.result as string);
-        setCustomFrameFile(file.name);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const localPreview = URL.createObjectURL(file);
+    setCustomFrameUrl(localPreview);
+    setCustomFrameFile(file.name);
+
+    if (isSupabaseConfigured()) {
+      try {
+        const compressed = await compressImage(file, { maxWidth: 1080, quality: 0.80 });
+        const { publicUrl } = await uploadImageToSupabaseStorage(compressed.blob, "custom-frames", file.name);
+        if (publicUrl) {
+          setCustomFrameUrl(publicUrl);
+        }
+      } catch (err) {
+        console.warn("Frame texture compression error:", err);
+      }
     }
   };
 
-  const handleOuterFrameUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOuterFrameUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setCustomOuterFrameUrl(reader.result as string);
-        setCustomOuterFrameFile(file.name);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const localPreview = URL.createObjectURL(file);
+    setCustomOuterFrameUrl(localPreview);
+    setCustomOuterFrameFile(file.name);
+
+    if (isSupabaseConfigured()) {
+      try {
+        const compressed = await compressImage(file, { maxWidth: 1080, quality: 0.80 });
+        const { publicUrl } = await uploadImageToSupabaseStorage(compressed.blob, "custom-frames", file.name);
+        if (publicUrl) {
+          setCustomOuterFrameUrl(publicUrl);
+        }
+      } catch (err) {
+        console.warn("Outer frame texture compression error:", err);
+      }
     }
   };
 
@@ -2411,6 +2457,35 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         </div>
       </header>
 
+      {/* Schema Pending Banner */}
+      {isSchemaPending && (
+        <div className={`px-4 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2 border-b z-10 transition-all ${
+          isDarkMode ? "bg-amber-950/40 border-amber-800/60 text-amber-200" : "bg-amber-50 border-amber-200 text-amber-900"
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <Database className="w-4 h-4 text-amber-500 shrink-0" />
+            <span>
+              <strong>Supabase Veritabanı Kurulumu:</strong> Projenize bağlanıldı ancak henüz tablolar oluşturulmadı (varsayılan çıtalar devrede). Tabloları aktifleştirmek için <code>src/db/schema.sql</code> dosyasını Supabase SQL Editor'de çalıştırabilirsiniz.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-500 text-black hover:bg-amber-400 transition-colors cursor-pointer"
+            >
+              Ayarları Aç
+            </button>
+            <button
+              onClick={() => setIsSchemaPending(false)}
+              className="p-1 opacity-70 hover:opacity-100 cursor-pointer rounded"
+              title="Kapat"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Hidden processing canvas used as a background worker */}
       <canvas ref={canvasRef} className="hidden" />
 
@@ -3030,26 +3105,55 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         isOpen={isCropModalOpen}
         onClose={() => setIsCropModalOpen(false)}
         imageUrl={customPaintingUrl || ""}
-        onCropSave={(croppedDataUrl) => {
+        onCropSave={async (croppedDataUrl) => {
+          // Tarayıcı ekranında anında yansıt
           setCustomPaintingUrl(croppedDataUrl);
+          setIsCropModalOpen(false);
+
           if (isSupabaseConfigured()) {
-            (async () => {
-              try {
-                const { error } = await createVisualizationInSupabase({
-                  image_url: croppedDataUrl,
-                  title: customPaintingFile && customPaintingFile !== "Henüz görsel seçilmedi" ? customPaintingFile : "Kırpılmış Eser Görseli",
+            try {
+              // 1. Kırpılmış görseli tarayıcıda maksimum 1920px ve %80 kaliteye sıkıştır
+              const compressed = await compressImage(croppedDataUrl, {
+                maxWidth: 1920,
+                maxHeight: 1920,
+                quality: 0.80,
+                mimeType: "image/jpeg"
+              });
+
+              // 2. Supabase Storage'a yükle (uploads / visualizations bucket)
+              const fileName = customPaintingFile && customPaintingFile !== "Henüz görsel seçilmedi" 
+                ? customPaintingFile 
+                : "kirpilmis_eser";
+              
+              const { publicUrl, error: uploadErr } = await uploadImageToSupabaseStorage(
+                compressed.blob,
+                "cropped-artworks",
+                fileName
+              );
+
+              if (publicUrl) {
+                // Kalıcı URL'i ayarla
+                setCustomPaintingUrl(publicUrl);
+
+                // 3. Veritabanına ASLA Base64 kaydetme; sadece kısa public URL'i yaz
+                const { error: dbErr } = await createVisualizationInSupabase({
+                  artwork_url: publicUrl,
+                  artwork_name: fileName,
                   artwork_width_cm: artworkWidth,
                   artwork_height_cm: artworkHeight,
                   mat_width_cm: matWidth,
-                  frame_profile_id: selectedInnerProfileId || undefined
+                  inner_frame_profile_id: selectedInnerProfileId || undefined
                 });
-                if (error) {
-                  console.warn("Supabase visualization crop save warning:", error);
+
+                if (dbErr) {
+                  console.warn("Supabase visualization crop save warning:", dbErr);
                 }
-              } catch (err) {
-                console.warn("Supabase visualization crop save exception:", err);
+              } else if (uploadErr) {
+                console.warn("Storage crop upload warning:", uploadErr);
               }
-            })();
+            } catch (err) {
+              console.warn("Supabase visualization crop save exception:", err);
+            }
           }
         }}
         targetWidthCm={artworkWidth}

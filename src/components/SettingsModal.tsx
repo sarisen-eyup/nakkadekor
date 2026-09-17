@@ -24,8 +24,10 @@ import {
   fetchCompanyProfileFromSupabase,
   saveCompanyProfileToSupabase,
   fetchTenantSettingsFromSupabase,
-  saveTenantSettingsToSupabase
+  saveTenantSettingsToSupabase,
+  uploadImageToSupabaseStorage
 } from "../services/supabaseService";
+import { compressImage } from "../utils/imageCompressor";
 import { isSupabaseConfigured } from "../lib/supabase";
 
 interface SettingsModalProps {
@@ -239,7 +241,8 @@ export function SettingsModal({
     setIsCropModalOpen(true);
   };
 
-  const handleCropSave = (croppedDataUrl: string) => {
+  const handleCropSave = async (croppedDataUrl: string) => {
+    // Tarayıcı modalını kapat ve anında arayüze yansıt
     if (cropTargetProfileId === null) {
       setNewProfile(prev => ({ ...prev, imageUrl: croppedDataUrl }));
     } else {
@@ -248,6 +251,29 @@ export function SettingsModal({
       );
     }
     setIsCropModalOpen(false);
+
+    // Arka planda tarayıcıda sıkıştır ve Supabase Storage'a yükle (public URL sakla)
+    if (isSupabaseConfigured()) {
+      try {
+        const compressed = await compressImage(croppedDataUrl, { maxWidth: 1080, quality: 0.80 });
+        const { publicUrl } = await uploadImageToSupabaseStorage(
+          compressed.blob, 
+          "profiles", 
+          cropTargetProfileId ? `profile_${cropTargetProfileId}` : "new_profile"
+        );
+        if (publicUrl) {
+          if (cropTargetProfileId === null) {
+            setNewProfile(prev => ({ ...prev, imageUrl: publicUrl, textureUrl: publicUrl }));
+          } else {
+            setLocalProfiles(prev =>
+              prev.map(p => p.id === cropTargetProfileId ? { ...p, imageUrl: publicUrl, textureUrl: publicUrl } : p)
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("Storage profile upload error:", err);
+      }
+    }
   };
 
   const handleSettingChange = (field: keyof UnitPricesSettings, rawVal: number | string) => {
@@ -374,7 +400,7 @@ export function SettingsModal({
 
   const canUploadLogo = isProPlan(subscription);
 
-  const handleCompanyLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCompanyLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!canUploadLogo) {
       if (onOpenSubscriptionModal) {
         onOpenSubscriptionModal();
@@ -383,14 +409,22 @@ export function SettingsModal({
     }
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
-        setLocalCompany(prev => ({ ...prev, logoUrl: dataUrl }));
+
+    // Anında yerel önizleme göster
+    const localPreview = URL.createObjectURL(file);
+    setLocalCompany(prev => ({ ...prev, logoUrl: localPreview }));
+
+    if (isSupabaseConfigured()) {
+      try {
+        const compressed = await compressImage(file, { maxWidth: 600, maxHeight: 600, quality: 0.85 });
+        const { publicUrl } = await uploadImageToSupabaseStorage(compressed.blob, "logos", "company_logo");
+        if (publicUrl) {
+          setLocalCompany(prev => ({ ...prev, logoUrl: publicUrl }));
+        }
+      } catch (err) {
+        console.warn("Company logo upload to storage warning:", err);
       }
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleRemoveCompanyLogo = () => {
