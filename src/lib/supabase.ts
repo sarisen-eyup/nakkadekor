@@ -1,28 +1,20 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
+export const SUPABASE_URL = "https://bzhbfopuujfsodzrlbup.supabase.co";
+export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6aGJmb3B1dWpmc29kenJsYnVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2MjkzMTgsImV4cCI6MjEwNTIwNTMxOH0.X36MQ1bwsLx6rvlXJP0IPL2-VuuwMXpkudPD_C05Iik";
+export const DEFAULT_TENANT_ID = "11111111-1111-1111-1111-111111111111";
+
 let currentAuthUserId: string | null = null;
 
-// Helper to safely retrieve environment variables or localStorage overrides
+// Doğrudan tanımlı Supabase kimlik bilgileri (import.meta.env bağımlılığı kaldırılmıştır)
 export function getSupabaseCredentials(): { url: string; anonKey: string; tenantId: string } {
-  const envUrl = 
-    import.meta.env.VITE_SUPABASE_URL || 
-    (import.meta.env as any).NEXT_PUBLIC_SUPABASE_URL || 
-    (import.meta.env as any).SUPABASE_URL || 
-    "";
-
-  const envKey = 
-    import.meta.env.VITE_SUPABASE_ANON_KEY || 
-    (import.meta.env as any).NEXT_PUBLIC_SUPABASE_ANON_KEY || 
-    (import.meta.env as any).SUPABASE_ANON_KEY || 
-    "";
-
   const localUrl = typeof window !== "undefined" ? localStorage.getItem("nakka_supabase_url") || "" : "";
   const localKey = typeof window !== "undefined" ? localStorage.getItem("nakka_supabase_key") || "" : "";
   const localTenant = typeof window !== "undefined" ? localStorage.getItem("nakka_tenant_id") || "" : "";
 
-  const url = (localUrl || envUrl || "").trim();
-  const anonKey = (localKey || envKey || "").trim();
-  const tenantId = (localTenant || import.meta.env.VITE_DEFAULT_TENANT_ID || "11111111-1111-1111-1111-111111111111").trim();
+  const url = (localUrl || SUPABASE_URL).trim();
+  const anonKey = (localKey || SUPABASE_ANON_KEY).trim();
+  const tenantId = (localTenant || DEFAULT_TENANT_ID).trim();
 
   return { url, anonKey, tenantId };
 }
@@ -32,15 +24,11 @@ export function isSupabaseConfigured(): boolean {
   return Boolean(url && anonKey && url.startsWith("http") && anonKey.length > 10);
 }
 
-// Fallback dummy client for offline/unconfigured environments to prevent runtime crashes
-const dummyUrl = "https://unconfigured-project.supabase.co";
-const dummyKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy";
-
 const creds = getSupabaseCredentials();
 
 export const supabase: SupabaseClient = createClient(
-  creds.url || dummyUrl,
-  creds.anonKey || dummyKey,
+  creds.url || SUPABASE_URL,
+  creds.anonKey || SUPABASE_ANON_KEY,
   {
     auth: {
       persistSession: true,
