@@ -15,7 +15,9 @@ import {
   SubscriptionData,
   isProPlan,
   UserAccount,
-  sanitizeUnitPricesSettings
+  sanitizeUnitPricesSettings,
+  SAMPLE_FRAME_PROFILES,
+  generateUUID
 } from "../types/pricing";
 import { ImageCropModal } from "./ImageCropModal";
 import { 
@@ -287,7 +289,7 @@ export function SettingsModal({
     if (!newProfile.name || !newProfile.code) return;
 
     const created: FrameProfileItem = {
-      id: "prof_" + Date.now(),
+      id: generateUUID(),
       name: newProfile.name,
       code: newProfile.code.toUpperCase(),
       imageUrl: newProfile.imageUrl || "",

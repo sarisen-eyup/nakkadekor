@@ -182,6 +182,7 @@ CREATE TABLE IF NOT EXISTS public.quotes_orders (
   customer_name VARCHAR(255),
   customer_phone VARCHAR(50),
   delivery_date DATE,
+  delivery_date_str VARCHAR(100),
   artwork_width_cm NUMERIC(6, 2),
   artwork_height_cm NUMERIC(6, 2),
   inner_frame_title VARCHAR(255),

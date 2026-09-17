@@ -339,10 +339,16 @@ export async function updateFrameProfileInSupabase(
   }
 
   try {
-    const { error } = await supabase
-      .from("frame_profiles")
-      .update(payload)
-      .eq("id", id);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    let query = supabase.from("frame_profiles").update(payload);
+    if (isUuid) {
+      query = query.eq("id", id);
+    } else {
+      const code = updates.code || id.replace("default-", "").replace("prof_", "").toUpperCase();
+      query = query.eq("code", code);
+    }
+
+    const { error } = await query;
 
     if (error) {
       console.warn("Supabase update frame profile warning:", error.message || error);
@@ -362,10 +368,16 @@ export async function deleteFrameProfileFromSupabase(id: string): Promise<{ succ
   }
 
   try {
-    const { error } = await supabase
-      .from("frame_profiles")
-      .delete()
-      .eq("id", id);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    let query = supabase.from("frame_profiles").delete();
+    if (isUuid) {
+      query = query.eq("id", id);
+    } else {
+      const code = id.replace("default-", "").replace("prof_", "").toUpperCase();
+      query = query.eq("code", code);
+    }
+
+    const { error } = await query;
 
     if (error) {
       console.warn("Supabase delete frame profile warning:", error.message || error);
@@ -556,34 +568,49 @@ export async function createOrderInSupabase(
       .select()
       .single();
 
-    // Fallback if schema has total_amount / author_user columns
-    if (error && error.code === "42703") {
-      const fallbackPayload: any = {
-        tenant_id: tenantId,
-        order_number: order.orderNumber,
-        customer_name: order.customerName,
-        customer_phone: order.customerPhone || null,
-        delivery_date: formattedDeliveryDate,
-        artwork_width_cm: order.artworkWidthCm || null,
-        artwork_height_cm: order.artworkHeightCm || null,
-        inner_frame_title: order.innerFrameTitle || null,
-        outer_frame_title: order.outerFrameTitle || null,
-        mat_info: order.matInfo || null,
-        total_amount: order.totalAmount || 0,
-        currency: order.currency || "₺",
-        status: order.status || "quote",
-        delivery_method: order.deliveryMethod || "pickup",
-        author_user: order.authorUser || "Yetkili Personel"
-      };
+    // Fallback if schema is missing optional columns (such as delivery_date_str PGRST204 or 42703)
+    if (error && (error.code === "PGRST204" || error.code === "42703")) {
+      console.warn("Retrying order insert without delivery_date_str or legacy columns:", error.message);
+      const safePayload = { ...primaryPayload };
+      delete safePayload.delivery_date_str;
 
-      const fallbackRes = await supabase
+      const retryRes = await supabase
         .from("quotes_orders")
-        .insert([fallbackPayload])
+        .insert([safePayload])
         .select()
         .single();
-      
-      data = fallbackRes.data;
-      error = fallbackRes.error;
+
+      if (!retryRes.error) {
+        data = retryRes.data;
+        error = null;
+      } else {
+        const fallbackPayload: any = {
+          tenant_id: tenantId,
+          order_number: order.orderNumber,
+          customer_name: order.customerName,
+          customer_phone: order.customerPhone || null,
+          delivery_date: formattedDeliveryDate,
+          artwork_width_cm: order.artworkWidthCm || null,
+          artwork_height_cm: order.artworkHeightCm || null,
+          inner_frame_title: order.innerFrameTitle || null,
+          outer_frame_title: order.outerFrameTitle || null,
+          mat_info: order.matInfo || null,
+          total_amount: order.totalAmount || 0,
+          currency: order.currency || "₺",
+          status: order.status || "quote",
+          delivery_method: order.deliveryMethod || "pickup",
+          author_user: order.authorUser || "Yetkili Personel"
+        };
+
+        const fallbackRes = await supabase
+          .from("quotes_orders")
+          .insert([fallbackPayload])
+          .select()
+          .single();
+        
+        data = fallbackRes.data;
+        error = fallbackRes.error;
+      }
     }
 
     if (error) {
@@ -942,13 +969,15 @@ export async function createVisualizationInSupabase(
     }
   }
 
+  const isInnerFrameUuid = Boolean(innerFrameId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(innerFrameId));
+
   const payload: any = {
     tenant_id: tenantId,
     artwork_url: finalArtworkUrl,
     artwork_name: artworkName,
     artwork_width_cm: artworkWidth,
     artwork_height_cm: artworkHeight,
-    inner_frame_profile_id: innerFrameId,
+    inner_frame_profile_id: isInnerFrameUuid ? innerFrameId : null,
     rendered_preview_url: finalPreviewUrl,
     updated_at: new Date().toISOString()
   };
@@ -998,6 +1027,11 @@ export async function deleteVisualizationFromSupabase(
   const tenantId = getTenantId();
 
   try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    if (!isUuid) {
+      return { success: true, error: null };
+    }
+
     const { error } = await supabase
       .from("visualizations")
       .delete()
