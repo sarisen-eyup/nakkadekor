@@ -46,7 +46,9 @@ import {
   Home,
   Move,
   RotateCcw,
-  Loader2
+  Loader2,
+  Plus,
+  AlertTriangle
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import QRCode from "qrcode";
@@ -424,6 +426,7 @@ export default function App() {
   const [accountModalInitialTab, setAccountModalInitialTab] = useState<"company" | "credits">("company");
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState<boolean>(false);
   const [isPrintCenterModalOpen, setIsPrintCenterModalOpen] = useState<boolean>(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState<boolean>(false);
 
   // B2B Subscription, Order Archive, and Session state
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData>(() => loadSubscriptionFromStorage());
@@ -1016,12 +1019,146 @@ export default function App() {
     });
   };
 
+  // Simülatördeki Tüm Seçenekleri Sıfırlayıp Yeni Çerçeve Tasarımı Başlatma
+  const handleResetSimulator = () => {
+    // 1. Resim ve eser bilgilerini sıfırla
+    setCustomPaintingUrl(null);
+    setCustomPaintingFile("Henüz görsel seçilmedi");
+    setWidthInput("50");
+    setHeightInput("70");
+
+    // 2. Çerçeve ve profil seçimlerini varsayılana getir
+    if (frameProfiles.length > 0) {
+      handleSelectInnerProfile(frameProfiles[0].id);
+    } else {
+      setSelectedInnerProfileId("");
+      setCustomFrameUrl(null);
+      setCustomFrameFile("Çerçeve Seçilmedi");
+      setFrameWidthInput("4.0");
+    }
+
+    // 3. Paspartu ve renkleri sıfırla
+    setMatWidthInput("0");
+    setInnerMatColor("#FAF9F5");
+    setOuterMatColor("#FAF9F5");
+
+    // 4. Dış çerçeve ve 3D Paspartuyu kapat
+    handleSelectOuterProfile("");
+    setMiddleMatWidthInput("0.0");
+
+    // 5. Müşteri ve teslimat bilgilerini temizle
+    setCustomerName("");
+    setCustomerPhone("");
+    setDeliveryDate("");
+    setDeliveryMethod("store");
+    setCustomerNameError(false);
+    setCustomerPhoneError(false);
+    setDeliveryDateError(false);
+
+    // 6. Özel fiyat ve malzeme bayraklarını sıfırla
+    setCustomOverridePrice(null);
+    setInclusionFlags({
+      includeArtworkPrint: false,
+      includeInnerMat: false,
+      includeInnerFrame: true,
+      includeMiddleMat: false,
+      includeOuterFrame: false,
+      includeGlass: false,
+      includeBackingBoard: false,
+      includeBackingCloth: false,
+      includeKraftTape: false,
+      includeBackingPaper: false,
+      includeLaborCost: true
+    });
+
+    // 7. Oda ve duvar görselini sıfırla
+    setWallMode("color");
+    setCustomerRoomImage(null);
+
+    // 8. Yeni benzersiz sipariş numarası oluştur
+    const newNum = generateOrderNumber();
+    setOrderNumber(newNum);
+
+    // 9. Sekmeyi 1. Eser adımına getir
+    setActiveSidebarTab("artwork");
+
+    // 10. Onay modalını kapat
+    setIsResetConfirmOpen(false);
+
+    // 11. Sayfa başına yumuşak kaydır
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // 12. Başarılı sıfırlama bildirimi
+    setToastMessage({
+      text: `✨ Simülatör sıfırlandı! Yeni sipariş (#${newNum}) için hazır.`,
+      type: "info"
+    });
+  };
+
+  // Header "YENİ" butonuna tıklandığında kontrol
+  const handleNewOrderClick = () => {
+    // 1. Simülatör halihazırda boş/varsayılan durumda mı?
+    const isDefaultClean = 
+      !customPaintingUrl &&
+      !customerName?.trim() &&
+      !customerPhone?.trim() &&
+      !deliveryDate?.trim() &&
+      widthInput === "50" &&
+      heightInput === "70" &&
+      matWidthInput === "0" &&
+      outerFrameWidthInput === "0.0" &&
+      middleMatWidthInput === "0.0" &&
+      customOverridePrice === null &&
+      (!selectedInnerProfileId || (frameProfiles.length > 0 && selectedInnerProfileId === frameProfiles[0]?.id));
+
+    if (isDefaultClean) {
+      handleResetSimulator();
+      return;
+    }
+
+    // 2. Mevcut sipariş numarası arşivde kayıtlı mı?
+    const savedItem = archiveOrders.find(o => o.orderNumber === orderNumber);
+    if (!savedItem) {
+      // Arşivde henüz kayıtlı değil ve veri girişi yapılmış -> Onay modalı göster
+      setIsResetConfirmOpen(true);
+      return;
+    }
+
+    // 3. Arşivde kayıtlı ise, kayıt sonrasında herhangi bir değişiklik yapılmış mı?
+    const isModified = 
+      savedItem.customerName !== customerName.trim() ||
+      savedItem.artworkWidthCm !== artworkWidth ||
+      savedItem.artworkHeightCm !== artworkHeight ||
+      (savedItem.innerProfileId && savedItem.innerProfileId !== selectedInnerProfileId) ||
+      (savedItem.matWidthCm !== undefined && Number(savedItem.matWidthCm) !== matWidth) ||
+      (savedItem.customPaintingUrl !== customPaintingUrl);
+
+    if (isModified) {
+      // Kayıtlı sipariş üzerinde kaydedilmemiş değişiklikler var -> Onay modalı göster
+      setIsResetConfirmOpen(true);
+    } else {
+      // Sipariş zaten güvenle arşivde kayıtlı, doğrudan sıfırla
+      handleResetSimulator();
+    }
+  };
+
   // Select initial inner frame profile if none selected
   useEffect(() => {
     if (!selectedInnerProfileId && frameProfiles.length > 0) {
       handleSelectInnerProfile(frameProfiles[0].id);
     }
   }, [frameProfiles]);
+
+  // ESC key listener to close reset confirmation modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isResetConfirmOpen) {
+        setIsResetConfirmOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isResetConfirmOpen]);
 
   // Sync inclusionFlags when matWidth / middleMatWidth change
   useEffect(() => {
@@ -1982,6 +2119,128 @@ Durum: Onaylandi / Uretime Hazir`;
     setSubscriptionData(updatedSub);
   };
 
+  // Simülatörden Doğrudan Sipariş Oluşturma (Görsel 3 & 4 Doğrulaması)
+  const handleCreateOrderFromSimulator = async () => {
+    const isNameEmpty = !customerName || !customerName.trim();
+    const isPhoneEmpty = !customerPhone || !customerPhone.trim();
+    const isDateEmpty = !deliveryDate || !deliveryDate.trim();
+
+    if (isNameEmpty || isPhoneEmpty || isDateEmpty) {
+      if (isNameEmpty) setCustomerNameError(true);
+      if (isPhoneEmpty) setCustomerPhoneError(true);
+      if (isDateEmpty) setDeliveryDateError(true);
+
+      setToastMessage({
+        text: "Siparişi oluşturmak için lütfen kırmızı ile belirtilen zorunlu alanları doldurunuz.",
+        type: "error"
+      });
+
+      if (isNameEmpty) {
+        document.getElementById("customer-name-input")?.focus();
+      } else if (isPhoneEmpty) {
+        document.getElementById("customer-phone-input")?.focus();
+      } else if (isDateEmpty) {
+        document.getElementById("delivery-date-input")?.focus();
+      }
+      return;
+    }
+
+    const fullPhone = customerPhone.trim().startsWith('+90') 
+      ? customerPhone.trim() 
+      : `+90 ${customerPhone.trim()}`;
+
+    // Standardize ISO date (YYYY-MM-DD) for PostgreSQL
+    let isoDeliveryDate = deliveryDate.trim();
+    if (isoDeliveryDate.includes('.')) {
+      const parts = isoDeliveryDate.split('.');
+      if (parts.length === 3) {
+        isoDeliveryDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    } else if (isoDeliveryDate.includes('-')) {
+      const parts = isoDeliveryDate.split('-');
+      if (parts.length === 3 && parts[0].length <= 2) {
+        isoDeliveryDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+
+    const currentOrderNum = orderNumber;
+
+    const newArchiveItem: OrderArchiveItem = {
+      id: "ord_" + Date.now(),
+      orderNumber: currentOrderNum,
+      createdAt: new Date().toLocaleDateString("tr-TR") + " " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+      customerName: customerName.trim(),
+      customerPhone: fullPhone,
+      deliveryDate: isoDeliveryDate,
+      artworkWidthCm: artworkWidth,
+      artworkHeightCm: artworkHeight,
+      innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : (customFrameFile || "Standart Profil"),
+      outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
+      matInfo: matWidth > 0 ? `${matWidth} cm ${getPaspartuColorName(innerMatColor)}` : "Paspartusuz",
+      totalAmount: costBreakdown.effectiveFinalPriceWithVat,
+      currency: "₺",
+      status: "confirmed",
+      deliveryMethod: deliveryMethod,
+      authorUser: activeUser?.fullName || "Yetkili Personel",
+
+      // Simülatör anlık yapılandırma görüntüsü
+      innerProfileId: selectedInnerProfileId,
+      outerProfileId: selectedOuterProfileId,
+      matWidthCm: matWidth,
+      frameWidthCm: frameWidth,
+      middleMatWidthCm: middleMatWidth,
+      outerFrameWidthCm: outerFrameWidth,
+      innerMatColor: innerMatColor,
+      outerMatColor: outerMatColor,
+      customPaintingUrl: customPaintingUrl,
+      customPaintingFile: customPaintingFile,
+      inclusionFlags: effectiveInclusionFlags,
+      customOverridePrice: customOverridePrice,
+      simulatorConfig: {
+        innerProfileId: selectedInnerProfileId,
+        outerProfileId: selectedOuterProfileId,
+        matWidthCm: matWidth,
+        frameWidthCm: frameWidth,
+        middleMatWidthCm: middleMatWidth,
+        outerFrameWidthCm: outerFrameWidth,
+        innerMatColor: innerMatColor,
+        outerMatColor: outerMatColor,
+        customPaintingUrl: customPaintingUrl,
+        customPaintingFile: customPaintingFile,
+        flags: effectiveInclusionFlags,
+        customOverridePrice: customOverridePrice
+      }
+    };
+
+    setArchiveOrders(prev => {
+      const filtered = prev.filter(o => o.orderNumber !== newArchiveItem.orderNumber && o.id !== newArchiveItem.id);
+      return [newArchiveItem, ...filtered];
+    });
+
+    setToastMessage({
+      text: `✅ ${currentOrderNum} numaralı sipariş başarıyla oluşturuldu! Belgeleri yazdırmak için üstteki "Belge Yazdır" butonunu kullanabilirsiniz.`,
+      type: "success"
+    });
+
+    if (isSupabaseConfigured()) {
+      (async () => {
+        try {
+          const { data, error } = await createOrderInSupabase(newArchiveItem);
+          if (error) {
+            console.warn("Supabase createOrder sync warning:", error);
+          } else if (data && data.id) {
+            setArchiveOrders(prev => prev.map(o => o.orderNumber === newArchiveItem.orderNumber ? { ...o, id: data.id } : o));
+          }
+        } catch (err) {
+          console.warn("Supabase createOrder sync exception:", err);
+        }
+      })();
+    }
+
+    const updatedSub = deductSubscriptionCredit();
+    setSubscriptionData(updatedSub);
+  };
+
   const handlePrintBackLabel = async () => {
     let qrDataUrl = "";
     try {
@@ -2334,126 +2593,149 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         </div>
         
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-              isDarkMode
-                ? "bg-[#101216] border-white/10 text-neutral-400 hover:text-rose-400 hover:border-rose-400/30"
-                : "bg-white border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-200"
-            }`}
-            title="Oturumu Kapat (Giriş Ekranına Dön)"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-          </button>
+          {/* Primary Operations Cluster */}
+          <div className="flex items-center gap-1.5">
+            {/* New Frame / Reset Simulator Button (YENİ) */}
+            <button
+              onClick={handleNewOrderClick}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-extrabold tracking-wider shadow-sm cursor-pointer active:scale-95 ${
+                isDarkMode
+                  ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25 hover:border-emerald-500/60"
+                  : "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100 shadow-2xs"
+              }`}
+              title="Simülatörü sıfırla ve yeni bir çerçeve siparişi başlat"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>YENİ</span>
+            </button>
 
-          {/* Light / Dark Mode Switcher Button */}
-          <button
-            onClick={() => setThemeMode(isDarkMode ? "light" : "dark")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm ${
-              isDarkMode
-                ? "bg-[#101216] border-white/10 text-[#C5A059] hover:bg-[#1a1e26]"
-                : "bg-slate-100 border-slate-200 text-[#B88E3A] hover:bg-slate-200"
-            }`}
-            title={isDarkMode ? "Açık Moda Geç" : "Koyu Moda Geç"}
-          >
-            {isDarkMode ? <Sun className="w-3.5 h-3.5 text-[#C5A059]" /> : <Moon className="w-3.5 h-3.5 text-[#B88E3A]" />}
-            <span className="hidden sm:inline">{isDarkMode ? "AÇIK" : "KOYU"}</span>
-          </button>
+            {/* Order Archive Button */}
+            <button
+              onClick={() => setIsArchiveModalOpen(true)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
+                isDarkMode
+                  ? "bg-[#101216] border-white/10 text-neutral-300 hover:text-white"
+                  : "bg-white border-slate-200 text-slate-700 hover:text-slate-900"
+              }`}
+              title="Geçmiş Sipariş ve Teklif Arşivi"
+            >
+              <Archive className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+              <span className="hidden sm:inline">ARŞİV</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold ${
+                isDarkMode ? "bg-white/10 text-[#C5A059]" : "bg-slate-100 text-[#B88E3A]"
+              }`}>
+                {archiveOrders.length}
+              </span>
+            </button>
 
-          {/* Account & Credit Management Button */}
-          <button
-            onClick={() => {
-              setAccountModalInitialTab("company");
-              setIsAccountModalOpen(true);
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
-              subscriptionData.remainingCredits < 15 
-                ? "bg-rose-500/10 border-rose-500/40 text-rose-300" 
-                : isDarkMode 
-                  ? "bg-[#101216] border-[#C5A059]/40 hover:border-[#C5A059] text-[#C5A059]" 
-                  : "bg-white border-[#B88E3A]/40 hover:border-[#B88E3A] text-[#B88E3A]"
-            }`}
-            title="Hesap, Firma Bilgileri ve Kredi Yönetimi"
-          >
-            <User className="w-3.5 h-3.5" />
-            <span>HESAP</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold ${
-              subscriptionData.remainingCredits < 15
-                ? "bg-rose-500/20 text-rose-300"
-                : isDarkMode ? "bg-white/10 text-[#C5A059]" : "bg-amber-100 text-[#B88E3A]"
-            }`}>
-              {subscriptionData.remainingCredits} Kr.
-            </span>
-          </button>
+            {/* Live Price Calculator Button */}
+            <button 
+              onClick={() => setIsCostModalOpen(true)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
+                isDarkMode
+                  ? "bg-[#101216] border-white/10 hover:border-[#C5A059]/50 text-white"
+                  : "bg-white border-slate-200 hover:border-[#B88E3A]/50 text-slate-900"
+              }`}
+              title="Maliyet Dökümü & Kalem Kalem Fiyat Analizi"
+            >
+              <Calculator className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+              <span className="hidden md:inline text-neutral-400">TUTAR:</span>
+              <strong className={`text-xs font-mono ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
+                ₺{costBreakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}
+              </strong>
+            </button>
 
-          {/* Order Archive Button */}
-          <button
-            onClick={() => setIsArchiveModalOpen(true)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
-              isDarkMode
-                ? "bg-[#101216] border-white/10 text-neutral-300 hover:text-white"
-                : "bg-white border-slate-200 text-slate-700 hover:text-slate-900"
-            }`}
-            title="Geçmiş Sipariş ve Teklif Arşivi"
-          >
-            <Archive className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
-            <span className="hidden sm:inline">ARŞİV</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold ${
-              isDarkMode ? "bg-white/10 text-[#C5A059]" : "bg-slate-100 text-[#B88E3A]"
-            }`}>
-              {archiveOrders.length}
-            </span>
-          </button>
+            {/* Consolidated Unified Print Center Button (Belge Yazdır) */}
+            <button 
+              onClick={() => setIsPrintCenterModalOpen(true)}
+              className={`flex items-center gap-2 font-extrabold px-3.5 py-1.5 transition-all duration-200 uppercase text-[10px] sm:text-[11px] tracking-wider shadow-md active:scale-95 cursor-pointer rounded-xl border ${
+                isDarkMode
+                  ? "bg-[#C5A059] text-black border-[#d6b169] hover:bg-[#b5924d]"
+                  : "bg-[#B88E3A] text-white border-[#a67e2f] hover:bg-[#a67e2f]"
+              }`}
+              title="Belge Yazdır: Sipariş Formu, Üretim Emri, Maliyet Tablosu, 4x4 Arka Etiket"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>BELGE YAZDIR</span>
+              <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono font-black ${
+                isDarkMode ? "bg-black/25 text-black" : "bg-black/20 text-white"
+              }`}>
+                4
+              </span>
+            </button>
+          </div>
 
-          {/* Live Price Calculator Button */}
-          <button 
-            onClick={() => setIsCostModalOpen(true)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
-              isDarkMode
-                ? "bg-[#101216] border-white/10 hover:border-[#C5A059]/50 text-white"
-                : "bg-white border-slate-200 hover:border-[#B88E3A]/50 text-slate-900"
-            }`}
-            title="Maliyet Dökümü & Kalem Kalem Fiyat Analizi"
-          >
-            <Calculator className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
-            <span className="hidden md:inline text-neutral-400">TUTAR:</span>
-            <strong className={`text-xs font-mono ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-              ₺{costBreakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}
-            </strong>
-          </button>
+          {/* Subtle Vertical Divider */}
+          <div className={`hidden sm:block h-5 w-px ${isDarkMode ? "bg-white/15" : "bg-slate-300"}`} />
 
-          <button 
-            onClick={() => setIsSettingsOpen(true)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
-              isDarkMode
-                ? "bg-[#101216] border-white/10 text-neutral-300 hover:text-white"
-                : "bg-white border-slate-200 text-slate-700 hover:text-slate-900"
-            }`}
-            title="Birim Fiyat Ayarları & Çerçeve Veritabanı"
-          >
-            <Settings className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
-            <span className="hidden sm:inline">AYARLAR</span>
-          </button>
+          {/* System & Configuration Cluster */}
+          <div className="flex items-center gap-1.5">
+            {/* Account & Credit Management Button */}
+            <button
+              onClick={() => {
+                setAccountModalInitialTab("company");
+                setIsAccountModalOpen(true);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
+                subscriptionData.remainingCredits < 15 
+                  ? "bg-rose-500/10 border-rose-500/40 text-rose-300" 
+                  : isDarkMode 
+                    ? "bg-[#101216] border-[#C5A059]/40 hover:border-[#C5A059] text-[#C5A059]" 
+                    : "bg-white border-[#B88E3A]/40 hover:border-[#B88E3A] text-[#B88E3A]"
+              }`}
+              title="Hesap, Firma Bilgileri ve Kredi Yönetimi"
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>HESAP</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black ${
+                subscriptionData.remainingCredits < 15
+                  ? "bg-rose-500/20 text-rose-500 font-bold border border-rose-400/40"
+                  : isDarkMode ? "bg-[#C5A059]/20 text-[#E5C158] border border-[#C5A059]/30" : "bg-amber-100 text-amber-900 border border-amber-300"
+              }`}>
+                {subscriptionData.remainingCredits} Kr.
+              </span>
+            </button>
 
-          {/* Consolidated Unified Print Center Button (4 Belgeli Yazdırma Merkezi) */}
-          <button 
-            onClick={() => setIsPrintCenterModalOpen(true)}
-            className={`flex items-center gap-2 font-extrabold px-3.5 py-1.5 transition-all duration-200 uppercase text-[10px] sm:text-[11px] tracking-wider shadow-md active:scale-95 cursor-pointer rounded-xl border ${
-              isDarkMode
-                ? "bg-[#C5A059] text-black border-[#d6b169] hover:bg-[#b5924d]"
-                : "bg-[#B88E3A] text-white border-[#a67e2f] hover:bg-[#a67e2f]"
-            }`}
-            title="Yazdırma & Belge Merkezi: Sipariş Formu, Üretim Emri, Maliyet Tablosu, 4x4 Arka Etiket"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>YAZDIR & BELGELER</span>
-            <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono font-black ${
-              isDarkMode ? "bg-black/25 text-black" : "bg-black/20 text-white"
-            }`}>
-              4
-            </span>
-          </button>
+            {/* Settings Button */}
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
+                isDarkMode
+                  ? "bg-[#101216] border-white/10 text-neutral-300 hover:text-white"
+                  : "bg-white border-slate-200 text-slate-700 hover:text-slate-900"
+              }`}
+              title="Birim Fiyat Ayarları & Çerçeve Veritabanı"
+            >
+              <Settings className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+              <span className="hidden sm:inline">AYARLAR</span>
+            </button>
+
+            {/* Light / Dark Mode Switcher Button */}
+            <button
+              onClick={() => setThemeMode(isDarkMode ? "light" : "dark")}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm ${
+                isDarkMode
+                  ? "bg-[#101216] border-white/10 text-[#C5A059] hover:bg-[#1a1e26]"
+                  : "bg-slate-100 border-slate-200 text-[#B88E3A] hover:bg-slate-200"
+              }`}
+              title={isDarkMode ? "Açık Moda Geç" : "Koyu Moda Geç"}
+            >
+              {isDarkMode ? <Sun className="w-3.5 h-3.5 text-[#C5A059]" /> : <Moon className="w-3.5 h-3.5 text-[#B88E3A]" />}
+            </button>
+
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                isDarkMode
+                  ? "bg-[#101216] border-white/10 text-neutral-400 hover:text-rose-400 hover:border-rose-400/30"
+                  : "bg-white border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-200"
+              }`}
+              title="Oturumu Kapat (Giriş Ekranına Dön)"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -2658,6 +2940,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
                 downloadCompositedImage={downloadCompositedImage}
                 onOpenCostModal={() => setIsCostModalOpen(true)}
                 onOpenPrintCenter={() => setIsPrintCenterModalOpen(true)}
+                onCreateOrder={handleCreateOrderFromSimulator}
                 onPrevStep={activeSidebarTab === "materials" ? () => setActiveSidebarTab("framing") : undefined}
               />
             )}
@@ -2723,76 +3006,42 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
             {/* Subtle Wall Room Edge Vignette Shadow */}
             <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_60px_rgba(0,0,0,0.3)] z-10" />
 
-            {/* Floating Room Mode Toolbar */}
+            {/* Floating Room Mode Toolbar (Sadeleştirilmiş & Şık) */}
             {wallMode === "room" && (
-              <div className="absolute top-4 left-4 right-4 z-30 flex flex-wrap items-center justify-between pointer-events-auto gap-2">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/85 backdrop-blur-md border border-[#C5A059]/40 text-[#C5A059] text-xs font-semibold shadow-xl">
+              <div className="absolute top-4 left-4 right-4 z-30 flex items-center justify-between pointer-events-auto gap-2">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-[#C5A059]/40 text-[#C5A059] text-xs font-bold shadow-lg">
                   <Home className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Müşteri Odası Simülasyonu</span>
-                  <span className="text-[10px] text-neutral-400 border-l border-white/20 pl-2 hidden xl:inline">
-                    Tabloyu veya odayı seçip ölçeklendirebilir ve sürükleyebilirsiniz
-                  </span>
+                  <span>Müşteri Odası</span>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                  {/* Selector: Tablo vs Oda */}
-                  <div className="flex items-center gap-0.5 bg-black/85 backdrop-blur-md border border-white/15 rounded-full p-0.5 shadow-lg">
-                    <button
-                      type="button"
-                      onClick={() => setRoomActiveTarget("frame")}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-full transition-all cursor-pointer flex items-center gap-1 ${
-                        roomActiveTarget === "frame"
-                          ? "bg-[#C5A059] text-black shadow"
-                          : "text-neutral-400 hover:text-white"
-                      }`}
-                    >
-                      <span>🖼️ Tablo</span>
-                      <span className="font-mono text-[10px]">%{Math.round(roomFrameScale * 100)}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRoomActiveTarget("room")}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-full transition-all cursor-pointer flex items-center gap-1 ${
-                        roomActiveTarget === "room"
-                          ? "bg-[#C5A059] text-black shadow"
-                          : "text-neutral-400 hover:text-white"
-                      }`}
-                    >
-                      <span>🏠 Oda</span>
-                      <span className="font-mono text-[10px]">%{Math.round(roomBgScale * 100)}</span>
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Selector: Tablo vs Oda + Slider */}
+                  <div className="flex items-center gap-2 bg-black/80 backdrop-blur-md border border-white/15 rounded-full px-2 py-1 shadow-lg text-xs">
+                    <div className="flex items-center gap-0.5 bg-white/10 rounded-full p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setRoomActiveTarget("frame")}
+                        className={`px-2 py-0.5 text-[11px] font-bold rounded-full transition-all cursor-pointer ${
+                          roomActiveTarget === "frame"
+                            ? "bg-[#C5A059] text-black shadow"
+                            : "text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        Tablo %{Math.round(roomFrameScale * 100)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRoomActiveTarget("room")}
+                        className={`px-2 py-0.5 text-[11px] font-bold rounded-full transition-all cursor-pointer ${
+                          roomActiveTarget === "room"
+                            ? "bg-[#C5A059] text-black shadow"
+                            : "text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        Oda %{Math.round(roomBgScale * 100)}
+                      </button>
+                    </div>
 
-                  {/* Sığdır / Doldur Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => setRoomBgFit((prev) => (prev === "cover" ? "contain" : "cover"))}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-full border transition-all cursor-pointer flex items-center gap-1 shadow-lg ${
-                      roomBgFit === "contain"
-                        ? "bg-[#C5A059]/20 border-[#C5A059] text-[#C5A059]"
-                        : "bg-black/85 border-white/15 text-neutral-300 hover:text-white"
-                    }`}
-                    title="Dikey veya yatay telefon fotoğraflarında odayı tam sığdırır"
-                  >
-                    <span>{roomBgFit === "contain" ? "Sığdır (Dikey)" : "Doldur"}</span>
-                  </button>
-
-                  {/* Scale zoom controls with slider */}
-                  <div className="flex items-center gap-1.5 bg-black/85 backdrop-blur-md border border-white/15 rounded-full px-2.5 py-1 shadow-lg text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (roomActiveTarget === "frame") {
-                          setRoomFrameScale((prev) => Math.max(0.15, Number((prev - 0.05).toFixed(2))));
-                        } else {
-                          setRoomBgScale((prev) => Math.max(0.50, Number((prev - 0.05).toFixed(2))));
-                        }
-                      }}
-                      className="text-neutral-300 hover:text-white px-1 cursor-pointer font-bold"
-                      title="Küçült"
-                    >
-                      -
-                    </button>
                     <input 
                       type="range"
                       min={roomActiveTarget === "frame" ? "0.15" : "0.50"}
@@ -2804,67 +3053,29 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
                         if (roomActiveTarget === "frame") setRoomFrameScale(val);
                         else setRoomBgScale(val);
                       }}
-                      className="w-14 sm:w-20 h-1.5 accent-[#C5A059] cursor-pointer"
+                      className="w-16 sm:w-24 h-1.5 accent-[#C5A059] cursor-pointer"
                     />
+
                     <button
                       type="button"
-                      onClick={() => {
-                        if (roomActiveTarget === "frame") {
-                          setRoomFrameScale((prev) => Math.min(2.50, Number((prev + 0.05).toFixed(2))));
-                        } else {
-                          setRoomBgScale((prev) => Math.min(2.50, Number((prev + 0.05).toFixed(2))));
-                        }
+                      onClick={() => { 
+                        setRoomFramePos({ x: 0, y: 0 }); 
+                        setRoomFrameScale(1); 
+                        setRoomBgPos({ x: 0, y: 0 });
+                        setRoomBgScale(1);
                       }}
-                      className="text-neutral-300 hover:text-white px-1 cursor-pointer font-bold"
-                      title="Büyüt"
+                      className="px-2 py-0.5 rounded-full hover:bg-white/10 text-neutral-300 text-[11px] font-medium transition-colors cursor-pointer"
+                      title="Konumu ve Ölçeği Sıfırla"
                     >
-                      +
+                      Ortala
                     </button>
-                    <span className="font-mono font-bold text-[#C5A059] px-1 text-[11px] min-w-[36px] text-center">
-                      %{Math.round((roomActiveTarget === "frame" ? roomFrameScale : roomBgScale) * 100)}
-                    </span>
                   </div>
-
-                  {/* Reset button */}
-                  <button
-                    type="button"
-                    onClick={() => { 
-                      setRoomFramePos({ x: 0, y: 0 }); 
-                      setRoomFrameScale(1); 
-                      setRoomBgPos({ x: 0, y: 0 });
-                      setRoomBgScale(1);
-                    }}
-                    className="px-2.5 py-1 rounded-full bg-black/85 backdrop-blur-md border border-white/15 text-neutral-300 hover:text-white text-xs font-medium shadow-lg transition-colors cursor-pointer"
-                    title="Konumu ve Ölçeği Sıfırla"
-                  >
-                    Ortala
-                  </button>
-
-                  {/* Customer Presentation Button */}
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomerPresentationOpen((prev) => !prev)}
-                    className="px-3 py-1 rounded-full bg-[#C5A059] hover:bg-[#b5924d] text-black text-xs font-bold shadow-lg transition-all flex items-center gap-1 cursor-pointer"
-                    title={isCustomerPresentationOpen ? "Simülatöre Dön" : "Müşteri Satış Kapatma Sunum Modu"}
-                  >
-                    {isCustomerPresentationOpen ? (
-                      <>
-                        <RotateCcw className="w-3 h-3 text-black" />
-                        <span className="hidden sm:inline">Simülatöre Dön</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-3 h-3" />
-                        <span className="hidden sm:inline">Sunum Modu</span>
-                      </>
-                    )}
-                  </button>
 
                   {/* Return to wall color */}
                   <button
                     type="button"
                     onClick={() => setWallMode("color")}
-                    className="p-1.5 rounded-full bg-black/85 backdrop-blur-md border border-white/15 text-neutral-400 hover:text-white text-xs shadow-lg transition-colors cursor-pointer"
+                    className="p-1.5 rounded-full bg-black/80 backdrop-blur-md border border-white/15 text-neutral-400 hover:text-white text-xs shadow-lg transition-colors cursor-pointer"
                     title="Duvar Rengine Dön"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -3214,6 +3425,69 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         outerFrameLayoutMode={outerFrameLayoutMode}
         lightingStyle={lightingStyle}
       />
+
+      {/* Reset Simulator / New Order Confirmation Modal */}
+      {isResetConfirmOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setIsResetConfirmOpen(false)}
+        >
+          <div 
+            className={`w-full max-w-md rounded-3xl border shadow-2xl p-6 relative flex flex-col gap-5 ${
+              isDarkMode ? "bg-[#14171e] border-white/10 text-white" : "bg-white border-slate-200 text-slate-900"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/25">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold">Kaydedilmemiş Değişiklikler Var!</h3>
+                <p className={`text-xs mt-1 leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
+                  Ekrandaki mevcut çerçeve tasarımı ve sipariş bilgileri henüz kaydedilmedi. Tüm simülatörü sıfırlayıp yeni bir siparişe başlamak istediğinize emin misiniz?
+                </p>
+              </div>
+            </div>
+
+            {/* Mini Sipariş Bilgi Kartı */}
+            <div className={`p-3.5 rounded-2xl border text-xs font-mono flex items-center justify-between gap-2 ${
+              isDarkMode ? "bg-black/30 border-white/5 text-neutral-300" : "bg-slate-50 border-slate-200 text-slate-700"
+            }`}>
+              <div className="flex items-center gap-2 truncate">
+                <span className="font-bold text-[#C5A059] dark:text-[#E5C158]">#{orderNumber}</span>
+                <span className="text-neutral-500">•</span>
+                <span className="truncate font-sans font-medium">{customerName.trim() || "İsimsiz Müşteri"}</span>
+              </div>
+              <div className="shrink-0 font-medium">
+                <span>{artworkWidth}×{artworkHeight} cm</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsResetConfirmOpen(false)}
+                className={`px-4 py-2.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+                  isDarkMode 
+                    ? "border-neutral-700 hover:bg-neutral-800 text-neutral-300" 
+                    : "border-slate-200 hover:bg-slate-100 text-slate-700"
+                }`}
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleResetSimulator}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-rose-600 hover:bg-rose-500 text-white transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Evet, Sıfırla</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Toast Notification */}
       {toastMessage && (

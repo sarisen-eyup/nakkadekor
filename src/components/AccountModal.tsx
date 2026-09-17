@@ -15,7 +15,14 @@ import {
   Zap,
   Clock,
   Plus,
-  ArrowRight
+  ArrowRight,
+  Globe,
+  MapPin,
+  FileText,
+  Receipt,
+  AlertCircle,
+  Loader2,
+  Trash2
 } from "lucide-react";
 import { 
   CompanyProfile, 
@@ -26,8 +33,11 @@ import {
 } from "../types/pricing";
 import { 
   fetchCompanyProfileFromSupabase, 
-  saveCompanyProfileToSupabase 
+  saveCompanyProfileToSupabase,
+  uploadImageToSupabaseStorage,
+  isSupabaseConfigured
 } from "../services/supabaseService";
+import { compressImage } from "../utils/imageCompressor";
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -58,12 +68,14 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   const [localCompany, setLocalCompany] = useState<CompanyProfile>(companyProfile || EMPTY_COMPANY_PROFILE);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatusMsg, setSaveStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [creditNotice, setCreditNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialTab || "company");
       setSavedSuccess(false);
+      setSaveStatusMsg(null);
       setCreditNotice(null);
       if (companyProfile) {
         setLocalCompany(companyProfile);
@@ -110,15 +122,45 @@ export const AccountModal: React.FC<AccountModalProps> = ({
 
   const handleSaveCompany = async () => {
     setIsSaving(true);
+    setSaveStatusMsg(null);
+    setSavedSuccess(false);
+
     try {
-      onSaveCompanyProfile(localCompany);
-      await saveCompanyProfileToSupabase(localCompany);
+      // 1. Supabase'e kaydet (saveCompanyProfileToSupabase içinde hemen taze kayıt da okunur)
+      const res = await saveCompanyProfileToSupabase(localCompany);
+      
+      if (!res.success) {
+        throw res.error || new Error("Veritabanına kaydedilemedi.");
+      }
+
+      // 2. Doğrulama: Dönen güncel veriyi veya doğrudan Supabase'den taze okunmuş veriyi al
+      let freshData = res.data;
+      if (!freshData) {
+        const freshFetch = await fetchCompanyProfileFromSupabase();
+        if (freshFetch.data) freshData = freshFetch.data;
+      }
+
+      const finalProfile = freshData || localCompany;
+
+      // 3. Ekrandaki formu ve üst component'i hemen yeni veriyle güncelle
+      setLocalCompany(finalProfile);
+      onSaveCompanyProfile(finalProfile);
+
       setSavedSuccess(true);
+      setSaveStatusMsg({
+        type: "success",
+        text: "Firma bilgileri veritabanına başarıyla kaydedildi ve güncel veriler senkronize edildi."
+      });
+
       setTimeout(() => {
         setSavedSuccess(false);
-      }, 2500);
-    } catch (err) {
-      console.warn("Firma profili kaydedilirken hata:", err);
+      }, 3500);
+    } catch (err: any) {
+      console.error("Firma bilgileri kaydedilemedi:", err);
+      setSaveStatusMsg({
+        type: "error",
+        text: err?.message ? `Kayıt Hatası: ${err.message}` : "Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin."
+      });
     } finally {
       setIsSaving(false);
     }
@@ -314,67 +356,79 @@ export const AccountModal: React.FC<AccountModalProps> = ({
               </div>
 
               {/* Kurumsal Profil Formu */}
-              <div className={`border rounded-xl p-5 space-y-5 ${
-                isDarkMode ? "bg-[#181b20] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
+              <div className={`border rounded-2xl p-5 md:p-6 space-y-6 shadow-sm transition-all ${
+                isDarkMode ? "bg-[#16181b] border-white/10" : "bg-white border-slate-200"
               }`}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3 border-neutral-700/40">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-lg ${isDarkMode ? "bg-[#C5A059]/20 text-[#C5A059]" : "bg-[#B88E3A]/20 text-[#B88E3A]"}`}>
+                {/* Header & Toggle */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-700/30">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2.5 rounded-xl ${isDarkMode ? "bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30" : "bg-[#B88E3A]/10 text-[#B88E3A] border border-[#B88E3A]/20"}`}>
                       <Building2 className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className={`text-sm font-bold uppercase tracking-wider ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                        FİRMA DETAYLARI &amp; ANTET AYARLARI
-                      </h3>
-                      <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                        PDF teklif dökümlerinde ve sipariş formlarında basılacak şirket logonuz ve bilgileriniz
+                      <div className="flex items-center gap-2">
+                        <h3 className={`text-sm font-bold uppercase tracking-wider ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                          FİRMA RESMİ BİLGİLERİ VE BELGE ANTETİ
+                        </h3>
+                      </div>
+                      <p className={`text-xs mt-0.5 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                        Teklif dökümlerinde, sipariş fişlerinde ve atölye iş emirlerinde yer alan kurumsal antetiniz
                       </p>
                     </div>
                   </div>
-                  <label className="flex items-center gap-2 text-xs cursor-pointer font-medium select-none">
+
+                  <label className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer select-none transition-all ${
+                    localCompany.includeInQuotes
+                      ? (isDarkMode ? "bg-[#C5A059]/15 border-[#C5A059]/50 text-[#C5A059]" : "bg-amber-50 border-amber-300 text-amber-900")
+                      : (isDarkMode ? "bg-black/20 border-white/10 text-neutral-400" : "bg-slate-50 border-slate-200 text-slate-500")
+                  }`}>
                     <input
                       type="checkbox"
                       checked={localCompany.includeInQuotes}
                       onChange={(e) => handleCompanyChange("includeInQuotes", e.target.checked)}
                       className="rounded accent-[#C5A059] w-4 h-4 cursor-pointer"
                     />
-                    <span className={isDarkMode ? "text-neutral-300" : "text-slate-700"}>
-                      Tekliflerde Göster
-                    </span>
+                    <span>Belgelerde Anteti Göster</span>
                   </label>
                 </div>
 
                 {/* Logo & Form Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                   
                   {/* Logo Kutusu */}
-                  <div className={`md:col-span-4 flex flex-col items-center text-center p-4 border rounded-xl transition-all ${
-                    isDarkMode ? "bg-black/20 border-dashed border-neutral-700" : "bg-white border-dashed border-slate-300"
+                  <div className={`lg:col-span-4 flex flex-col items-center text-center p-5 border rounded-2xl transition-all ${
+                    isDarkMode ? "bg-[#111315] border-white/10" : "bg-slate-50/70 border-slate-200"
                   }`}>
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-[#C5A059]">
-                        FİRMA LOGOSU
-                      </span>
-                    </div>
+                    <span className={`text-[11px] font-bold uppercase tracking-wider mb-3 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                      FİRMA LOGOSU
+                    </span>
 
-                    <div className="w-36 h-36 rounded-xl border flex items-center justify-center overflow-hidden mb-3 bg-neutral-900/40 border-neutral-700 relative">
+                    <div className={`w-36 h-36 rounded-2xl border flex items-center justify-center overflow-hidden mb-3.5 relative shadow-inner ${
+                      isDarkMode ? "bg-black/40 border-neutral-800" : "bg-white border-slate-200"
+                    }`}>
                       {localCompany.logoUrl ? (
                         <img 
                           src={localCompany.logoUrl} 
                           alt="Firma Logosu" 
-                          className="w-full h-full object-contain p-2"
+                          className="w-full h-full object-contain p-2.5 drop-shadow-sm"
                         />
                       ) : (
-                        <div className="flex flex-col items-center justify-center p-3 text-neutral-500">
-                          <Building2 className="w-10 h-10 mb-1 opacity-40" />
-                          <span className="text-[11px]">Logo Yüklenmedi</span>
+                        <div className="flex flex-col items-center justify-center p-3 text-neutral-400">
+                          <Building2 className="w-10 h-10 mb-1.5 opacity-30 stroke-1" />
+                          <span className="text-[11px] font-medium opacity-60">Logo Eklenmedi</span>
                         </div>
                       )}
                     </div>
 
+                    <p className={`text-[10px] mb-3.5 leading-relaxed ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>
+                      PNG, JPG veya SVG formatı önerilir.<br />Şeffaf zeminli logo en temiz çıktıyı sağlar.
+                    </p>
+
                     <div className="flex flex-wrap gap-2 justify-center w-full">
-                      <label className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-sm ${
-                        isDarkMode ? "bg-[#C5A059] text-black hover:bg-[#b08c48]" : "bg-[#B88E3A] text-white hover:bg-[#9E7728]"
+                      <label className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all shadow-sm ${
+                        isDarkMode 
+                          ? "bg-[#C5A059] text-black hover:bg-[#b08c48] active:scale-95" 
+                          : "bg-[#B88E3A] text-white hover:bg-[#9E7728] active:scale-95"
                       }`}>
                         <Upload className="w-3.5 h-3.5" />
                         <span>{localCompany.logoUrl ? "Logoyu Değiştir" : "Logo Yükle"}</span>
@@ -389,162 +443,178 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                         <button
                           type="button"
                           onClick={handleRemoveCompanyLogo}
-                          className="px-3 py-2 text-xs rounded-lg border border-rose-500/40 text-rose-400 hover:bg-rose-500/20 cursor-pointer"
+                          className={`flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-xl border transition-colors cursor-pointer ${
+                            isDarkMode 
+                              ? "border-rose-500/30 text-rose-400 hover:bg-rose-500/15" 
+                              : "border-rose-200 text-rose-600 hover:bg-rose-50"
+                          }`}
+                          title="Logoyu Kaldır"
                         >
-                          Kaldır
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Kaldır</span>
                         </button>
                       )}
                     </div>
                   </div>
 
                   {/* Form Girdi Alanları */}
-                  <div className="md:col-span-8 space-y-4 text-xs">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="lg:col-span-8 space-y-4 text-xs">
+                    {/* Satır 1: İsimler */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
-                        <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                          Firma / Atölye Adı (PDF Başlığı) *
+                        <label className={`block font-bold mb-1.5 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                          Firma / Atölye Adı (Başlık) *
                         </label>
-                        <input
-                          type="text"
-                          value={localCompany.companyName}
-                          onChange={(e) => handleCompanyChange("companyName", e.target.value)}
-                          placeholder="Örn: Sanat Çerçeve Atölyesi"
-                          className={`w-full border rounded-lg px-3 py-2 focus:outline-none ${
-                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                          }`}
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={localCompany.companyName}
+                            onChange={(e) => handleCompanyChange("companyName", e.target.value)}
+                            placeholder="Örn: Sanat Çerçeve Atölyesi"
+                            className={`w-full border rounded-xl px-3 py-2.5 focus:outline-none transition-colors ${
+                              isDarkMode 
+                                ? "bg-[#111315] border-neutral-700 text-white focus:border-[#C5A059]" 
+                                : "bg-slate-50/50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                            }`}
+                          />
+                        </div>
                       </div>
 
                       <div>
-                        <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        <label className={`block font-bold mb-1.5 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
                           Resmi Ticari Ünvan
                         </label>
                         <input
                           type="text"
                           value={localCompany.tradeTitle}
                           onChange={(e) => handleCompanyChange("tradeTitle", e.target.value)}
-                          placeholder="Örn: Sanat Çerçevecilik Tic. Ltd. Şti."
-                          className={`w-full border rounded-lg px-3 py-2 focus:outline-none ${
-                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                          placeholder="Örn: Sanat Çerçevecilik San. ve Tic. Ltd. Şti."
+                          className={`w-full border rounded-xl px-3 py-2.5 focus:outline-none transition-colors ${
+                            isDarkMode 
+                              ? "bg-[#111315] border-neutral-700 text-white focus:border-[#C5A059]" 
+                                : "bg-slate-50/50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                           }`}
                         />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Satır 2: İletişim */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                       <div>
-                        <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                          Telefon *
+                        <label className={`flex items-center gap-1.5 font-bold mb-1.5 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                          <Phone className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>Telefon *</span>
                         </label>
                         <input
                           type="text"
                           value={localCompany.phone}
                           onChange={(e) => handleCompanyChange("phone", e.target.value)}
                           placeholder="0212 555 01 23"
-                          className={`w-full border rounded-lg px-3 py-2 focus:outline-none ${
-                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                          className={`w-full border rounded-xl px-3 py-2.5 focus:outline-none transition-colors ${
+                            isDarkMode 
+                              ? "bg-[#111315] border-neutral-700 text-white focus:border-[#C5A059]" 
+                              : "bg-slate-50/50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                           }`}
                         />
                       </div>
 
                       <div>
-                        <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                          E-posta *
+                        <label className={`flex items-center gap-1.5 font-bold mb-1.5 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                          <Mail className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>E-posta *</span>
                         </label>
                         <input
                           type="email"
                           value={localCompany.email}
                           onChange={(e) => handleCompanyChange("email", e.target.value)}
-                          placeholder="info@atolye.com"
-                          className={`w-full border rounded-lg px-3 py-2 focus:outline-none ${
-                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                          placeholder="info@cerceveatolyesi.com"
+                          className={`w-full border rounded-xl px-3 py-2.5 focus:outline-none transition-colors ${
+                            isDarkMode 
+                              ? "bg-[#111315] border-neutral-700 text-white focus:border-[#C5A059]" 
+                              : "bg-slate-50/50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                           }`}
                         />
                       </div>
 
                       <div>
-                        <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                          Web Sitesi
+                        <label className={`flex items-center gap-1.5 font-bold mb-1.5 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                          <Globe className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>Web Sitesi</span>
                         </label>
                         <input
                           type="text"
                           value={localCompany.website}
                           onChange={(e) => handleCompanyChange("website", e.target.value)}
-                          placeholder="www.atolye.com"
-                          className={`w-full border rounded-lg px-3 py-2 focus:outline-none ${
-                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                          placeholder="www.cerceveci.com"
+                          className={`w-full border rounded-xl px-3 py-2.5 focus:outline-none transition-colors ${
+                            isDarkMode 
+                              ? "bg-[#111315] border-neutral-700 text-white focus:border-[#C5A059]" 
+                              : "bg-slate-50/50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                           }`}
                         />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Satır 3: Şehir ve Vergi Bilgileri (3 dengeli kolon) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                       <div>
-                        <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                          Şehir / İl
+                        <label className={`flex items-center gap-1.5 font-bold mb-1.5 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                          <MapPin className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>Şehir / İl</span>
                         </label>
                         <input
                           type="text"
                           value={localCompany.city}
                           onChange={(e) => handleCompanyChange("city", e.target.value)}
                           placeholder="İstanbul"
-                          className={`w-full border rounded-lg px-3 py-2 focus:outline-none ${
-                            isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                          className={`w-full border rounded-xl px-3 py-2.5 focus:outline-none transition-colors ${
+                            isDarkMode 
+                              ? "bg-[#111315] border-neutral-700 text-white focus:border-[#C5A059]" 
+                              : "bg-slate-50/50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                           }`}
                         />
                       </div>
 
                       <div>
-                        <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                          Vergi Dairesi &amp; No
+                        <label className={`flex items-center gap-1.5 font-bold mb-1.5 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                          <Receipt className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>Vergi Dairesi</span>
                         </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={localCompany.taxOffice}
-                            onChange={(e) => handleCompanyChange("taxOffice", e.target.value)}
-                            placeholder="Daire"
-                            className={`w-1/2 border rounded-lg px-2.5 py-2 focus:outline-none ${
-                              isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                            }`}
-                          />
-                          <input
-                            type="text"
-                            value={localCompany.taxNumber}
-                            onChange={(e) => handleCompanyChange("taxNumber", e.target.value)}
-                            placeholder="Vergi No"
-                            className={`w-1/2 border rounded-lg px-2.5 py-2 focus:outline-none ${
-                              isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                            }`}
-                          />
-                        </div>
+                        <input
+                          type="text"
+                          value={localCompany.taxOffice}
+                          onChange={(e) => handleCompanyChange("taxOffice", e.target.value)}
+                          placeholder="Örn: Beşiktaş"
+                          className={`w-full border rounded-xl px-3 py-2.5 focus:outline-none transition-colors ${
+                            isDarkMode 
+                              ? "bg-[#111315] border-neutral-700 text-white focus:border-[#C5A059]" 
+                              : "bg-slate-50/50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
                       </div>
 
                       <div>
-                        <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                          Kurumsal Tema Rengi
+                        <label className={`flex items-center gap-1.5 font-bold mb-1.5 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                          <FileText className="w-3.5 h-3.5 text-[#C5A059]" />
+                          <span>Vergi Numarası</span>
                         </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={localCompany.primaryColor || "#C5A059"}
-                            onChange={(e) => handleCompanyChange("primaryColor", e.target.value)}
-                            className="w-10 h-8 rounded border cursor-pointer bg-transparent"
-                          />
-                          <input
-                            type="text"
-                            value={localCompany.primaryColor || "#C5A059"}
-                            onChange={(e) => handleCompanyChange("primaryColor", e.target.value)}
-                            className={`flex-1 border rounded-lg px-2 py-2 font-mono uppercase focus:outline-none ${
-                              isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
-                            }`}
-                          />
-                        </div>
+                        <input
+                          type="text"
+                          value={localCompany.taxNumber}
+                          onChange={(e) => handleCompanyChange("taxNumber", e.target.value)}
+                          placeholder="Örn: 1234567890"
+                          className={`w-full border rounded-xl px-3 py-2.5 font-mono focus:outline-none transition-colors ${
+                            isDarkMode 
+                              ? "bg-[#111315] border-neutral-700 text-white focus:border-[#C5A059]" 
+                              : "bg-slate-50/50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                          }`}
+                        />
                       </div>
                     </div>
 
+                    {/* Satır 4: Açık Adres */}
                     <div>
-                      <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                      <label className={`block font-bold mb-1.5 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
                         Açık Adres (Atölye / Mağaza Konumu)
                       </label>
                       <textarea
@@ -552,23 +622,29 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                         value={localCompany.address}
                         onChange={(e) => handleCompanyChange("address", e.target.value)}
                         placeholder="Örn: Nispetiye Cad. No:14/A Levent, Beşiktaş / İstanbul"
-                        className={`w-full border rounded-lg px-3 py-2 focus:outline-none resize-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                        className={`w-full border rounded-xl px-3 py-2.5 focus:outline-none resize-none transition-colors ${
+                          isDarkMode 
+                            ? "bg-[#111315] border-neutral-700 text-white focus:border-[#C5A059]" 
+                            : "bg-slate-50/50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                         }`}
                       />
                     </div>
 
+                    {/* Satır 5: Banka & IBAN */}
                     <div>
-                      <label className={`block font-bold mb-1 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                        Banka &amp; IBAN Bilgisi (Ödeme için)
+                      <label className={`flex items-center gap-1.5 font-bold mb-1.5 ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                        <CreditCard className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>Banka &amp; IBAN Bilgisi (Ödemeler ve Havale için)</span>
                       </label>
                       <input
                         type="text"
                         value={localCompany.iban}
                         onChange={(e) => handleCompanyChange("iban", e.target.value)}
                         placeholder="TR00 0000 0000 0000 0000 0000 00"
-                        className={`w-full border rounded-lg px-3 py-2 font-mono focus:outline-none ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                        className={`w-full border rounded-xl px-3 py-2.5 font-mono focus:outline-none transition-colors ${
+                          isDarkMode 
+                            ? "bg-[#111315] border-neutral-700 text-white focus:border-[#C5A059]" 
+                            : "bg-slate-50/50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                         }`}
                       />
                     </div>
@@ -577,67 +653,116 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                 </div>
 
                 {/* PDF Canlı Antet Önizlemesi */}
-                <div className={`p-4 rounded-xl border mt-3 ${
-                  isDarkMode ? "bg-black/30 border-neutral-800" : "bg-white border-slate-200"
+                <div className={`p-4 rounded-2xl border transition-all ${
+                  isDarkMode ? "bg-black/30 border-white/10" : "bg-slate-50 border-slate-200"
                 }`}>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059] block mb-2">
-                    PDF &amp; Sipariş Formu Canlı Antet Önizlemesi:
-                  </span>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-lg bg-white text-slate-900 border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059] flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3" />
+                      PDF Teklif &amp; Sipariş Belgesi Canlı Antet Önizlemesi
+                    </span>
+                    <span className="text-[10px] font-medium text-neutral-400">
+                      A4 Başlık Formatı
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-white text-slate-900 border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-3.5 min-w-0">
                       {localCompany.logoUrl ? (
                         <img 
                           src={localCompany.logoUrl} 
                           alt="Logo Önizleme" 
-                          className="h-10 w-auto max-w-[120px] object-contain"
+                          className="h-12 w-auto max-w-[130px] object-contain shrink-0"
                         />
                       ) : (
-                        <div className="h-10 w-24 bg-slate-100 rounded border border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-mono">
-                          FİRMA LOGO
+                        <div className="h-12 w-28 bg-slate-100 rounded-lg border border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-mono shrink-0">
+                          FİRMA LOGOSU
                         </div>
                       )}
-                      <div>
-                        <h4 className="font-bold text-sm uppercase tracking-wide">
+                      <div className="min-w-0">
+                        <h4 className="font-extrabold text-sm uppercase tracking-wide text-slate-900 truncate">
                           {localCompany.companyName || "FİRMA / ATÖLYE ADI"}
                         </h4>
-                        <p className="text-[10px] text-slate-500">
-                          {localCompany.tradeTitle || ""}
-                        </p>
-                        <p className="text-[9px] text-slate-600 font-mono mt-0.5">
-                          {localCompany.phone ? `Tel: ${localCompany.phone}` : ""}{localCompany.phone && localCompany.email ? " • " : ""}{localCompany.email || ""}
+                        {localCompany.tradeTitle && (
+                          <p className="text-[11px] text-slate-600 truncate mt-0.5">
+                            {localCompany.tradeTitle}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-slate-500 font-mono mt-1 flex flex-wrap items-center gap-x-2">
+                          {localCompany.phone && <span>Tel: {localCompany.phone}</span>}
+                          {localCompany.phone && localCompany.email && <span>•</span>}
+                          {localCompany.email && <span>{localCompany.email}</span>}
+                          {localCompany.website && <span>•</span>}
+                          {localCompany.website && <span>{localCompany.website}</span>}
                         </p>
                       </div>
                     </div>
 
-                    <div className="text-left sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 w-full sm:w-auto text-[9px] text-slate-500 font-mono">
-                      <div>{localCompany.city ? `${localCompany.city} / ` : ""}{localCompany.address ? localCompany.address.slice(0, 35) + "..." : "Adres"}</div>
-                      <div className="text-emerald-600 font-bold mt-0.5">✓ PDF Çıktısında Bu Başlık Basılacaktır</div>
+                    <div className="text-left sm:text-right border-t sm:border-t-0 pt-2.5 sm:pt-0 w-full sm:w-auto text-[10px] text-slate-500 font-mono shrink-0">
+                      <div>{localCompany.city ? `${localCompany.city} / ` : ""}{localCompany.address ? localCompany.address.slice(0, 35) + (localCompany.address.length > 35 ? "..." : "") : "Atölye Adresi"}</div>
+                      {localCompany.taxOffice && (
+                        <div className="text-[9px] text-slate-400 mt-0.5">V.D: {localCompany.taxOffice} {localCompany.taxNumber ? `- No: ${localCompany.taxNumber}` : ""}</div>
+                      )}
+                      <div className="text-emerald-700 font-semibold text-[10px] mt-1 flex items-center sm:justify-end gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 inline" />
+                        <span>Resmi antet çıktısı aktiftir</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Firma Bilgilerini Kaydet Butonu */}
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={handleSaveCompany}
-                    disabled={isSaving}
-                    className={`flex items-center gap-2 px-6 py-2.5 font-mono font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer ${
-                      savedSuccess
-                        ? "bg-green-600 text-white"
-                        : (isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white")
-                    }`}
-                  >
-                    {savedSuccess ? (
-                      <>
-                        <Check className="w-4 h-4" /> KAYDEDİLDİ!
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4" /> FİRMA BİLGİLERİNİ KAYDET
-                      </>
-                    )}
-                  </button>
+                {/* Geri Bildirim ve Kaydet Butonu */}
+                <div className="space-y-3 pt-1">
+                  {saveStatusMsg && (
+                    <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${
+                      saveStatusMsg.type === "success"
+                        ? "bg-emerald-500/15 border border-emerald-500/40 text-emerald-300"
+                        : "bg-rose-500/15 border border-rose-500/40 text-rose-300"
+                    }`}>
+                      {saveStatusMsg.type === "success" ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                      )}
+                      <span className="flex-1">{saveStatusMsg.text}</span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <span className={`text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                      Belge antetiniz tüm yazdırma işlemlerinde ve tekliflerde otomatik olarak kullanılır.
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveCompany}
+                      disabled={isSaving}
+                      className={`w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3 font-mono font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer ${
+                        savedSuccess
+                          ? "bg-emerald-600 text-white"
+                          : isSaving
+                          ? "bg-neutral-600 text-neutral-300 cursor-not-allowed"
+                          : (isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black active:scale-95" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white active:scale-95")
+                      }`}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>KAYDEDİLİYOR VE DOĞRULANIYOR...</span>
+                        </>
+                      ) : savedSuccess ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>KAYDEDİLDİ VE SENKRONİZE EDİLDİ!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>FİRMA BİLGİLERİNİ KAYDET</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
               </div>
@@ -685,7 +810,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     </div>
 
                     <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                      Paketiniz: <strong className="text-white font-mono">{subscription.planName}</strong>
+                      Paketiniz: <strong className={`font-mono ${isDarkMode ? "text-white" : "text-slate-900"}`}>{subscription.planName}</strong>
                       {subscription.renewalDate && (
                         <span> • Yenileme: <span className="text-[#C5A059] font-mono">{subscription.renewalDate}</span></span>
                       )}
@@ -697,7 +822,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     isDarkMode ? "bg-black/30 border-white/10" : "bg-white border-slate-200"
                   }`}>
                     <div className="flex justify-between text-xs font-mono mb-2">
-                      <span className="text-neutral-400">Harcanan: {usedCredits}</span>
+                      <span className={isDarkMode ? "text-neutral-400" : "text-slate-600"}>Harcanan: {usedCredits}</span>
                       <span className="text-[#C5A059] font-bold">Kalan: %{percentageLeft}</span>
                     </div>
                     <div className="w-full h-2.5 rounded-full bg-neutral-800 overflow-hidden">
@@ -706,7 +831,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                         style={{ width: `${Math.min(100, Math.max(5, percentageLeft))}%` }}
                       />
                     </div>
-                    <div className="text-[10px] text-neutral-500 mt-2 text-center font-mono">
+                    <div className={`text-[10px] mt-2 text-center font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-500"}`}>
                       Toplam Yüklenen: {subscription.totalCredits} Kredi
                     </div>
                   </div>
@@ -734,11 +859,11 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                   }`}>
                     <div>
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold text-neutral-300">Başlangıç Paketi</span>
-                        <Coins className="w-4 h-4 text-neutral-400" />
+                        <span className={`text-xs font-bold ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Başlangıç Paketi</span>
+                        <Coins className={`w-4 h-4 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`} />
                       </div>
-                      <div className="text-2xl font-mono font-black text-white mb-1">+50 KREDİ</div>
-                      <div className="text-xs font-mono text-neutral-400 mb-4">50 Sipariş / Teklif Dökümü</div>
+                      <div className={`text-2xl font-mono font-black mb-1 ${isDarkMode ? "text-white" : "text-slate-900"}`}>+50 KREDİ</div>
+                      <div className={`text-xs font-mono mb-4 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>50 Sipariş / Teklif Dökümü</div>
                     </div>
                     <button
                       type="button"
@@ -764,8 +889,8 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                         <span className="text-xs font-bold text-[#C5A059]">Atölye Paketi</span>
                         <Sparkles className="w-4 h-4 text-[#C5A059]" />
                       </div>
-                      <div className="text-2xl font-mono font-black text-white mb-1">+150 KREDİ</div>
-                      <div className="text-xs font-mono text-neutral-400 mb-4">150 Sipariş &amp; HD Görsel</div>
+                      <div className={`text-2xl font-mono font-black mb-1 ${isDarkMode ? "text-white" : "text-slate-900"}`}>+150 KREDİ</div>
+                      <div className={`text-xs font-mono mb-4 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>150 Sipariş &amp; HD Görsel</div>
                     </div>
                     <button
                       type="button"
@@ -783,11 +908,11 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                   }`}>
                     <div>
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold text-neutral-300">Büyük Atölye</span>
-                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                        <span className={`text-xs font-bold ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Büyük Atölye</span>
+                        <ShieldCheck className="w-4 h-4 text-emerald-500" />
                       </div>
-                      <div className="text-2xl font-mono font-black text-white mb-1">+500 KREDİ</div>
-                      <div className="text-xs font-mono text-neutral-400 mb-4">Süper Avantajlı Birim Fiyat</div>
+                      <div className={`text-2xl font-mono font-black mb-1 ${isDarkMode ? "text-white" : "text-slate-900"}`}>+500 KREDİ</div>
+                      <div className={`text-xs font-mono mb-4 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Süper Avantajlı Birim Fiyat</div>
                     </div>
                     <button
                       type="button"
@@ -811,7 +936,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                 <h4 className="font-bold text-[#C5A059] flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
                   <Clock className="w-3.5 h-3.5" /> Kredi Kullanım Kuralları:
                 </h4>
-                <ul className="list-disc list-inside space-y-1 text-neutral-400 text-[11px]">
+                <ul className={`list-disc list-inside space-y-1 text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
                   <li>Her tamamlanan sipariş arşivi, HD müşteri görseli ve PDF teklif dökümü 1 kredi düşürür.</li>
                   <li>Yüklenen kredilerin kullanım süresi sınırı yoktur; hesabınızda süresiz olarak kalır.</li>
                   <li>Krediniz tükendiğinde hesap kilitlenmez, sadece yeni teklif yazdırma işleminde kredi yükleme uyarısı verilir.</li>
@@ -827,9 +952,9 @@ export const AccountModal: React.FC<AccountModalProps> = ({
         <div className={`flex items-center justify-between px-6 py-4 border-t shrink-0 ${
           isDarkMode ? "bg-[#161920] border-neutral-800" : "bg-slate-50 border-slate-200"
         }`}>
-          <div className="text-xs text-neutral-400 flex items-center gap-2">
-            <Coins className="w-4 h-4 text-[#C5A059]" />
-            <span>Kalan Bakiye: <strong className="text-white font-mono">{subscription.remainingCredits} Kredi</strong></span>
+          <div className={`text-xs flex items-center gap-2 font-medium ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+            <Coins className={`w-4 h-4 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+            <span>Kalan Bakiye: <strong className={`font-mono font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>{subscription.remainingCredits} Kredi</strong></span>
           </div>
 
           <button

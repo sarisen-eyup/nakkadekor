@@ -11,7 +11,8 @@ export interface CompressOptions {
   maxWidth?: number;
   maxHeight?: number;
   quality?: number; // 0.75 - 0.80 arası önerilir
-  mimeType?: "image/jpeg" | "image/webp";
+  mimeType?: "image/jpeg" | "image/webp" | "image/png";
+  preserveTransparency?: boolean;
 }
 
 export interface CompressResult {
@@ -35,7 +36,8 @@ export async function compressImage(
     maxWidth = 1920,
     maxHeight = 1920,
     quality = 0.80,
-    mimeType = "image/jpeg"
+    mimeType = "image/jpeg",
+    preserveTransparency = false
   } = options;
 
   let originalSizeKb = 0;
@@ -43,9 +45,10 @@ export async function compressImage(
 
   if (source instanceof File) {
     originalSizeKb = Math.round(source.size / 1024);
-    fileName = source.name.replace(/\.[^/.]+$/, "") + ".jpg";
+    fileName = source.name.replace(/\.[^/.]+$/, "") + (mimeType === "image/png" ? ".png" : mimeType === "image/webp" ? ".webp" : ".jpg");
   } else if (source instanceof Blob) {
     originalSizeKb = Math.round(source.size / 1024);
+    fileName = "compressed_image" + (mimeType === "image/png" ? ".png" : mimeType === "image/webp" ? ".webp" : ".jpg");
   } else if (typeof source === "string" && source.startsWith("data:")) {
     originalSizeKb = Math.round((source.length * (3 / 4)) / 1024);
   }
@@ -71,14 +74,19 @@ export async function compressImage(
   canvas.width = targetWidth;
   canvas.height = targetHeight;
 
-  const ctx = canvas.getContext("2d", { alpha: false });
+  const shouldKeepAlpha = preserveTransparency || mimeType === "image/png";
+  const ctx = canvas.getContext("2d", { alpha: shouldKeepAlpha });
   if (!ctx) {
     throw new Error("Canvas 2D context oluşturulamadı");
   }
 
-  // Arka planı beyaz yap (JPEG formatında şeffaf pikseller siyah çıkmasın)
-  ctx.fillStyle = "#FFFFFF";
-  ctx.fillRect(0, 0, targetWidth, targetHeight);
+  if (!shouldKeepAlpha) {
+    // Arka planı beyaz yap (JPEG formatında şeffaf pikseller siyah çıkmasın)
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+  } else {
+    ctx.clearRect(0, 0, targetWidth, targetHeight);
+  }
 
   // Yüksek kaliteli pürüzsüzleştirme
   ctx.imageSmoothingEnabled = true;

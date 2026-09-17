@@ -57,6 +57,29 @@ export function getTenantId(): string {
   }
   if (typeof window !== "undefined") {
     const storedAuth = localStorage.getItem("nakka_auth_user_id") || localStorage.getItem("nakka_tenant_id");
+    if (storedAuth && storedAuth.trim().length > 0 && storedAuth !== DEFAULT_TENANT_ID) {
+      return storedAuth.trim();
+    }
+
+    // Supabase JS varsayılan yerel oturum token'ı kontrolü
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith("sb-") && k.endsWith("-auth-token")) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.user?.id) {
+              currentAuthUserId = parsed.user.id;
+              return parsed.user.id;
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     if (storedAuth && storedAuth.trim().length > 0) {
       return storedAuth.trim();
     }

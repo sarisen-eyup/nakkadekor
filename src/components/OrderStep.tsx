@@ -11,7 +11,8 @@ import {
   ChevronLeft, 
   CheckCircle2, 
   FileText,
-  Printer
+  Printer,
+  AlertCircle
 } from "lucide-react";
 import { MaterialInclusionFlags, CostCalculationBreakdown } from "../types/pricing";
 
@@ -47,6 +48,7 @@ interface OrderStepProps {
   downloadCompositedImage: () => void;
   onOpenCostModal: () => void;
   onOpenPrintCenter?: () => void;
+  onCreateOrder?: () => void;
   onPrevStep?: () => void;
 }
 
@@ -82,8 +84,42 @@ export const OrderStep: React.FC<OrderStepProps> = ({
   downloadCompositedImage,
   onOpenCostModal,
   onOpenPrintCenter,
+  onCreateOrder,
   onPrevStep
 }) => {
+  const handleCreateOrderClick = () => {
+    let hasError = false;
+
+    if (!customerName || !customerName.trim()) {
+      setCustomerNameError(true);
+      hasError = true;
+    }
+    if (!customerPhone || !customerPhone.trim()) {
+      setCustomerPhoneError(true);
+      hasError = true;
+    }
+    if (!deliveryDate || !deliveryDate.trim()) {
+      setDeliveryDateError(true);
+      hasError = true;
+    }
+
+    if (hasError) {
+      if (!customerName || !customerName.trim()) {
+        document.getElementById("customer-name-input")?.focus();
+      } else if (!customerPhone || !customerPhone.trim()) {
+        document.getElementById("customer-phone-input")?.focus();
+      } else if (!deliveryDate || !deliveryDate.trim()) {
+        document.getElementById("delivery-date-input")?.focus();
+      }
+      return;
+    }
+
+    if (onCreateOrder) {
+      onCreateOrder();
+    } else if (onOpenPrintCenter) {
+      onOpenPrintCenter();
+    }
+  };
   const materialItems = [
     {
       key: "includeArtworkPrint" as const,
@@ -247,8 +283,8 @@ export const OrderStep: React.FC<OrderStepProps> = ({
                 Müşteri Adı Soyadı <span className="text-red-500 font-bold">*</span>
               </label>
               {customerNameError && (
-                <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider animate-pulse">
-                  Zorunlu Alan
+                <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                  <AlertCircle className="w-3 h-3" /> Zorunlu Alan
                 </span>
               )}
             </div>
@@ -263,10 +299,10 @@ export const OrderStep: React.FC<OrderStepProps> = ({
                 setCustomerName(val);
                 if (val.trim()) setCustomerNameError(false);
               }}
-              className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none transition-colors ${
+              className={`w-full px-3 py-2 text-xs rounded-xl border transition-all ${
                 customerNameError
-                  ? "border-red-500 bg-red-50 dark:bg-red-950/30 text-slate-900 dark:text-white"
-                  : (isDarkMode ? "bg-[#101216] border-white/10 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]")
+                  ? "border-2 border-red-500 bg-red-500/10 text-red-600 dark:text-red-200 ring-2 ring-red-500/20 focus:outline-none"
+                  : (isDarkMode ? "bg-[#101216] border-white/10 text-white focus:border-[#C5A059] focus:outline-none" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:outline-none")
               }`}
             />
           </div>
@@ -280,8 +316,8 @@ export const OrderStep: React.FC<OrderStepProps> = ({
                 İletişim / Telefon <span className="text-red-500 font-bold">*</span>
               </label>
               {customerPhoneError && (
-                <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider animate-pulse">
-                  Zorunlu Alan
+                <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                  <AlertCircle className="w-3 h-3" /> Zorunlu Alan
                 </span>
               )}
             </div>
@@ -304,10 +340,10 @@ export const OrderStep: React.FC<OrderStepProps> = ({
                   setCustomerPhone(formatted);
                   if (formatted.trim()) setCustomerPhoneError(false);
                 }}
-                className={`w-full border border-l-0 px-3 py-2 text-xs font-mono tracking-wider focus:outline-none rounded-r-xl transition-colors ${
+                className={`w-full border border-l-0 px-3 py-2 text-xs font-mono tracking-wider transition-all rounded-r-xl ${
                   customerPhoneError
-                    ? "border-red-500 bg-red-50 dark:bg-red-950/30 text-slate-900 dark:text-white"
-                    : (isDarkMode ? "bg-[#101216] border-white/10 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]")
+                    ? "border-2 border-red-500 bg-red-500/10 text-red-600 dark:text-red-200 ring-2 ring-red-500/20 focus:outline-none"
+                    : (isDarkMode ? "bg-[#101216] border-white/10 text-white focus:border-[#C5A059] focus:outline-none" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:outline-none")
                 }`}
               />
             </div>
@@ -322,8 +358,8 @@ export const OrderStep: React.FC<OrderStepProps> = ({
                 Tahmini Teslim Tarihi <span className="text-red-500 font-bold">*</span>
               </label>
               {deliveryDateError && (
-                <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider animate-pulse">
-                  Zorunlu Alan
+                <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                  <AlertCircle className="w-3 h-3" /> Zorunlu Alan
                 </span>
               )}
             </div>
@@ -336,13 +372,21 @@ export const OrderStep: React.FC<OrderStepProps> = ({
                 setDeliveryDate(e.target.value);
                 if (e.target.value.trim()) setDeliveryDateError(false);
               }}
-              className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none transition-colors cursor-pointer ${
+              className={`w-full px-3 py-2 text-xs rounded-xl border transition-all cursor-pointer ${
                 deliveryDateError
-                  ? "border-red-500 bg-red-50 dark:bg-red-950/30 text-slate-900 dark:text-white"
-                  : (isDarkMode ? "bg-[#101216] border-white/10 text-white focus:border-[#C5A059] [color-scheme:dark]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] [color-scheme:light]")
+                  ? "border-2 border-red-500 bg-red-500/10 text-red-600 dark:text-red-200 ring-2 ring-red-500/20 focus:outline-none"
+                  : (isDarkMode ? "bg-[#101216] border-white/10 text-white focus:border-[#C5A059] focus:outline-none [color-scheme:dark]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:outline-none [color-scheme:light]")
               }`}
             />
           </div>
+
+          {/* Zorunlu Alanlar Hata Bildirim Çubuğu */}
+          {(customerNameError || customerPhoneError || deliveryDateError) && (
+            <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-[11px] font-bold flex items-center gap-2 animate-pulse">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>Siparişi oluşturabilmek için lütfen kırmızı ile belirtilen zorunlu alanları doldurunuz.</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -420,15 +464,17 @@ export const OrderStep: React.FC<OrderStepProps> = ({
 
           <button
             type="button"
-            onClick={onOpenPrintCenter || downloadCompositedImage}
+            id="btn-create-simulator-order"
+            onClick={handleCreateOrderClick}
             className={`px-4 py-2.5 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer shrink-0 ${
               isDarkMode
                 ? "bg-[#C5A059] text-black hover:bg-[#b5924d]"
                 : "bg-[#B88E3A] text-white hover:bg-[#a67e2f]"
             }`}
+            title="Simülatördeki ölçü ve malzemelerle siparişi oluştur"
           >
-            <Printer className="w-4 h-4" />
-            <span>Yazdır & Belgeler</span>
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Siparişi Oluştur</span>
           </button>
         </div>
       </div>

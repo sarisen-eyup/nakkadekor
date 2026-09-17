@@ -1034,108 +1034,122 @@ export function SettingsModal({
                   </label>
                 </div>
 
-                {/* Profil Görseli, Mobil Kamera & Kırpma (Açık ve Koyu Mod Renk Paletine Tam Uyumlu) */}
-                <div className={`w-full border rounded-xl p-3.5 space-y-3 transition-all ${
+                {/* Profil Görseli & Doku Yükleme Alanı */}
+                <div className={`w-full border rounded-2xl p-4 transition-all ${
                   isDarkMode 
-                    ? "bg-[#151718] border-neutral-800" 
-                    : "bg-slate-50/90 border-slate-200 shadow-xs"
+                    ? "bg-[#16181b] border-neutral-800" 
+                    : "bg-slate-50/80 border-slate-200 shadow-2xs"
                 }`}>
-                  <div className="flex items-center justify-between">
-                    <label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                  <div className="flex items-center justify-between mb-3">
+                    <label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
                       isDarkMode ? "text-neutral-200" : "text-slate-800"
                     }`}>
-                      <Camera className={`w-4 h-4 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> Profil Görseli, Mobil Kamera & Kırpma
+                      <Camera className={`w-4 h-4 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+                      <span>Profil Görseli & Doku</span>
                     </label>
-                    {newProfile.imageUrl && (
-                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold flex items-center gap-1 border ${
+                    {newProfile.imageUrl ? (
+                      <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1.5 border ${
                         isDarkMode 
-                          ? "bg-[#C5A059]/15 text-[#C5A059] border-[#C5A059]/30" 
-                          : "bg-amber-50 text-amber-800 border-amber-300 shadow-2xs"
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" 
+                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
                       }`}>
-                        <Check className="w-3 h-3 text-[#B88E3A] dark:text-[#C5A059]" /> Doku Yüklü
+                        <Check className="w-3 h-3 text-emerald-500" /> Doku Yüklü
+                      </span>
+                    ) : (
+                      <span className={`text-[11px] font-medium ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>
+                        Görsel Seçilmedi
                       </span>
                     )}
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-3.5 items-start sm:items-center">
+                  <div className="flex flex-col sm:flex-row gap-4 items-center">
                     {/* Visual Preview Box */}
-                    <div className={`relative group shrink-0 w-28 h-20 sm:w-32 sm:h-20 rounded-lg border overflow-hidden flex items-center justify-center shadow-inner transition-colors ${
-                      isDarkMode ? "border-neutral-700 bg-neutral-950" : "border-slate-300 bg-white"
+                    <div className={`relative group shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-xl border overflow-hidden flex items-center justify-center transition-all ${
+                      isDarkMode ? "border-neutral-700 bg-neutral-900" : "border-slate-200 bg-white shadow-xs"
                     }`}>
                       {newProfile.imageUrl ? (
-                        <img
-                          src={newProfile.imageUrl}
-                          alt="Profil Doku Önizleme"
-                          className="w-full h-full object-cover"
-                        />
+                        <>
+                          <img
+                            src={newProfile.imageUrl}
+                            alt="Profil Doku Önizleme"
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleOpenCropForNewProfile}
+                            className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity cursor-pointer p-1 text-center"
+                            title="Kırpma ve 90° Döndürme Aracını Aç"
+                          >
+                            <CropIcon className="w-5 h-5 text-[#C5A059] mb-1 animate-pulse" />
+                            <span className="text-[10px] font-bold text-[#C5A059]">Kırp & Çevir</span>
+                          </button>
+                        </>
                       ) : (
                         <div className={`flex flex-col items-center justify-center text-[10px] p-2 text-center ${
                           isDarkMode ? "text-neutral-500" : "text-slate-400"
                         }`}>
-                          <ImageIcon className="w-5 h-5 mb-1 opacity-50" />
-                          <span>Görsel Yok</span>
+                          <ImageIcon className="w-6 h-6 mb-1 opacity-40" />
+                          <span>Önizleme Yok</span>
                         </div>
-                      )}
-                      {newProfile.imageUrl && (
-                        <button
-                          type="button"
-                          onClick={handleOpenCropForNewProfile}
-                          className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity cursor-pointer p-1 text-center"
-                          title="Kırpma ve 90° Döndürme Aracını Aç"
-                        >
-                          <CropIcon className="w-4 h-4 text-[#C5A059] mb-0.5 animate-pulse" />
-                          <span className="text-[10px] font-bold text-[#C5A059]">Kırp & Çevir</span>
-                        </button>
                       )}
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* Direct Camera Button */}
-                      <label className={`cursor-pointer px-3.5 py-2 text-xs font-mono font-bold rounded-lg border flex items-center gap-1.5 transition-all shadow-xs ${
-                        isDarkMode 
-                          ? "bg-[#C5A059] hover:bg-[#b08c48] text-black border-[#C5A059]" 
-                          : "bg-[#B88E3A] hover:bg-[#9E7728] text-white border-[#B88E3A]"
-                      }`}>
-                        <Camera className="w-3.5 h-3.5" /> Fotoğraf Çek (Kamera)
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          capture="environment" 
-                          onChange={(e) => handleProfileImageFileUpload(e, true)} 
-                          className="hidden" 
-                        />
-                      </label>
+                    {/* Action Controls & Information */}
+                    <div className="flex-1 w-full space-y-2.5">
+                      <div className="flex flex-wrap sm:flex-nowrap gap-2">
+                        {/* Direct Camera Button */}
+                        <label className={`flex-1 min-w-[140px] cursor-pointer h-9 px-3.5 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-xs active:scale-98 ${
+                          isDarkMode 
+                            ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" 
+                            : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+                        }`}>
+                          <Camera className="w-4 h-4 shrink-0" />
+                          <span>Fotoğraf Çek</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            capture="environment" 
+                            onChange={(e) => handleProfileImageFileUpload(e, true)} 
+                            className="hidden" 
+                          />
+                        </label>
 
-                      {/* Gallery File Upload */}
-                      <label className={`cursor-pointer px-3.5 py-2 text-xs font-mono font-medium rounded-lg border flex items-center gap-1.5 transition-colors shadow-xs ${
-                        isDarkMode 
-                          ? "bg-[#222628] hover:bg-neutral-700 text-neutral-200 border-neutral-700 hover:border-neutral-500" 
-                          : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
-                      }`}>
-                        <Upload className="w-3.5 h-3.5 text-[#B88E3A] dark:text-[#C5A059]" /> Galeriden Seç
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => handleProfileImageFileUpload(e, true)} 
-                          className="hidden" 
-                        />
-                      </label>
+                        {/* Gallery File Upload */}
+                        <label className={`flex-1 min-w-[140px] cursor-pointer h-9 px-3.5 text-xs font-semibold rounded-xl border flex items-center justify-center gap-2 transition-all shadow-xs active:scale-98 ${
+                          isDarkMode 
+                            ? "bg-neutral-800/80 hover:bg-neutral-800 text-neutral-200 border-neutral-700 hover:border-neutral-600" 
+                            : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300"
+                        }`}>
+                          <Upload className="w-4 h-4 shrink-0 text-[#B88E3A] dark:text-[#C5A059]" />
+                          <span>Galeriden Seç</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={(e) => handleProfileImageFileUpload(e, true)} 
+                            className="hidden" 
+                          />
+                        </label>
+                      </div>
 
-                      {/* Crop Existing button */}
+                      {/* Crop Existing button if image exists */}
                       {newProfile.imageUrl && (
                         <button
                           type="button"
                           onClick={handleOpenCropForNewProfile}
-                          className={`px-3.5 py-2 text-xs font-mono font-bold rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                          className={`w-full h-8 px-3 text-xs font-medium rounded-xl border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                             isDarkMode 
-                              ? "bg-[#C5A059]/20 hover:bg-[#C5A059]/30 text-[#C5A059] border-[#C5A059]/50" 
-                              : "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300"
+                              ? "border-[#C5A059]/35 hover:bg-[#C5A059]/10 text-[#C5A059]" 
+                              : "border-amber-300 hover:bg-amber-50 text-amber-900"
                           }`}
                         >
-                          <CropIcon className="w-3.5 h-3.5 text-[#B88E3A] dark:text-[#C5A059]" /> Kırp & 90° Çevir
+                          <CropIcon className="w-3.5 h-3.5" />
+                          <span>Kırp & 90° Çevir</span>
                         </button>
                       )}
+
+                      <p className={`text-[11px] leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                        Çıtayı dik tutup düz açıdan fotoğraflayarak veya numune görselini yükleyerek doku oluşturabilirsiniz.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1188,14 +1202,14 @@ export function SettingsModal({
                     {localProfiles.map((prof) => (
                     <div
                       key={prof.id}
-                      className={`flex items-start sm:items-center gap-4 border p-4 rounded-2xl transition-all shadow-2xs ${
+                      className={`flex items-start sm:items-center gap-3.5 border p-3.5 sm:p-4 rounded-2xl transition-all ${
                         isDarkMode 
-                          ? "bg-[#181a1d] border-neutral-800 hover:border-[#C5A059]/40" 
-                          : "bg-white border-slate-200 hover:border-amber-300 shadow-xs"
+                          ? "bg-[#181a1d] border-neutral-800/90 hover:border-[#C5A059]/40" 
+                          : "bg-white border-slate-200 hover:border-slate-300 shadow-xs"
                       }`}
                     >
-                      {/* Büyütülmüş Doku Küçük Resmi & Kırpma Overlay */}
-                      <div className="relative group shrink-0 w-20 h-20 sm:w-22 sm:h-22 rounded-xl border overflow-hidden bg-black/50 shadow-inner dark:border-neutral-700 border-slate-200">
+                      {/* Doku Küçük Resmi & Kırpma Overlay */}
+                      <div className="relative group shrink-0 w-20 h-20 sm:w-22 sm:h-22 rounded-xl border overflow-hidden bg-black/40 shadow-inner dark:border-neutral-700 border-slate-200">
                         <img
                           src={prof.imageUrl}
                           alt={prof.name}
@@ -1204,7 +1218,7 @@ export function SettingsModal({
                         <button
                           type="button"
                           onClick={() => handleOpenCropForExistingProfile(prof)}
-                          className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity cursor-pointer p-1"
+                          className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity cursor-pointer p-1"
                           title="Görseli Kırp ve Döndür"
                         >
                           <CropIcon className="w-5 h-5 text-[#C5A059] mb-1 animate-pulse" />
@@ -1213,93 +1227,113 @@ export function SettingsModal({
                       </div>
 
                       {/* Bilgiler, Girişler & Alt Butonlar */}
-                      <div className="flex-1 min-w-0 space-y-2.5">
-                        {/* Üst Satır: Sadece Profil Adı ve Büyütülmüş Tekrarlayan/Sünek Butonu */}
+                      <div className="flex-1 min-w-0 space-y-2">
+                        {/* Üst Satır: Profil Adı, Tekrarlayan/Sünek Butonu ve Sil İkonu */}
                         <div className="flex items-center justify-between gap-2">
-                          <h4 className={`font-bold text-sm sm:text-base truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                          <h4 className={`font-bold text-sm truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                             {prof.name}
                           </h4>
 
-                          {/* Büyütülmüş Desen Tipi Butonu */}
-                          <button
-                            type="button"
-                            onClick={() => handleToggleRepeating(prof.id)}
-                            className={`px-3 py-1 text-xs rounded-lg font-mono font-bold transition-all cursor-pointer border shadow-2xs hover:scale-102 active:scale-98 shrink-0 ${
-                              prof.isRepeatingPattern ?? true
-                                ? (isDarkMode ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/35 hover:bg-emerald-500/25" : "bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100")
-                                : (isDarkMode ? "bg-sky-500/15 text-sky-400 border-sky-500/35 hover:bg-sky-500/25" : "bg-sky-50 text-sky-800 border-sky-300 hover:bg-sky-100")
-                            }`}
-                            title="Tıklayarak desen tekrarını değiştirin"
-                          >
-                            {prof.isRepeatingPattern ?? true ? "Tekrarlayan" : "Sünek"}
-                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Desen Tipi Butonu */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleRepeating(prof.id)}
+                              className={`px-2.5 py-1 text-[11px] rounded-lg font-medium transition-all cursor-pointer border ${
+                                prof.isRepeatingPattern ?? true
+                                  ? (isDarkMode ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/20" : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100")
+                                  : (isDarkMode ? "bg-sky-500/10 text-sky-400 border-sky-500/25 hover:bg-sky-500/20" : "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100")
+                              }`}
+                              title="Desen kaplama tipini değiştirin"
+                            >
+                              {prof.isRepeatingPattern ?? true ? "Tekrarlayan" : "Sünek"}
+                            </button>
+
+                            {/* Sil İkon Butonu */}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProfile(prof.id)}
+                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                isDarkMode 
+                                  ? "text-neutral-500 hover:text-red-400 hover:bg-red-500/10" 
+                                  : "text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              }`}
+                              title="Profili Sil"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
 
-                        {/* Orta Satır: Genişlik ve Fiyat Girişleri */}
-                        <div className="flex items-center gap-3 text-xs flex-wrap">
+                        {/* Orta Satır: Ölçü ve Fiyat Kutuları */}
+                        <div className="grid grid-cols-2 gap-2">
                           {/* Genişlik */}
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-[11px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Genişlik:</span>
-                            <div className="relative">
+                          <div className={`flex items-center justify-between border rounded-xl px-2.5 py-1 text-xs transition-colors ${
+                            isDarkMode ? "bg-neutral-900/60 border-neutral-800" : "bg-slate-50 border-slate-200"
+                          }`}>
+                            <span className={`text-[11px] font-medium ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Genişlik</span>
+                            <div className="flex items-center gap-1">
                               <input
                                 type="number"
                                 min="0.1"
                                 step="0.01"
                                 value={prof.widthCm}
                                 onChange={(e) => handleProfileWidthChange(prof.id, parseFloat(e.target.value))}
-                                className={`w-18 border pl-2 pr-6 py-1 rounded-lg text-xs font-mono font-bold focus:outline-none transition-colors ${
-                                  isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                                className={`w-12 text-right font-mono font-bold bg-transparent focus:outline-none ${
+                                  isDarkMode ? "text-white" : "text-slate-900"
                                 }`}
                               />
-                              <span className={`absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-mono pointer-events-none ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>cm</span>
+                              <span className={`text-[10px] font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>cm</span>
                             </div>
                           </div>
 
                           {/* Metre Fiyatı */}
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-[11px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Fiyat:</span>
-                            <div className="relative">
+                          <div className={`flex items-center justify-between border rounded-xl px-2.5 py-1 text-xs transition-colors ${
+                            isDarkMode ? "bg-neutral-900/60 border-neutral-800" : "bg-slate-50 border-slate-200"
+                          }`}>
+                            <span className={`text-[11px] font-medium ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Fiyat</span>
+                            <div className="flex items-center gap-1">
                               <input
                                 type="number"
                                 min="0"
                                 value={prof.unitPricePerMeter}
                                 onChange={(e) => handleProfilePriceChange(prof.id, parseFloat(e.target.value))}
-                                className={`w-22 border pl-2 pr-7 py-1 rounded-lg text-xs font-mono font-bold focus:outline-none transition-colors ${
-                                  isDarkMode ? "bg-[#121415] border-neutral-700 text-[#C5A059] focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-[#B88E3A] focus:border-[#B88E3A] focus:bg-white"
+                                className={`w-14 text-right font-mono font-bold bg-transparent focus:outline-none ${
+                                  isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
                                 }`}
                               />
-                              <span className={`absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold pointer-events-none ${isDarkMode ? "text-[#C5A059]/70" : "text-amber-800/70"}`}>₺/m</span>
+                              <span className={`text-[10px] font-mono font-semibold ${
+                                isDarkMode ? "text-[#C5A059]/70" : "text-[#B88E3A]/70"
+                              }`}>₺/m</span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Alt Satır: Girişlerin Altında Yan Yana Sıralanan 3 Buton (Kırp, Fotoğraf, Sil) */}
-                        <div className="flex items-center gap-2 pt-0.5 flex-wrap">
-                          {/* 1. Kırp & Çevir */}
+                        {/* Alt Satır: Kırp & Fotoğraf Aksiyon Butonları */}
+                        <div className="flex items-center gap-2 pt-0.5">
                           <button
                             type="button"
                             onClick={() => handleOpenCropForExistingProfile(prof)}
-                            className={`h-7.5 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-mono font-semibold transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 ${
+                            className={`flex-1 py-1 px-2.5 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                               isDarkMode 
-                                ? "bg-amber-500/10 hover:bg-amber-500/20 text-[#C5A059] border border-amber-500/30 hover:border-[#C5A059]/60" 
-                                : "bg-amber-50 hover:bg-amber-100 text-[#9E7728] border border-amber-200 hover:border-amber-300"
+                                ? "border-neutral-700/80 hover:bg-neutral-800 text-neutral-300" 
+                                : "border-slate-200 hover:bg-slate-100 text-slate-700 shadow-2xs"
                             }`}
                             title="Görseli Kırp & 90° Döndür"
                           >
-                            <CropIcon className="w-3.5 h-3.5" />
+                            <CropIcon className="w-3.5 h-3.5 text-[#B88E3A] dark:text-[#C5A059]" />
                             <span className="text-[11px]">Kırp</span>
                           </button>
 
-                          {/* 2. Yeni Fotoğraf Yükle / Kamera */}
                           <label 
-                            className={`h-7.5 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-mono font-semibold transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 ${
+                            className={`flex-1 py-1 px-2.5 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                               isDarkMode 
-                                ? "bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 hover:border-sky-400/60" 
-                                : "bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 hover:border-sky-300"
+                                ? "border-neutral-700/80 hover:bg-neutral-800 text-neutral-300" 
+                                : "border-slate-200 hover:bg-slate-100 text-slate-700 shadow-2xs"
                             }`}
                             title="Yeni Fotoğraf Çek / Görsel Değiştir"
                           >
-                            <Camera className="w-3.5 h-3.5" />
+                            <Camera className="w-3.5 h-3.5 text-[#B88E3A] dark:text-[#C5A059]" />
                             <span className="text-[11px]">Fotoğraf</span>
                             <input
                               type="file"
@@ -1309,21 +1343,6 @@ export function SettingsModal({
                               className="hidden"
                             />
                           </label>
-
-                          {/* 3. Sil */}
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteProfile(prof.id)}
-                            className={`h-7.5 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-mono font-semibold transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 ${
-                              isDarkMode 
-                                ? "bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 hover:border-red-400/60" 
-                                : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 hover:border-red-300"
-                            }`}
-                            title="Profili Sil"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span className="text-[11px]">Sil</span>
-                          </button>
                         </div>
                       </div>
                     </div>

@@ -30,7 +30,24 @@ export function isSchemaMissingError(error: any): boolean {
 }
 
 /**
- * Görseli Supabase Storage ('uploads' veya 'visualizations' bucket) üzerine yükler ve public URL döner.
+ * Giriş yapmış kullanıcının Supabase Auth UID bilgisini (auth.uid) tespit eder,
+ * yoksa localStorage veya yapılandırılmış varsayılan tenantId'ye geri döner.
+ */
+export async function getAuthUserIdOrTenantId(): Promise<string> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user?.id) {
+      setAuthenticatedTenantId(session.user.id);
+      return session.user.id;
+    }
+  } catch (err) {
+    console.warn("Auth session alınamadı, getTenantId kullanılacak:", err);
+  }
+  return getTenantId();
+}
+
+/**
+ * Görseli Supabase Storage ('uploads', 'visualizations', 'artworks', 'profiles', 'logos' bucket) üzerine yükler ve public URL döner.
  * Asla Base64 metnini veritabanına kaydetmez; yüklemeden önce sıkıştırarak sadece kısa public URL'i döner.
  */
 export async function uploadImageToSupabaseStorage(
@@ -51,7 +68,7 @@ export async function uploadImageToSupabaseStorage(
       mimeType: "image/jpeg"
     });
 
-    const tenantId = getTenantId();
+    const tenantId = await getAuthUserIdOrTenantId();
     const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).substring(2, 8);
     const cleanFileName = fileName 
@@ -60,8 +77,8 @@ export async function uploadImageToSupabaseStorage(
     
     const filePath = `${tenantId}/${folder}/${cleanFileName}`;
 
-    // 'uploads' ve 'visualizations' bucketlarını dene
-    const candidateBuckets = ["uploads", "visualizations"];
+    // Öncelikle klasör adıyla eşleşen bucket'ı dene, ardından genel kovalara bak
+    const candidateBuckets = Array.from(new Set([folder, "uploads", "visualizations", "artworks", "profiles", "logos"]));
     let lastError: any = null;
 
     for (const bucket of candidateBuckets) {
@@ -167,7 +184,73 @@ export async function ensureTenantRecord(tenantId: string): Promise<boolean> {
 }
 
 /**
+ * Bir çerçeve profilinin veritabanında (frame_profiles) var olduğundan emin olur.
+ * Yabancı anahtar (Foreign Key) veya 409 Conflict hatalarını önlemek için:
+ * Profil mevcut değilse otomatik olarak o tenant için ekler ve geçerli UUID'sini döner.
+ */
+export async function ensureFrameProfileExistsInDb(
+  profileId: string | null | undefined,
+  targetTenantId?: string
+): Promise<string | null> {
+  if (!profileId || !isSupabaseConfigured()) return null;
+
+  const tenantId = targetTenantId || await getAuthUserIdOrTenantId();
+
+  // 1. Veritabanında bu ID ile profil var mı kontrol et
+  if (isUUID(profileId)) {
+    try {
+      const { data } = await supabase
+        .from("frame_profiles")
+        .select("id")
+        .eq("id", profileId)
+        .maybeSingle();
+
+      if (data?.id) return data.id;
+    } catch {
+      // devam et
+    }
+  }
+
+  // 2. Tabloda yoksa, DEFAULT_FRAME_PROFILES içinden eşleşeni bul ve tenant için upsert et
+  const match = DEFAULT_FRAME_PROFILES.find(p => p.id === profileId || p.code === profileId);
+  if (match) {
+    try {
+      await ensureTenantRecord(tenantId);
+      const { data, error } = await supabase
+        .from("frame_profiles")
+        .upsert({
+          tenant_id: tenantId,
+          code: match.code,
+          name: match.name,
+          material_type: match.materialType || "wood",
+          width_cm: Number(match.widthCm || 4),
+          unit_price_per_meter: Number(match.unitPricePerMeter || 120),
+          unit_cost_per_meter: 60,
+          image_url: match.imageUrl || "",
+          texture_url: match.textureUrl || match.imageUrl || "",
+          is_repeating_pattern: match.isRepeatingPattern ?? true,
+          layout_mode: match.layoutMode || "repeat",
+          category: match.category || "both",
+          is_active: true,
+          in_stock: true
+        }, { onConflict: "tenant_id,code" })
+        .select("id")
+        .single();
+
+      if (!error && data?.id) {
+        return data.id;
+      }
+    } catch (err) {
+      console.warn("[ensureFrameProfileExistsInDb] Profil upsert uyarısı:", err);
+    }
+  }
+
+  return null;
+}
+
+/**
  * frame_profiles tablosu boş olduğunda varsayılan çerçeve profillerini veritabanına otomatik ekler/upsert eder.
+ * 409 Conflict hatasını önlemek için tenant_id + code çatışma kontrolü kullanır.
  */
 export async function seedDefaultFrameProfiles(tenantId: string): Promise<FrameProfileItem[]> {
   if (!isSupabaseConfigured()) {
@@ -178,7 +261,6 @@ export async function seedDefaultFrameProfiles(tenantId: string): Promise<FrameP
     await ensureTenantRecord(tenantId);
 
     const rows = DEFAULT_FRAME_PROFILES.map((prof) => ({
-      id: prof.id,
       tenant_id: tenantId,
       code: prof.code,
       name: prof.name,
@@ -195,10 +277,10 @@ export async function seedDefaultFrameProfiles(tenantId: string): Promise<FrameP
       in_stock: prof.inStock ?? true
     }));
 
-    // Toplu upsert dene
+    // Toplu upsert: onConflict "tenant_id,code" (409 Conflict ve Primary Key çakışmasını kesinlikle önler)
     const { data, error } = await supabase
       .from("frame_profiles")
-      .upsert(rows, { onConflict: "id" })
+      .upsert(rows, { onConflict: "tenant_id,code" })
       .select();
 
     if (!error && data && data.length > 0) {
@@ -222,7 +304,7 @@ export async function seedDefaultFrameProfiles(tenantId: string): Promise<FrameP
     if (error) {
       console.warn("[Supabase] Toplu çerçeve ekleme uyarısı, tekil deneniyor:", error.message);
       for (const row of rows) {
-        await supabase.from("frame_profiles").upsert(row, { onConflict: "id" });
+        await supabase.from("frame_profiles").upsert(row, { onConflict: "tenant_id,code" });
       }
     }
   } catch (err) {
@@ -241,19 +323,19 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{
     return { data: DEFAULT_FRAME_PROFILES, error: null };
   }
 
-  const tenantId = getTenantId();
+  const tenantId = await getAuthUserIdOrTenantId();
 
   try {
     const { data, error } = await supabase
       .from("frame_profiles")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
       .order("created_at", { ascending: false });
 
     if (error) {
       if (isSchemaMissingError(error)) {
         console.warn(
-          "[Supabase] 'frame_profiles' tablosu şema önbelleğinde bulunamadı (PGRST205). Varsayılan profiller yükleniyor. 'src/db/schema.sql' dosyasını Supabase SQL Editor'de çalıştırabilirsiniz."
+          "[Supabase] 'frame_profiles' tablosu şema önbelleğinde bulunamadı (PGRST205). Varsayılan profiller yükleniyor. 'src/db/schema_update.sql' dosyasını Supabase SQL Editor'de çalıştırabilirsiniz."
         );
         return { data: DEFAULT_FRAME_PROFILES, error: null, isSchemaMissing: true };
       }
@@ -280,7 +362,7 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{
       isRepeatingPattern: row.is_repeating_pattern ?? true,
       layoutMode: (row.layout_mode as any) || (row.is_repeating_pattern ? "repeat" : "miter-stretch"),
       category: (row.category as any) || "both",
-      inStock: row.in_stock ?? true
+      inStock: row.is_active ?? row.in_stock ?? true
     }));
 
     return { data: profiles, error: null };
@@ -297,7 +379,7 @@ export async function createFrameProfileInSupabase(
     return { data: null, error: new Error("Supabase is not configured") };
   }
 
-  const tenantId = getTenantId();
+  const tenantId = await getAuthUserIdOrTenantId();
   await ensureTenantRecord(tenantId);
 
   const insertPayload: any = {
@@ -358,7 +440,7 @@ export async function createFrameProfileInSupabase(
 
     if (res.error) {
       if (isSchemaMissingError(res.error)) {
-        console.warn("[Supabase] 'frame_profiles' tablosu henüz mevcut değil. Lütfen schema.sql çalıştırın.");
+        console.warn("[Supabase] 'frame_profiles' tablosu henüz mevcut değil. Lütfen schema_update.sql çalıştırın.");
       } else {
         console.warn("Supabase create frame profile warning:", res.error.message || res.error);
       }
@@ -396,6 +478,8 @@ export async function updateFrameProfileInSupabase(
     return { success: false, error: new Error("Supabase is not configured") };
   }
 
+  const tenantId = await getAuthUserIdOrTenantId();
+
   const payload: any = {
     updated_at: new Date().toISOString()
   };
@@ -428,7 +512,7 @@ export async function updateFrameProfileInSupabase(
 
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    let query = supabase.from("frame_profiles").update(payload);
+    let query = supabase.from("frame_profiles").update(payload).eq("tenant_id", tenantId);
     if (isUuid) {
       query = query.eq("id", id);
     } else {
@@ -455,9 +539,11 @@ export async function deleteFrameProfileFromSupabase(id: string): Promise<{ succ
     return { success: false, error: new Error("Supabase is not configured") };
   }
 
+  const tenantId = await getAuthUserIdOrTenantId();
+
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    let query = supabase.from("frame_profiles").delete();
+    let query = supabase.from("frame_profiles").delete().eq("tenant_id", tenantId);
     if (isUuid) {
       query = query.eq("id", id);
     } else {
@@ -511,7 +597,7 @@ export async function fetchOrdersFromSupabase(): Promise<{ data: OrderArchiveIte
     return { data: null, error: new Error("Supabase is not configured") };
   }
 
-  const tenantId = getTenantId();
+  const tenantId = await getAuthUserIdOrTenantId();
 
   try {
     const { data, error } = await supabase
@@ -586,6 +672,59 @@ export async function fetchOrdersFromSupabase(): Promise<{ data: OrderArchiveIte
   }
 }
 
+/**
+ * Her türlü tarih metnini (DD-MM-YYYY, DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD vb.)
+ * PostgreSQL DATE sütununun zorunlu kıldığı standart ISO (YYYY-MM-DD) formatına çevirir.
+ * Bu sayede "date/time field value out of range: '26-09-2026' (Code: 22008)" hatasını kalıcı olarak engeller.
+ */
+export function formatToPostgresDate(dateStr?: string | null): string | null {
+  if (!dateStr || typeof dateStr !== "string") return null;
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+
+  // 1. Zaten standart ISO formatındaysa (YYYY-MM-DD)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // 2. Ayraçlara göre parçala (-, ., /, boşluk)
+  const parts = trimmed.split(/[-./\s]+/);
+  if (parts.length >= 3) {
+    // Durum A: Yıl başta (YYYY-MM-DD veya YYYY/MM/DD)
+    if (parts[0].length === 4) {
+      const year = parts[0];
+      const month = parts[1].padStart(2, "0");
+      const day = parts[2].padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+    // Durum B: Yıl sonda (DD-MM-YYYY veya DD.MM.YYYY)
+    if (parts[2].length === 4) {
+      const day = parts[0].padStart(2, "0");
+      const month = parts[1].padStart(2, "0");
+      const year = parts[2];
+      return `${year}-${month}-${day}`;
+    }
+    // Durum C: 2 haneli yıl (DD-MM-YY)
+    if (parts[2].length === 2) {
+      const day = parts[0].padStart(2, "0");
+      const month = parts[1].padStart(2, "0");
+      const year = `20${parts[2]}`;
+      return `${year}-${month}-${day}`;
+    }
+  }
+
+  // 3. Fallback: JS Date nesnesi
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  return null;
+}
+
 export async function createOrderInSupabase(
   order: OrderArchiveItem
 ): Promise<{ data: OrderArchiveItem | null; error: any }> {
@@ -593,26 +732,44 @@ export async function createOrderInSupabase(
     return { data: null, error: new Error("Supabase is not configured") };
   }
 
-  const tenantId = getTenantId();
+  const tenantId = await getAuthUserIdOrTenantId();
+  await ensureTenantRecord(tenantId);
 
-  // Parse delivery date if provided
-  let formattedDeliveryDate: string | null = null;
-  if (order.deliveryDate) {
-    try {
-      const parts = order.deliveryDate.split(/[./-]/);
-      if (parts.length === 3) {
-        // Assume DD.MM.YYYY
-        formattedDeliveryDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
-    } catch {
-      formattedDeliveryDate = null;
-    }
-  }
+  // Standart ISO YYYY-MM-DD dönüşümü (PostgreSQL DATE sütunu için zorunlu 22008 hatası önlemi)
+  const formattedDeliveryDate = formatToPostgresDate(order.deliveryDate);
 
   const deliveryMethodCode = order.deliveryMethod === "pickup" ? "store" : (order.deliveryMethod || "store");
   const validDeliveryMethod = ["store", "shipping", "special_delivery"].includes(deliveryMethodCode) ? deliveryMethodCode : "store";
 
-  const simulatorSnapshot = order.simulatorConfig || {
+  // 1. BASE64 KORUMASI: Snapshot içindeki görsel base64 veya blob ise Storage'a yükle veya arındır
+  let safePaintingUrl = order.customPaintingUrl || "";
+  if (safePaintingUrl && (safePaintingUrl.startsWith("data:") || safePaintingUrl.startsWith("blob:"))) {
+    try {
+      const uploadRes = await uploadImageToSupabaseStorage(
+        safePaintingUrl,
+        "artworks",
+        `order_${order.orderNumber}_painting`
+      );
+      if (uploadRes.publicUrl) {
+        safePaintingUrl = uploadRes.publicUrl;
+      } else {
+        safePaintingUrl = "";
+      }
+    } catch {
+      safePaintingUrl = "";
+    }
+  }
+
+  // 2. KURAL 4: Kullanılan çerçeve profillerinin DB'de varlığını garantile (Foreign key / 409 conflict önlemi)
+  if (order.innerProfileId) {
+    await ensureFrameProfileExistsInDb(order.innerProfileId, tenantId);
+  }
+  if (order.outerProfileId) {
+    await ensureFrameProfileExistsInDb(order.outerProfileId, tenantId);
+  }
+
+  const simulatorSnapshot = {
+    ...(order.simulatorConfig || {}),
     innerProfileId: order.innerProfileId,
     outerProfileId: order.outerProfileId,
     matWidthCm: order.matWidthCm,
@@ -621,8 +778,7 @@ export async function createOrderInSupabase(
     outerFrameWidthCm: order.outerFrameWidthCm,
     innerMatColor: order.innerMatColor,
     outerMatColor: order.outerMatColor,
-    customPaintingUrl: order.customPaintingUrl,
-    customPaintingFile: order.customPaintingFile,
+    customPaintingUrl: safePaintingUrl,
     flags: order.inclusionFlags,
     customOverridePrice: order.customOverridePrice
   };
@@ -726,9 +882,11 @@ export async function updateOrderStatusInSupabase(
     return { success: false, error: new Error("Supabase is not configured") };
   }
 
+  const tenantId = await getAuthUserIdOrTenantId();
+
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
-    let query = supabase.from("quotes_orders").update({ status, updated_at: new Date().toISOString() });
+    let query = supabase.from("quotes_orders").update({ status, updated_at: new Date().toISOString() }).eq("tenant_id", tenantId);
     
     if (isUuid) {
       query = query.eq("id", orderId);
@@ -754,9 +912,11 @@ export async function deleteOrderFromSupabase(orderId: string): Promise<{ succes
     return { success: false, error: new Error("Supabase is not configured") };
   }
 
+  const tenantId = await getAuthUserIdOrTenantId();
+
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
-    let query = supabase.from("quotes_orders").delete();
+    let query = supabase.from("quotes_orders").delete().eq("tenant_id", tenantId);
     
     if (isUuid) {
       query = query.eq("id", orderId);
@@ -780,23 +940,6 @@ export async function deleteOrderFromSupabase(orderId: string): Promise<{ succes
 // ==========================================
 // TENANT SETTINGS (Fiyat ve Birim Ayarları)
 // ==========================================
-
-/**
- * Giriş yapmış kullanıcının Supabase Auth UID bilgisini (auth.uid) tespit eder,
- * yoksa localStorage veya yapılandırılmış varsayılan tenantId'ye geri döner.
- */
-export async function getAuthUserIdOrTenantId(): Promise<string> {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user?.id) {
-      setAuthenticatedTenantId(session.user.id);
-      return session.user.id;
-    }
-  } catch (err) {
-    console.warn("Auth session alınamadı, getTenantId kullanılacak:", err);
-  }
-  return getTenantId();
-}
 
 export async function fetchTenantSettingsFromSupabase(): Promise<{ data: UnitPricesSettings | null; error: any }> {
   if (!isSupabaseConfigured()) {
@@ -955,7 +1098,7 @@ export async function fetchVisualizationsFromSupabase(): Promise<{ data: SavedVi
     return { data: null, error: new Error("Supabase is not configured") };
   }
 
-  const tenantId = getTenantId();
+  const tenantId = await getAuthUserIdOrTenantId();
 
   try {
     const { data, error } = await supabase
@@ -1011,7 +1154,8 @@ export async function createVisualizationInSupabase(
     return { data: null, error: new Error("Supabase is not configured") };
   }
 
-  const tenantId = getTenantId();
+  const tenantId = await getAuthUserIdOrTenantId();
+  await ensureTenantRecord(tenantId);
 
   let rawArtworkUrl = visual.artworkUrl || visual.artwork_url || visual.imageUrl || visual.image_url || "";
   const artworkName = visual.artworkName || visual.artwork_name || visual.title || "Yeni Eser";
@@ -1024,9 +1168,8 @@ export async function createVisualizationInSupabase(
     return { data: null, error: new Error("Artwork URL is required") };
   }
 
-  // BASE64 ENGELLEME & STORAGE ENTEGRASYONU:
-  // Veritabanı şişmesini ve 500 timeout hatalarını önlemek için:
-  // Eğer gelen URL Base64 data: veya blob: ise, önce sıkıştırıp Supabase Storage'a yükle!
+  // 1. BASE64 ENGELLEME & STORAGE ENTEGRASYONU:
+  // Veritabanındaki hiçbir tabloda kesinlikle Base64 formatında görsel tutulmayacak.
   let finalArtworkUrl = rawArtworkUrl;
   if (rawArtworkUrl.startsWith("data:") || rawArtworkUrl.startsWith("blob:")) {
     console.log("[createVisualizationInSupabase] Base64/Blob tespit edildi. Supabase Storage'a yükleniyor...");
@@ -1036,79 +1179,28 @@ export async function createVisualizationInSupabase(
       console.log("[createVisualizationInSupabase] Storage Public URL elde edildi:", finalArtworkUrl);
     } else {
       console.warn("[createVisualizationInSupabase] Storage yüklenemedi:", storageRes.error);
-      // Eğer storage henüz hazır değilse, büyük base64'ü veritabanına basıp 500 hatası almamak için engelle
-      if (rawArtworkUrl.length > 5000) {
-        return {
-          data: null,
-          error: new Error("Görsel Storage'a yüklenemedi. Veritabanı şişmesini önlemek için doğrudan Base64 kaydı durduruldu.")
-        };
-      }
+      return {
+        data: null,
+        error: new Error("Görsel Storage'a yüklenemedi. Veritabanına Base64 kaydı engellendi.")
+      };
     }
   }
 
   // Rendered preview için de base64 koruması
   let finalPreviewUrl = rawPreviewUrl;
-  if (rawPreviewUrl && rawPreviewUrl.startsWith("data:")) {
-    const previewStorageRes = await uploadImageToSupabaseStorage(rawPreviewUrl, "previews", "preview_" + artworkName);
+  if (rawPreviewUrl && (rawPreviewUrl.startsWith("data:") || rawPreviewUrl.startsWith("blob:"))) {
+    const previewStorageRes = await uploadImageToSupabaseStorage(rawPreviewUrl, "visualizations", "preview_" + artworkName);
     if (previewStorageRes.publicUrl) {
       finalPreviewUrl = previewStorageRes.publicUrl;
     } else {
-      finalPreviewUrl = null; // Veritabanına devasa base64 girmesin
+      finalPreviewUrl = null; // Veritabanına Base64 girmesin
     }
   }
 
-  await ensureTenantRecord(tenantId);
-
-  // Foreign Key Güvencesi: Kullanılan profilin frame_profiles tablosunda var olduğundan emin ol
+  // 2. KURAL 4 & 5: Foreign Key Güvencesi - Çerçeve profilinin varlığını garantile
   let verifiedInnerFrameId: string | null = null;
-  if (innerFrameId && isUUID(innerFrameId)) {
-    try {
-      const { data: profileRow } = await supabase
-        .from("frame_profiles")
-        .select("id")
-        .eq("id", innerFrameId)
-        .maybeSingle();
-
-      if (profileRow?.id) {
-        verifiedInnerFrameId = profileRow.id;
-      } else {
-        // Tabloda henüz yoksa, DEFAULT_FRAME_PROFILES içinde mi kontrol et
-        const defaultMatch = DEFAULT_FRAME_PROFILES.find((p) => p.id === innerFrameId);
-        if (defaultMatch) {
-          // Bu varsayılan profili veritabanına hemen ekle
-          try {
-            await supabase.from("frame_profiles").upsert({
-              id: defaultMatch.id,
-              tenant_id: tenantId,
-              code: defaultMatch.code,
-              name: defaultMatch.name,
-              material_type: defaultMatch.materialType || "wood",
-              width_cm: Number(defaultMatch.widthCm || 4),
-              unit_price_per_meter: Number(defaultMatch.unitPricePerMeter || 120),
-              unit_cost_per_meter: 60,
-              image_url: defaultMatch.imageUrl || "",
-              texture_url: defaultMatch.textureUrl || defaultMatch.imageUrl || "",
-              is_repeating_pattern: defaultMatch.isRepeatingPattern ?? true,
-              layout_mode: defaultMatch.layoutMode || "repeat",
-              category: defaultMatch.category || "both",
-              is_active: true,
-              in_stock: true
-            }, { onConflict: "id" });
-            verifiedInnerFrameId = defaultMatch.id;
-          } catch (seedErr) {
-            console.warn("[createVisualizationInSupabase] Varsayılan profil eklenemedi:", seedErr);
-            verifiedInnerFrameId = null;
-          }
-        } else {
-          // Veritabanında ve varsayılanlarda yoksa foreign key hatası vermemesi için null yap
-          console.warn(`[createVisualizationInSupabase] innerFrameId (${innerFrameId}) veritabanında bulunamadı. FK hatasını önlemek için null yapılıyor.`);
-          verifiedInnerFrameId = null;
-        }
-      }
-    } catch (checkErr) {
-      console.warn("[createVisualizationInSupabase] Profil kontrolü uyarısı:", checkErr);
-      verifiedInnerFrameId = null;
-    }
+  if (innerFrameId) {
+    verifiedInnerFrameId = await ensureFrameProfileExistsInDb(innerFrameId, tenantId);
   }
 
   const payload: any = {
@@ -1151,7 +1243,7 @@ export async function createVisualizationInSupabase(
 
     if (error) {
       if (isSchemaMissingError(error)) {
-        console.warn("[Supabase] 'visualizations' tablosu henüz mevcut değil. Lütfen schema.sql çalıştırın.");
+        console.warn("[Supabase] 'visualizations' tablosu henüz mevcut değil. Lütfen schema_update.sql çalıştırın.");
       } else {
         console.warn("Supabase create visualization warning:", error.message || error);
       }
@@ -1184,7 +1276,7 @@ export async function deleteVisualizationFromSupabase(
     return { success: false, error: new Error("Supabase is not configured") };
   }
 
-  const tenantId = getTenantId();
+  const tenantId = await getAuthUserIdOrTenantId();
 
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -1276,32 +1368,9 @@ export async function fetchCompanyProfileFromSupabase(
       return { data: null, error: null };
     }
 
-    // Kullanıcı tarafından girilmiş gerçek bir firma verisi var mı kontrol et
-    const hasUserData = Boolean(
-      (tenantRow?.name && !tenantRow.name.startsWith("tenant-") && !tenantRow.name.includes("Çerçeve Atölyesi")) ||
-      tenantRow?.trade_title ||
-      tenantRow?.phone ||
-      tenantRow?.tax_office ||
-      tenantRow?.tax_number ||
-      tenantRow?.address ||
-      tenantRow?.city ||
-      tenantRow?.iban ||
-      tenantRow?.logo_url ||
-      tenantRow?.website ||
-      tenantRow?.tagline ||
-      savedInSettings?.companyName ||
-      savedInSettings?.tradeTitle ||
-      savedInSettings?.phone ||
-      savedInSettings?.address
-    );
-
-    // Eğer yeni kullanıcıysa veya form henüz hiç doldurulup kaydedilmemişse: BOMBOŞ gelsin
-    if (!hasUserData) {
-      return { data: null, error: null };
-    }
-
+    // Kullanıcı veya atölye tarafından kaydedilmiş veriyi derle
     const profile: CompanyProfile = {
-      companyName: savedInSettings?.companyName ?? tenantRow?.name ?? "",
+      companyName: savedInSettings?.companyName ?? (tenantRow?.name && !tenantRow.name.startsWith("tenant-") ? tenantRow.name : "") ?? "",
       tradeTitle: savedInSettings?.tradeTitle ?? tenantRow?.trade_title ?? "",
       tagline: savedInSettings?.tagline ?? tenantRow?.tagline ?? "",
       logoUrl: savedInSettings?.logoUrl ?? tenantRow?.logo_url ?? "",
@@ -1317,6 +1386,20 @@ export async function fetchCompanyProfileFromSupabase(
       includeInQuotes: settingsRow?.include_in_quotes ?? savedInSettings?.includeInQuotes ?? true
     };
 
+    const hasAnyContent = Boolean(
+      profile.companyName || 
+      profile.tradeTitle || 
+      profile.phone || 
+      profile.email || 
+      profile.address || 
+      profile.taxNumber || 
+      profile.logoUrl
+    );
+
+    if (!hasAnyContent && !tenantRow && !savedInSettings) {
+      return { data: null, error: null };
+    }
+
     return { data: profile, error: null };
   } catch (err) {
     console.warn("Exception fetching company profile from Supabase:", err);
@@ -1326,12 +1409,12 @@ export async function fetchCompanyProfileFromSupabase(
 
 /**
  * Kullanıcı firma bilgilerini doldurup kaydettiğinde, Supabase'e o kullanıcının tenant_id'si ile Upsert eder.
- * (Kayıt yoksa ekler, varsa günceller)
+ * (Kayıt yoksa ekler, varsa günceller, işlem bitiminde hemen veritabanından taze veriyi doğrular)
  */
 export async function saveCompanyProfileToSupabase(
   profile: CompanyProfile,
   targetTenantId?: string
-): Promise<{ success: boolean; error: any }> {
+): Promise<{ success: boolean; data?: CompanyProfile | null; error: any }> {
   if (!isSupabaseConfigured()) {
     return { success: false, error: new Error("Supabase is not configured") };
   }
@@ -1356,12 +1439,24 @@ export async function saveCompanyProfileToSupabase(
   }
 
   try {
+    // 0. Foreign key kısıtları için tenant kaydını garantiye al
+    await ensureTenantRecord(tenantId);
+
     let cleanLogoUrl = profile.logoUrl || "";
     if (cleanLogoUrl.startsWith("data:") || cleanLogoUrl.startsWith("blob:")) {
-      const logoUpload = await uploadImageToSupabaseStorage(cleanLogoUrl, "logos", "company_logo");
-      if (logoUpload.publicUrl) {
-        cleanLogoUrl = logoUpload.publicUrl;
-        profile.logoUrl = cleanLogoUrl;
+      try {
+        const logoUpload = await uploadImageToSupabaseStorage(cleanLogoUrl, "logos", "company_logo");
+        if (logoUpload.publicUrl) {
+          cleanLogoUrl = logoUpload.publicUrl;
+          profile.logoUrl = cleanLogoUrl;
+        } else {
+          cleanLogoUrl = "";
+          profile.logoUrl = "";
+        }
+      } catch (storageErr) {
+        console.warn("Logo depolama yükleme uyarısı:", storageErr);
+        cleanLogoUrl = "";
+        profile.logoUrl = "";
       }
     }
 
@@ -1423,10 +1518,20 @@ export async function saveCompanyProfileToSupabase(
       console.warn("Warning upserting into tenant_settings table:", settingsError);
     }
 
-    const isSuccess = !tenantError || !settingsError;
+    if (tenantError && settingsError) {
+      return { 
+        success: false, 
+        error: tenantError || settingsError 
+      };
+    }
+
+    // 3. Veritabanından hemen doğrulanmış taze firma verisini oku
+    const { data: freshProfile } = await fetchCompanyProfileFromSupabase(tenantId);
+
     return { 
-      success: isSuccess, 
-      error: tenantError && settingsError ? (tenantError || settingsError) : null 
+      success: true, 
+      data: freshProfile || profile,
+      error: null 
     };
   } catch (err) {
     console.warn("Exception saving company profile to Supabase:", err);

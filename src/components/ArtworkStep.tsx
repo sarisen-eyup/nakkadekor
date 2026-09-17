@@ -481,35 +481,40 @@ export const ArtworkStep: React.FC<ArtworkStepProps> = ({
               </div>
             </div>
 
-            {/* Çerçeve & Oda Ölçekleme Kontrolleri */}
-            <div className={`p-3 rounded-xl border flex flex-col gap-3 ${
+            {/* Çerçeve & Oda Ölçekleme Kontrolleri (Sadeleştirilmiş & Akıcı) */}
+            <div className={`p-3.5 rounded-2xl border space-y-3 ${
               isDarkMode ? "bg-[#101216] border-white/10" : "bg-white border-slate-200 shadow-sm"
             }`}>
-              {/* 1. Çerçeve / Tablo Ölçeği */}
+              {/* 1. Tablo Ölçeği */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className={`text-[10px] font-bold flex items-center gap-1 ${
+                  <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
                     isDarkMode ? "text-neutral-300" : "text-slate-700"
                   }`}>
-                    🖼️ Tablo Ölçeği:
+                    Tablo Ölçeği
                   </span>
-                  <span className="text-[11px] font-mono font-bold text-[#C5A059]">
-                    %{Math.round((roomFrameScale || 1) * 100)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono font-bold text-[#C5A059]">
+                      %{Math.round((roomFrameScale || 1) * 100)}
+                    </span>
+                    {onResetRoomPosition && (
+                      <button
+                        type="button"
+                        onClick={onResetRoomPosition}
+                        className={`text-[9px] font-semibold px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+                          isDarkMode
+                            ? "border-white/10 hover:bg-neutral-800 text-neutral-400 hover:text-white"
+                            : "border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-900"
+                        }`}
+                        title="Tabloyu Merkeze Ortala"
+                      >
+                        Ortala
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRoomFrameScale && setRoomFrameScale(Math.max(0.15, Number(((roomFrameScale || 1) - 0.05).toFixed(2))))}
-                    className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
-                      isDarkMode ? "hover:bg-neutral-800 text-neutral-300 hover:text-white" : "hover:bg-slate-100 text-slate-600 hover:text-slate-900"
-                    }`}
-                    title="Tabloyu Küçült"
-                  >
-                    <ZoomOut className="w-3.5 h-3.5" />
-                  </button>
-
                   <input 
                     type="range"
                     min="0.15"
@@ -519,149 +524,59 @@ export const ArtworkStep: React.FC<ArtworkStepProps> = ({
                     onChange={(e) => setRoomFrameScale && setRoomFrameScale(Number(e.target.value))}
                     className="flex-1 h-1.5 accent-[#C5A059] cursor-pointer"
                   />
-
-                  <button
-                    type="button"
-                    onClick={() => setRoomFrameScale && setRoomFrameScale(Math.min(2.50, Number(((roomFrameScale || 1) + 0.05).toFixed(2))))}
-                    className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
-                      isDarkMode ? "hover:bg-neutral-800 text-neutral-300 hover:text-white" : "hover:bg-slate-100 text-slate-600 hover:text-slate-900"
-                    }`}
-                    title="Tabloyu Büyüt"
-                  >
-                    <ZoomIn className="w-3.5 h-3.5" />
-                  </button>
-
-                  {onResetRoomPosition && (
-                    <button
-                      type="button"
-                      onClick={onResetRoomPosition}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer shrink-0 border flex items-center gap-1 ${
-                        isDarkMode 
-                          ? "border-white/10 hover:bg-neutral-800 text-neutral-400 hover:text-white" 
-                          : "border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-900"
-                      }`}
-                      title="Çerçeveyi Ortala"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Ortala</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Quick scale presets */}
-                <div className="flex items-center justify-between gap-1 pt-0.5">
-                  <span className={`text-[9px] ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>Hazır:</span>
-                  <div className="flex items-center gap-1">
-                    {[0.25, 0.5, 0.75, 1.0, 1.4].map((sVal) => (
-                      <button
-                        key={sVal}
-                        type="button"
-                        onClick={() => setRoomFrameScale && setRoomFrameScale(sVal)}
-                        className={`px-1.5 py-0.5 text-[9px] font-mono rounded cursor-pointer transition-colors ${
-                          Math.abs((roomFrameScale || 1) - sVal) < 0.04
-                            ? "bg-[#C5A059] text-black font-bold"
-                            : (isDarkMode ? "text-neutral-400 hover:text-white bg-white/5" : "text-slate-600 hover:text-slate-900 bg-slate-100")
-                        }`}
-                      >
-                        %{Math.round(sVal * 100)}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
 
-              {/* 2. Oda Boyutu & Görünümü */}
-              <div className={`pt-2 border-t space-y-2 ${isDarkMode ? "border-white/10" : "border-slate-200"}`}>
+              {/* 2. Oda Görünümü */}
+              <div className={`pt-2.5 border-t space-y-2 ${isDarkMode ? "border-white/10" : "border-slate-200"}`}>
                 <div className="flex items-center justify-between">
-                  <span className={`text-[10px] font-bold flex items-center gap-1 ${
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${
                     isDarkMode ? "text-neutral-300" : "text-slate-700"
                   }`}>
-                    🏠 Oda Ölçeği:
+                    Oda Görünümü
                   </span>
-                  <span className={`text-[11px] font-mono font-bold ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                    %{Math.round((roomBgScale || 1) * 100)}
-                  </span>
-                </div>
-
-                {/* Doldur / Sığdır Seçici */}
-                <div className="grid grid-cols-2 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setRoomBgFit && setRoomBgFit("cover")}
-                    className={`py-1 px-2 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                      roomBgFit === "cover"
-                        ? "bg-[#C5A059]/20 border-[#C5A059] text-[#C5A059]"
-                        : (isDarkMode ? "border-white/10 text-neutral-400 hover:text-neutral-200 bg-white/5" : "border-slate-200 text-slate-600 hover:text-slate-900 bg-slate-50")
-                    }`}
-                    title="Görseli odaya tam doldurur"
-                  >
-                    <Maximize2 className="w-3 h-3" />
-                    <span>Doldur</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRoomBgFit && setRoomBgFit("contain")}
-                    className={`py-1 px-2 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                      roomBgFit === "contain"
-                        ? "bg-[#C5A059]/20 border-[#C5A059] text-[#C5A059]"
-                        : (isDarkMode ? "border-white/10 text-neutral-400 hover:text-neutral-200 bg-white/5" : "border-slate-200 text-slate-600 hover:text-slate-900 bg-slate-50")
-                    }`}
-                    title="Dikey fotoğrafların tamamını ekrana sığdırır"
-                  >
-                    <Scan className="w-3 h-3" />
-                    <span>Sığdır (Dikey)</span>
-                  </button>
-                </div>
-
-                {/* Oda Yakınlaştırma Slider */}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRoomBgScale && setRoomBgScale(Math.max(0.5, Number(((roomBgScale || 1) - 0.05).toFixed(2))))}
-                    className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
-                      isDarkMode ? "hover:bg-neutral-800 text-neutral-300 hover:text-white" : "hover:bg-slate-100 text-slate-600 hover:text-slate-900"
-                    }`}
-                    title="Odayı Uzaklaştır"
-                  >
-                    <ZoomOut className="w-3.5 h-3.5" />
-                  </button>
-
-                  <input 
-                    type="range"
-                    min="0.5"
-                    max="2.5"
-                    step="0.02"
-                    value={roomBgScale || 1}
-                    onChange={(e) => setRoomBgScale && setRoomBgScale(Number(e.target.value))}
-                    className="flex-1 h-1.5 accent-[#C5A059] cursor-pointer"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setRoomBgScale && setRoomBgScale(Math.min(2.5, Number(((roomBgScale || 1) + 0.05).toFixed(2))))}
-                    className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
-                      isDarkMode ? "hover:bg-neutral-800 text-neutral-300 hover:text-white" : "hover:bg-slate-100 text-slate-600 hover:text-slate-900"
-                    }`}
-                    title="Odayı Yakınlaştır"
-                  >
-                    <ZoomIn className="w-3.5 h-3.5" />
-                  </button>
-
                   {onResetRoomBg && (
                     <button
                       type="button"
                       onClick={onResetRoomBg}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer shrink-0 border flex items-center gap-1 ${
-                        isDarkMode 
-                          ? "border-white/10 hover:bg-neutral-800 text-neutral-400 hover:text-white" 
+                      className={`text-[9px] font-semibold px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+                        isDarkMode
+                          ? "border-white/10 hover:bg-neutral-800 text-neutral-400 hover:text-white"
                           : "border-slate-200 hover:bg-slate-100 text-slate-600 hover:text-slate-900"
                       }`}
                       title="Oda Görünümünü Sıfırla"
                     >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Sıfırla</span>
+                      Sıfırla
                     </button>
                   )}
+                </div>
+
+                {/* Doldur / Sığdır Segmented Toggle */}
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setRoomBgFit && setRoomBgFit("cover")}
+                    className={`py-1.5 px-2 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                      roomBgFit === "cover"
+                        ? "bg-[#C5A059]/20 border-[#C5A059] text-[#C5A059] shadow-2xs"
+                        : (isDarkMode ? "border-white/10 text-neutral-400 hover:text-neutral-200 bg-white/5" : "border-slate-200 text-slate-600 hover:text-slate-900 bg-slate-50")
+                    }`}
+                  >
+                    <Maximize2 className="w-3 h-3" />
+                    <span>Doldur (Yatay)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRoomBgFit && setRoomBgFit("contain")}
+                    className={`py-1.5 px-2 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                      roomBgFit === "contain"
+                        ? "bg-[#C5A059]/20 border-[#C5A059] text-[#C5A059] shadow-2xs"
+                        : (isDarkMode ? "border-white/10 text-neutral-400 hover:text-neutral-200 bg-white/5" : "border-slate-200 text-slate-600 hover:text-slate-900 bg-slate-50")
+                    }`}
+                  >
+                    <Scan className="w-3 h-3" />
+                    <span>Sığdır (Dikey)</span>
+                  </button>
                 </div>
               </div>
             </div>
