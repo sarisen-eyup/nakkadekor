@@ -78,6 +78,9 @@ CREATE TABLE IF NOT EXISTS public.frame_profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Var olan tablolarda tenant_id sütununda NOT NULL kısıtı varsa kaldır (Ortak sistem profilleri için tenant_id IS NULL gereklidir)
+ALTER TABLE public.frame_profiles ALTER COLUMN tenant_id DROP NOT NULL;
+
 -- tenant_id + code UNIQUE kısıtı (Aynı atölyede aynı kodun tekrarını engeller)
 DO $$
 BEGIN
@@ -467,55 +470,141 @@ CREATE TRIGGER on_auth_user_created
 -- Tüm atölyeler 409 Conflict yaşamadan bu ortak profilleri anında okuyabilir.
 -- ============================================================================
 
-INSERT INTO public.frame_profiles (
-  tenant_id, code, name, width_cm, depth_cm, unit_cost_per_meter, unit_price_per_meter,
-  material_type, category, layout_mode, image_url, texture_url, is_repeating_pattern
-) VALUES 
-  (
-    NULL, 'AV-501', 'Altın Varak Klasik Oymalı', 5.0, 2.5, 65.00, 145.00,
-    'wood', 'both', 'repeat',
-    'https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=500&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=500&auto=format&fit=crop&q=80',
-    true
-  ),
-  (
-    NULL, 'SM-204', 'Mat Siyah Minimalist', 2.0, 3.0, 40.00, 95.00,
-    'polystyrene', 'both', 'repeat',
-    'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80',
-    true
-  ),
-  (
-    NULL, 'DM-302', 'Doğal Meşe İskandinav', 3.0, 2.0, 55.00, 125.00,
-    'wood', 'both', 'repeat',
-    'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80',
-    true
-  ),
-  (
-    NULL, 'AB-401', 'Fırçalanmış Antik Bakır', 4.0, 2.2, 70.00, 160.00,
-    'aluminum', 'both', 'repeat',
-    'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=500&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=500&auto=format&fit=crop&q=80',
-    true
-  ),
-  (
-    NULL, 'GV-305', 'Gümüş Varak İnce Zarif', 3.5, 2.0, 60.00, 135.00,
-    'wood', 'both', 'repeat',
-    'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80',
-    true
-  ),
-  (
-    NULL, 'CB-405', 'Ceviz Ağacı Rustik Çizgili', 4.5, 2.5, 75.00, 170.00,
-    'wood', 'both', 'repeat',
-    'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80',
-    true
-  )
-ON CONFLICT (tenant_id, code) DO UPDATE SET
-  name = EXCLUDED.name,
-  width_cm = EXCLUDED.width_cm,
-  unit_price_per_meter = EXCLUDED.unit_price_per_meter,
-  image_url = EXCLUDED.image_url,
-  texture_url = EXCLUDED.texture_url;
+-- Kesinlikle tenant_id üzerindeki NOT NULL kısıtını kaldır:
+ALTER TABLE public.frame_profiles ALTER COLUMN tenant_id DROP NOT NULL;
+
+-- 23502 ve 409 hatalarını önleyen güvenli idempotent ekleme & güncelleme bloğu:
+DO $$
+BEGIN
+  -- 1. AV-501
+  IF NOT EXISTS (SELECT 1 FROM public.frame_profiles WHERE code = 'AV-501' AND tenant_id IS NULL) THEN
+    INSERT INTO public.frame_profiles (
+      tenant_id, code, name, width_cm, depth_cm, unit_cost_per_meter, unit_price_per_meter,
+      material_type, category, layout_mode, image_url, texture_url, is_repeating_pattern
+    ) VALUES (
+      NULL, 'AV-501', 'Altın Varak Klasik Oymalı', 5.0, 2.5, 65.00, 145.00,
+      'wood', 'both', 'repeat',
+      'https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=500&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=500&auto=format&fit=crop&q=80',
+      true
+    );
+  ELSE
+    UPDATE public.frame_profiles SET
+      name = 'Altın Varak Klasik Oymalı',
+      width_cm = 5.0,
+      unit_price_per_meter = 145.00,
+      image_url = 'https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=500&auto=format&fit=crop&q=80',
+      texture_url = 'https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=500&auto=format&fit=crop&q=80'
+    WHERE code = 'AV-501' AND tenant_id IS NULL;
+  END IF;
+
+  -- 2. SM-204
+  IF NOT EXISTS (SELECT 1 FROM public.frame_profiles WHERE code = 'SM-204' AND tenant_id IS NULL) THEN
+    INSERT INTO public.frame_profiles (
+      tenant_id, code, name, width_cm, depth_cm, unit_cost_per_meter, unit_price_per_meter,
+      material_type, category, layout_mode, image_url, texture_url, is_repeating_pattern
+    ) VALUES (
+      NULL, 'SM-204', 'Mat Siyah Minimalist', 2.0, 3.0, 40.00, 95.00,
+      'polystyrene', 'both', 'repeat',
+      'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80',
+      true
+    );
+  ELSE
+    UPDATE public.frame_profiles SET
+      name = 'Mat Siyah Minimalist',
+      width_cm = 2.0,
+      unit_price_per_meter = 95.00,
+      image_url = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80',
+      texture_url = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80'
+    WHERE code = 'SM-204' AND tenant_id IS NULL;
+  END IF;
+
+  -- 3. DM-302
+  IF NOT EXISTS (SELECT 1 FROM public.frame_profiles WHERE code = 'DM-302' AND tenant_id IS NULL) THEN
+    INSERT INTO public.frame_profiles (
+      tenant_id, code, name, width_cm, depth_cm, unit_cost_per_meter, unit_price_per_meter,
+      material_type, category, layout_mode, image_url, texture_url, is_repeating_pattern
+    ) VALUES (
+      NULL, 'DM-302', 'Doğal Meşe İskandinav', 3.0, 2.0, 55.00, 125.00,
+      'wood', 'both', 'repeat',
+      'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80',
+      true
+    );
+  ELSE
+    UPDATE public.frame_profiles SET
+      name = 'Doğal Meşe İskandinav',
+      width_cm = 3.0,
+      unit_price_per_meter = 125.00,
+      image_url = 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80',
+      texture_url = 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80'
+    WHERE code = 'DM-302' AND tenant_id IS NULL;
+  END IF;
+
+  -- 4. AB-401
+  IF NOT EXISTS (SELECT 1 FROM public.frame_profiles WHERE code = 'AB-401' AND tenant_id IS NULL) THEN
+    INSERT INTO public.frame_profiles (
+      tenant_id, code, name, width_cm, depth_cm, unit_cost_per_meter, unit_price_per_meter,
+      material_type, category, layout_mode, image_url, texture_url, is_repeating_pattern
+    ) VALUES (
+      NULL, 'AB-401', 'Fırçalanmış Antik Bakır', 4.0, 2.2, 70.00, 160.00,
+      'aluminum', 'both', 'repeat',
+      'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=500&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=500&auto=format&fit=crop&q=80',
+      true
+    );
+  ELSE
+    UPDATE public.frame_profiles SET
+      name = 'Fırçalanmış Antik Bakır',
+      width_cm = 4.0,
+      unit_price_per_meter = 160.00,
+      image_url = 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=500&auto=format&fit=crop&q=80',
+      texture_url = 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=500&auto=format&fit=crop&q=80'
+    WHERE code = 'AB-401' AND tenant_id IS NULL;
+  END IF;
+
+  -- 5. GV-305
+  IF NOT EXISTS (SELECT 1 FROM public.frame_profiles WHERE code = 'GV-305' AND tenant_id IS NULL) THEN
+    INSERT INTO public.frame_profiles (
+      tenant_id, code, name, width_cm, depth_cm, unit_cost_per_meter, unit_price_per_meter,
+      material_type, category, layout_mode, image_url, texture_url, is_repeating_pattern
+    ) VALUES (
+      NULL, 'GV-305', 'Gümüş Varak İnce Zarif', 3.5, 2.0, 60.00, 135.00,
+      'wood', 'both', 'repeat',
+      'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80',
+      true
+    );
+  ELSE
+    UPDATE public.frame_profiles SET
+      name = 'Gümüş Varak İnce Zarif',
+      width_cm = 3.5,
+      unit_price_per_meter = 135.00,
+      image_url = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80',
+      texture_url = 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500&auto=format&fit=crop&q=80'
+    WHERE code = 'GV-305' AND tenant_id IS NULL;
+  END IF;
+
+  -- 6. CB-405
+  IF NOT EXISTS (SELECT 1 FROM public.frame_profiles WHERE code = 'CB-405' AND tenant_id IS NULL) THEN
+    INSERT INTO public.frame_profiles (
+      tenant_id, code, name, width_cm, depth_cm, unit_cost_per_meter, unit_price_per_meter,
+      material_type, category, layout_mode, image_url, texture_url, is_repeating_pattern
+    ) VALUES (
+      NULL, 'CB-405', 'Ceviz Ağacı Rustik Çizgili', 4.5, 2.5, 75.00, 170.00,
+      'wood', 'both', 'repeat',
+      'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80',
+      true
+    );
+  ELSE
+    UPDATE public.frame_profiles SET
+      name = 'Ceviz Ağacı Rustik Çizgili',
+      width_cm = 4.5,
+      unit_price_per_meter = 170.00,
+      image_url = 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80',
+      texture_url = 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80'
+    WHERE code = 'CB-405' AND tenant_id IS NULL;
+  END IF;
+END $$;

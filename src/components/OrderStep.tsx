@@ -50,6 +50,7 @@ interface OrderStepProps {
   onOpenPrintCenter?: () => void;
   onCreateOrder?: () => void;
   onPrevStep?: () => void;
+  isExistingOrder?: boolean;
 }
 
 export const OrderStep: React.FC<OrderStepProps> = ({
@@ -85,7 +86,8 @@ export const OrderStep: React.FC<OrderStepProps> = ({
   onOpenCostModal,
   onOpenPrintCenter,
   onCreateOrder,
-  onPrevStep
+  onPrevStep,
+  isExistingOrder = false,
 }) => {
   const handleCreateOrderClick = () => {
     let hasError = false;
@@ -471,10 +473,10 @@ export const OrderStep: React.FC<OrderStepProps> = ({
                 ? "bg-[#C5A059] text-black hover:bg-[#b5924d]"
                 : "bg-[#B88E3A] text-white hover:bg-[#a67e2f]"
             }`}
-            title="Simülatördeki ölçü ve malzemelerle siparişi oluştur"
+            title={isExistingOrder ? "Mevcut siparişi simülatördeki değişikliklerle güncelle" : "Simülatördeki ölçü ve malzemelerle siparişi oluştur"}
           >
             <CheckCircle2 className="w-4 h-4" />
-            <span>Siparişi Oluştur</span>
+            <span>{isExistingOrder ? "Siparişi Güncelle" : "Siparişi Oluştur"}</span>
           </button>
         </div>
       </div>

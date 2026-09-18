@@ -366,6 +366,7 @@ export default function App() {
   const [customOverridePrice, setCustomOverridePrice] = useState<number | null>(null);
 
   const [orderNumber, setOrderNumber] = useState<string>(() => generateOrderNumber());
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<{ text: string; type?: "success" | "info" } | null>(null);
   const [isSchemaPending, setIsSchemaPending] = useState<boolean>(false);
 
@@ -867,7 +868,8 @@ export default function App() {
   };
 
   const handleLoadOrderToWorkspace = (order: OrderArchiveItem) => {
-    // 1. Sipariş Numarasını güncelle
+    // 1. Sipariş Kimliğini ve Numarasını güncelle
+    setActiveOrderId(order.id || null);
     if (order.orderNumber) {
       setOrderNumber(order.orderNumber);
     }
@@ -1075,9 +1077,10 @@ export default function App() {
     setWallMode("color");
     setCustomerRoomImage(null);
 
-    // 8. Yeni benzersiz sipariş numarası oluştur
+    // 8. Yeni benzersiz sipariş numarası oluştur ve aktif sipariş kimliğini sıfırla
     const newNum = generateOrderNumber();
     setOrderNumber(newNum);
+    setActiveOrderId(null);
 
     // 9. Sekmeyi 1. Eser adımına getir
     setActiveSidebarTab("artwork");
@@ -2164,11 +2167,16 @@ Durum: Onaylandi / Uretime Hazir`;
     }
 
     const currentOrderNum = orderNumber;
+    const existingOrder = archiveOrders.find(
+      o => o.orderNumber === currentOrderNum || (activeOrderId && o.id === activeOrderId)
+    );
+    const isUpdate = Boolean(activeOrderId || existingOrder);
+    const resolvedId = activeOrderId || existingOrder?.id || ("ord_" + Date.now());
 
     const newArchiveItem: OrderArchiveItem = {
-      id: "ord_" + Date.now(),
+      id: resolvedId,
       orderNumber: currentOrderNum,
-      createdAt: new Date().toLocaleDateString("tr-TR") + " " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+      createdAt: existingOrder?.createdAt || (new Date().toLocaleDateString("tr-TR") + " " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })),
       customerName: customerName.trim(),
       customerPhone: fullPhone,
       deliveryDate: isoDeliveryDate,
@@ -2179,7 +2187,7 @@ Durum: Onaylandi / Uretime Hazir`;
       matInfo: matWidth > 0 ? `${matWidth} cm ${getPaspartuColorName(innerMatColor)}` : "Paspartusuz",
       totalAmount: costBreakdown.effectiveFinalPriceWithVat,
       currency: "₺",
-      status: "confirmed",
+      status: existingOrder?.status || "confirmed",
       deliveryMethod: deliveryMethod,
       authorUser: activeUser?.fullName || "Yetkili Personel",
 
@@ -2213,12 +2221,17 @@ Durum: Onaylandi / Uretime Hazir`;
     };
 
     setArchiveOrders(prev => {
-      const filtered = prev.filter(o => o.orderNumber !== newArchiveItem.orderNumber && o.id !== newArchiveItem.id);
-      return [newArchiveItem, ...filtered];
+      const exists = prev.some(o => o.orderNumber === newArchiveItem.orderNumber || o.id === newArchiveItem.id);
+      if (exists) {
+        return prev.map(o => (o.orderNumber === newArchiveItem.orderNumber || o.id === newArchiveItem.id) ? newArchiveItem : o);
+      }
+      return [newArchiveItem, ...prev];
     });
 
     setToastMessage({
-      text: `✅ ${currentOrderNum} numaralı sipariş başarıyla oluşturuldu! Belgeleri yazdırmak için üstteki "Belge Yazdır" butonunu kullanabilirsiniz.`,
+      text: isUpdate
+        ? `✅ ${currentOrderNum} numaralı sipariş başarıyla güncellendi!`
+        : `✅ ${currentOrderNum} numaralı sipariş başarıyla oluşturuldu! Belgeleri yazdırmak için üstteki "Belge Yazdır" butonunu kullanabilirsiniz.`,
       type: "success"
     });
 
@@ -2229,7 +2242,8 @@ Durum: Onaylandi / Uretime Hazir`;
           if (error) {
             console.warn("Supabase createOrder sync warning:", error);
           } else if (data && data.id) {
-            setArchiveOrders(prev => prev.map(o => o.orderNumber === newArchiveItem.orderNumber ? { ...o, id: data.id } : o));
+            setActiveOrderId(String(data.id));
+            setArchiveOrders(prev => prev.map(o => o.orderNumber === newArchiveItem.orderNumber ? { ...o, id: String(data.id) } : o));
           }
         } catch (err) {
           console.warn("Supabase createOrder sync exception:", err);
@@ -2237,8 +2251,10 @@ Durum: Onaylandi / Uretime Hazir`;
       })();
     }
 
-    const updatedSub = deductSubscriptionCredit();
-    setSubscriptionData(updatedSub);
+    if (!isUpdate) {
+      const updatedSub = deductSubscriptionCredit();
+      setSubscriptionData(updatedSub);
+    }
   };
 
   const handlePrintBackLabel = async () => {
@@ -2942,6 +2958,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
                 onOpenPrintCenter={() => setIsPrintCenterModalOpen(true)}
                 onCreateOrder={handleCreateOrderFromSimulator}
                 onPrevStep={activeSidebarTab === "materials" ? () => setActiveSidebarTab("framing") : undefined}
+                isExistingOrder={Boolean(activeOrderId || archiveOrders.some(o => o.orderNumber === orderNumber))}
               />
             )}
           </aside>

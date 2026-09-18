@@ -807,59 +807,173 @@ export async function createOrderInSupabase(
   };
 
   try {
-    let { data, error } = await supabase
-      .from("quotes_orders")
-      .insert([primaryPayload])
-      .select()
-      .single();
+    // 3. Siparişin veritabanında zaten var olup olmadığını tespit et (ID veya Tenant + Sipariş No ile)
+    const isUuid = !!order.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(order.id);
+    let existingRecordId: string | null = null;
 
-    // Fallback if schema is missing optional columns (such as delivery_date_str PGRST204 or 42703)
-    if (error && (error.code === "PGRST204" || error.code === "42703")) {
-      console.warn("Retrying order insert without delivery_date_str or legacy columns:", error.message);
-      const safePayload = { ...primaryPayload };
-      delete safePayload.delivery_date_str;
-
-      const retryRes = await supabase
+    if (isUuid && order.id) {
+      const { data: byId } = await supabase
         .from("quotes_orders")
-        .insert([safePayload])
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("id", order.id)
+        .maybeSingle();
+      if (byId?.id) {
+        existingRecordId = byId.id;
+      }
+    }
+
+    if (!existingRecordId && order.orderNumber) {
+      const { data: byNum } = await supabase
+        .from("quotes_orders")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("order_number", order.orderNumber)
+        .maybeSingle();
+      if (byNum?.id) {
+        existingRecordId = byNum.id;
+      }
+    }
+
+    let data: any = null;
+    let error: any = null;
+
+    // A. VAR OLAN SİPARİŞİ GÜNCELLE (UPDATE)
+    if (existingRecordId) {
+      const updatePayload = {
+        ...primaryPayload,
+        updated_at: new Date().toISOString()
+      };
+
+      const updateRes = await supabase
+        .from("quotes_orders")
+        .update(updatePayload)
+        .eq("tenant_id", tenantId)
+        .eq("id", existingRecordId)
         .select()
         .single();
 
-      if (!retryRes.error) {
-        data = retryRes.data;
-        error = null;
-      } else {
-        const fallbackPayload: any = {
-          tenant_id: tenantId,
-          order_number: order.orderNumber,
-          customer_name: order.customerName,
-          customer_phone: order.customerPhone || null,
-          delivery_date: formattedDeliveryDate,
-          artwork_width_cm: order.artworkWidthCm || null,
-          artwork_height_cm: order.artworkHeightCm || null,
-          inner_frame_title: order.innerFrameTitle || null,
-          outer_frame_title: order.outerFrameTitle || null,
-          mat_info: order.matInfo || null,
-          total_amount: order.totalAmount || 0,
-          currency: order.currency || "₺",
-          status: order.status || "quote",
-          delivery_method: order.deliveryMethod || "pickup",
-          author_user: order.authorUser || "Yetkili Personel"
-        };
+      data = updateRes.data;
+      error = updateRes.error;
 
-        const fallbackRes = await supabase
+      // Eksik sütun toleransı (PGRST204 veya 42703)
+      if (error && (error.code === "PGRST204" || error.code === "42703")) {
+        console.warn("Retrying order update without delivery_date_str:", error.message);
+        const safeUpdatePayload = { ...updatePayload };
+        delete safeUpdatePayload.delivery_date_str;
+
+        const retryUpdate = await supabase
           .from("quotes_orders")
-          .insert([fallbackPayload])
+          .update(safeUpdatePayload)
+          .eq("tenant_id", tenantId)
+          .eq("id", existingRecordId)
           .select()
           .single();
-        
-        data = fallbackRes.data;
-        error = fallbackRes.error;
+
+        data = retryUpdate.data;
+        error = retryUpdate.error;
+      }
+    } else {
+      // B. YENİ SİPARİŞ OLUŞTUR (INSERT)
+      const insertRes = await supabase
+        .from("quotes_orders")
+        .insert([primaryPayload])
+        .select()
+        .single();
+
+      data = insertRes.data;
+      error = insertRes.error;
+
+      // 409 Conflict veya 23505 Unique Constraint Hatası (quotes_orders_tenant_id_order_number_key)
+      // Aynı sipariş numarası varsa otomatik olarak UPDATE'e dönüştür:
+      if (error && (error.code === "23505" || error.message?.includes("unique constraint") || error.message?.includes("quotes_orders_tenant_id_order_number_key") || error.code === "409")) {
+        console.info("Order number already exists, falling back to UPDATE by (tenant_id, order_number):", order.orderNumber);
+        const conflictUpdateRes = await supabase
+          .from("quotes_orders")
+          .update({
+            ...primaryPayload,
+            updated_at: new Date().toISOString()
+          })
+          .eq("tenant_id", tenantId)
+          .eq("order_number", order.orderNumber)
+          .select()
+          .single();
+
+        if (!conflictUpdateRes.error && conflictUpdateRes.data) {
+          data = conflictUpdateRes.data;
+          error = null;
+        } else {
+          error = conflictUpdateRes.error;
+        }
+      }
+
+      // Eksik sütun toleransı (PGRST204 veya 42703)
+      if (error && (error.code === "PGRST204" || error.code === "42703")) {
+        console.warn("Retrying order insert without delivery_date_str or legacy columns:", error.message);
+        const safePayload = { ...primaryPayload };
+        delete safePayload.delivery_date_str;
+
+        const retryRes = await supabase
+          .from("quotes_orders")
+          .insert([safePayload])
+          .select()
+          .single();
+
+        if (!retryRes.error) {
+          data = retryRes.data;
+          error = null;
+        } else if (retryRes.error?.code === "23505" || retryRes.error?.message?.includes("unique constraint")) {
+          // İkinci denemede de conflict olursa UPDATE yap
+          const conflictUpdate2 = await supabase
+            .from("quotes_orders")
+            .update({
+              ...safePayload,
+              updated_at: new Date().toISOString()
+            })
+            .eq("tenant_id", tenantId)
+            .eq("order_number", order.orderNumber)
+            .select()
+            .single();
+
+          if (!conflictUpdate2.error) {
+            data = conflictUpdate2.data;
+            error = null;
+          } else {
+            error = conflictUpdate2.error;
+          }
+        } else {
+          const fallbackPayload: any = {
+            tenant_id: tenantId,
+            order_number: order.orderNumber,
+            customer_name: order.customerName,
+            customer_phone: order.customerPhone || null,
+            delivery_date: formattedDeliveryDate,
+            artwork_width_cm: order.artworkWidthCm || null,
+            artwork_height_cm: order.artworkHeightCm || null,
+            inner_frame_title: order.innerFrameTitle || null,
+            outer_frame_title: order.outerFrameTitle || null,
+            mat_info: order.matInfo || null,
+            total_amount: order.totalAmount || 0,
+            currency: order.currency || "₺",
+            status: order.status || "quote",
+            delivery_method: order.deliveryMethod || "pickup",
+            author_user: order.authorUser || "Yetkili Personel"
+          };
+
+          const fallbackRes = await supabase
+            .from("quotes_orders")
+            .insert([fallbackPayload])
+            .select()
+            .single();
+          
+          data = fallbackRes.data;
+          error = fallbackRes.error;
+        }
       }
     }
 
     if (error) {
-      console.warn("Could not save order to Supabase:", error.message || error);
+      console.warn("Could not save/update order in Supabase:", error.message || error);
       return { data: null, error };
     }
 
@@ -870,10 +984,12 @@ export async function createOrderInSupabase(
 
     return { data: savedOrder, error: null };
   } catch (err) {
-    console.warn("Exception creating order in Supabase:", err);
+    console.warn("Exception saving order to Supabase:", err);
     return { data: null, error: err };
   }
 }
+
+export const saveOrderToSupabase = createOrderInSupabase;
 
 export async function updateOrderStatusInSupabase(
   orderId: string,
