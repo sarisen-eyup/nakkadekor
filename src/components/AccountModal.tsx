@@ -99,17 +99,30 @@ export const AccountModal: React.FC<AccountModalProps> = ({
 
   const canUploadLogo = subscription ? isProPlan(subscription) : true;
 
-  const handleCompanyLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCompanyLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
-        setLocalCompany(prev => ({ ...prev, logoUrl: dataUrl }));
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const isPng = file.type === "image/png";
+      const compressed = await compressImage(file, {
+        maxWidth: 600,
+        maxHeight: 600,
+        quality: 0.85,
+        mimeType: isPng ? "image/png" : "image/jpeg",
+        preserveTransparency: isPng
+      });
+      setLocalCompany(prev => ({ ...prev, logoUrl: compressed.dataUrl }));
+    } catch (err) {
+      console.warn("Logo sıkıştırma hatası, fallback okunuyor:", err);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        if (dataUrl) {
+          setLocalCompany(prev => ({ ...prev, logoUrl: dataUrl }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleRemoveCompanyLogo = () => {

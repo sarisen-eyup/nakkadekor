@@ -1,6 +1,8 @@
 import React, { useRef } from "react";
 import { Upload, Scan, ArrowLeftRight, Palette, Sliders, ChevronRight, Home, Camera, Sparkles, ZoomIn, ZoomOut, RotateCcw, Maximize2, Download, Loader2 } from "lucide-react";
 import { DEFAULT_ROOM_TEMPLATES } from "../types/roomPreview";
+import { compressImage } from "../utils/imageCompressor";
+import { uploadImageToSupabaseStorage, isSupabaseConfigured } from "../services/supabaseService";
 
 interface ArtworkStepProps {
   fileInputRef: React.RefObject<HTMLInputElement>;
@@ -83,18 +85,38 @@ export const ArtworkStep: React.FC<ArtworkStepProps> = ({
 
   const isPresetWall = wallColorPalette.some((item) => item.value === wallColor);
 
-  const handleRoomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRoomFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (loadEv) => {
-      const result = loadEv.target?.result as string;
-      if (result) {
-        if (onSelectRoomImage) onSelectRoomImage(result);
-        if (setWallMode) setWallMode("room");
+    
+    // 1. Yerel hızlı blob önizlemesi
+    const localBlob = URL.createObjectURL(file);
+    if (onSelectRoomImage) onSelectRoomImage(localBlob);
+    if (setWallMode) setWallMode("room");
+
+    // 2. Client-side sıkıştırma ve Storage yüklemesi (Base64 engeli)
+    try {
+      const compressed = await compressImage(file, {
+        maxWidth: 1920,
+        maxHeight: 1920,
+        quality: 0.80,
+        mimeType: "image/jpeg"
+      });
+
+      if (isSupabaseConfigured()) {
+        const { publicUrl } = await uploadImageToSupabaseStorage(
+          compressed.blob,
+          "customer-rooms",
+          file.name
+        );
+        if (publicUrl && onSelectRoomImage) {
+          onSelectRoomImage(publicUrl);
+        }
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn("Müşteri odası görseli sıkıştırma uyarısı:", err);
+    }
+
     e.target.value = "";
   };
 

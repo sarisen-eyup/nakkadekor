@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured, getTenantId, setAuthenticatedTenantId } from "../lib/supabase";
+export { isSupabaseConfigured };
 import { 
   FrameProfileItem, 
   DEFAULT_FRAME_PROFILES,
