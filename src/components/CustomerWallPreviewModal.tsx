@@ -15,7 +15,8 @@ import {
   Maximize2,
   Scan,
   Home,
-  Palette
+  Palette,
+  Loader2
 } from "lucide-react";
 import { RoomTemplate, DEFAULT_ROOM_TEMPLATES } from "../types/roomPreview";
 import { exportAndDownloadHD } from "../utils/hdCanvasExporter";
@@ -488,100 +489,113 @@ export const CustomerWallPreviewModal: React.FC<CustomerWallPreviewModalProps> =
       data-no-drag-scroll="true"
     >
       {/* Top Floating Control Bar */}
-      <header className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/10 bg-[#111317]/95 z-30 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#C5A059]/20 border border-[#C5A059]/40 flex items-center justify-center text-[#C5A059] shadow-inner">
-            <Sparkles className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold tracking-wide text-white">Müşteri Salonu 3D Önizleme & Sunum</h2>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/30">
-                Satış Kapatma
-              </span>
+      <header className="px-3 sm:px-6 py-2.5 sm:py-3 border-b border-white/10 bg-[#111317]/95 backdrop-blur-md z-30 shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-2.5 md:gap-4 shadow-xl">
+        {/* Top line on Mobile / Left Branding & Context on Desktop */}
+        <div className="flex items-center justify-between w-full md:w-auto gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-8 h-8 rounded-xl bg-[#C5A059]/20 border border-[#C5A059]/40 flex items-center justify-center text-[#C5A059] shadow-inner shrink-0">
+              <Sparkles className="w-4 h-4" />
             </div>
-            <p className="text-[11px] text-neutral-400">
-              Çerçeveyi duvarda sürükleyip istediğiniz yüksekliğe getirebilirsiniz.
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs sm:text-sm font-bold tracking-wide text-white">
+                  Müşteri Salonu 3D Sunum
+                </h2>
+                <span className="text-[9px] sm:text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/30 font-bold shrink-0">
+                  Satış Kapatma
+                </span>
+              </div>
+              <p className="text-[10px] sm:text-[11px] text-neutral-400 hidden sm:block">
+                Çerçeveyi duvarda sürükleyip istediğiniz yüksekliğe getirebilirsiniz.
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2">
-          {/* Room Photo Upload */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 text-xs font-semibold text-neutral-200 transition-colors cursor-pointer"
-            title="Müşterinin çektiği salon fotoğrafını yükleyin"
-          >
-            <ImageIcon className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Fotoğraf Yükle</span>
-          </button>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileUpload} 
-            accept="image/*" 
-            className="hidden" 
-          />
-
-          {/* Toggle advanced controls */}
-          <button
-            type="button"
-            onClick={() => setShowAdvancedControls(!showAdvancedControls)}
-            className={`p-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
-              showAdvancedControls 
-                ? "bg-[#C5A059]/20 border-[#C5A059] text-[#C5A059]" 
-                : "border-white/15 bg-white/5 text-neutral-300 hover:text-white"
-            }`}
-            title="Işık ve Gölgelendirme Ayarları"
-          >
-            <Sliders className="w-4 h-4" />
-          </button>
-
-          {/* WhatsApp Direct Share */}
-          <button
-            type="button"
-            onClick={handleWhatsAppShare}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-black font-bold text-xs shadow-md transition-all cursor-pointer"
-            title="Müşteriye doğrudan WhatsApp sunumu gönder"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">WhatsApp Teklifi</span>
-          </button>
-
-          {/* HD Presentation Download */}
-          <button
-            type="button"
-            onClick={handleDownloadHD}
-            disabled={isExporting}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#C5A059] hover:bg-[#b5924d] text-black font-bold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
-            title="Yüksek çözünürlüklü sunum görselini indirin"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>{isExporting ? "Hazırlanıyor..." : "HD Görsel İndir"}</span>
-          </button>
-
-          {/* Simülatöre Dön Button */}
+          {/* Return to Simulator button on Mobile Top Row (Instant Exit) */}
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-[#C5A059]/60 bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#FAE2B3] hover:text-white font-bold text-xs transition-all cursor-pointer ml-1 active:scale-95 shadow-sm"
+            className="flex md:hidden items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#C5A059]/60 bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#FAE2B3] font-bold text-xs transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
             title="Müşteri sunumunu kapat ve simülatöre dön"
           >
             <RotateCcw className="w-3.5 h-3.5 text-[#C5A059]" />
             <span>Simülatöre Dön</span>
           </button>
+        </div>
 
-          {/* Close Modal Icon */}
+        {/* Action Button Groups */}
+        <div className="w-full md:w-auto flex items-center gap-2 shrink-0">
+          {/* Mobile: 4-column balanced action strip / Desktop: Grouped tool clusters */}
+          <div className="grid grid-cols-4 sm:flex items-center gap-1.5 sm:gap-2 w-full md:w-auto">
+            {/* 1. Room Photo Upload */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-[10px] sm:text-xs font-semibold text-neutral-200 transition-colors cursor-pointer active:scale-95 shadow-2xs"
+              title="Müşterinin çektiği salon fotoğrafını yükleyin"
+            >
+              <ImageIcon className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span className="truncate">Fotoğraf</span>
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileUpload} 
+              accept="image/*" 
+              className="hidden" 
+            />
+
+            {/* 2. Toggle Advanced Controls (Light & Shadow) */}
+            <button
+              type="button"
+              onClick={() => setShowAdvancedControls(!showAdvancedControls)}
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 rounded-xl border text-[10px] sm:text-xs font-semibold transition-all cursor-pointer active:scale-95 shadow-2xs ${
+                showAdvancedControls 
+                  ? "bg-[#C5A059]/25 border-[#C5A059] text-[#FAE2B3] shadow-[0_0_12px_rgba(197,160,89,0.2)]" 
+                  : "border-white/15 bg-white/5 text-neutral-300 hover:text-white"
+              }`}
+              title="Işık ve Gölgelendirme Ayarlarını Göster/Gizle"
+            >
+              <Sliders className="w-3.5 h-3.5 text-[#C5A059]" />
+              <span className="truncate">Aydınlatma</span>
+            </button>
+
+            {/* 3. WhatsApp Direct Share */}
+            <button
+              type="button"
+              onClick={handleWhatsAppShare}
+              className="flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-2 sm:py-1.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-black font-bold text-[10px] sm:text-xs shadow-md transition-all cursor-pointer active:scale-95"
+              title="Müşteriye doğrudan WhatsApp sunumu gönder"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span className="truncate">WhatsApp</span>
+            </button>
+
+            {/* 4. HD Presentation Download */}
+            <button
+              type="button"
+              onClick={handleDownloadHD}
+              disabled={isExporting}
+              className="flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-2 sm:py-1.5 rounded-xl bg-[#C5A059] hover:bg-[#b5924d] text-black font-bold text-[10px] sm:text-xs shadow-md transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+              title="Yüksek çözünürlüklü sunum görselini indirin"
+            >
+              {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              <span className="truncate">{isExporting ? "Hazır..." : "HD İndir"}</span>
+            </button>
+          </div>
+
+          {/* Desktop Subtle Divider */}
+          <div className="hidden md:block h-5 w-px bg-white/15 mx-0.5" />
+
+          {/* Desktop Simülatöre Dön Button */}
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors cursor-pointer ml-1"
-            title="Kapat"
+            className="hidden md:flex items-center gap-1.5 px-4 py-1.5 rounded-xl border border-[#C5A059]/60 bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#FAE2B3] hover:text-white font-bold text-xs transition-all cursor-pointer active:scale-95 shadow-sm"
+            title="Müşteri sunumunu kapat ve simülatöre dön"
           >
-            <X className="w-5 h-5" />
+            <RotateCcw className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>Simülatöre Dön</span>
           </button>
         </div>
       </header>

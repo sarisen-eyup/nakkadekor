@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { X, Printer, Scissors, Layers, CheckCircle2, FileText, Download } from "lucide-react";
+import { X, Printer, Scissors, Layers, CheckCircle2, FileText, Download, Lock } from "lucide-react";
 import { CompleteCutList } from "../types/pricing";
 import { triggerCuttingListPrintWindow } from "../utils/printHelper";
 
@@ -12,6 +12,7 @@ interface CuttingListModalProps {
   artworkWidthCm: number;
   artworkHeightCm: number;
   isDarkMode?: boolean;
+  isOrderCreated?: boolean;
 }
 
 export function CuttingListModal({
@@ -22,13 +23,18 @@ export function CuttingListModal({
   deliveryDate,
   artworkWidthCm,
   artworkHeightCm,
-  isDarkMode = true
+  isDarkMode = true,
+  isOrderCreated = false
 }: CuttingListModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen) return null;
 
   const handlePrint = () => {
+    if (!isOrderCreated) {
+      alert("⚠️ Üretim emri ve kesim listesini yazdırmak için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.");
+      return;
+    }
     triggerCuttingListPrintWindow({
       cutList,
       customerName,
@@ -70,14 +76,19 @@ export function CuttingListModal({
 
           <div className="flex items-center gap-3">
             <button
+              disabled={!isOrderCreated}
               onClick={handlePrint}
-              className={`flex items-center gap-1.5 px-3 py-1.5 font-bold text-xs rounded transition-all shadow-md cursor-pointer ${
-                isDarkMode
-                  ? "bg-[#C5A059] hover:bg-[#b08c48] text-black"
-                  : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+              title={!isOrderCreated ? "Yazdırmak için önce sipariş oluşturulmalıdır." : "Kesim listesini yazdır"}
+              className={`flex items-center gap-1.5 px-3 py-1.5 font-bold text-xs rounded transition-all shadow-md ${
+                !isOrderCreated
+                  ? "opacity-50 cursor-not-allowed bg-neutral-800 text-neutral-400"
+                  : isDarkMode
+                    ? "bg-[#C5A059] hover:bg-[#b08c48] text-black cursor-pointer active:scale-95"
+                    : "bg-[#B88E3A] hover:bg-[#9E7728] text-white cursor-pointer active:scale-95"
               }`}
             >
-              <Printer className="w-4 h-4" /> YAZDIR / PDF AL
+              {!isOrderCreated ? <Lock className="w-4 h-4" /> : <Printer className="w-4 h-4" />}
+              <span>{!isOrderCreated ? "KİLİTLİ" : "YAZDIR / PDF AL"}</span>
             </button>
 
             <button

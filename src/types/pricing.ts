@@ -330,6 +330,7 @@ export interface CompanyProfile {
   city: string; // Şehir
   iban: string; // Banka / IBAN
   includeInQuotes: boolean; // Teklif ve PDF çıktılarında logo/ünvan gösterilsin mi
+  termsAccepted?: boolean; // Kullanıcı sözleşmesi, kurumsal fatura ve KVKK şartları onaylandı mı
 }
 
 export const EMPTY_COMPANY_PROFILE: CompanyProfile = {
@@ -347,6 +348,7 @@ export const EMPTY_COMPANY_PROFILE: CompanyProfile = {
   city: "",
   iban: "",
   includeInQuotes: true,
+  termsAccepted: true,
 };
 
 export const DEFAULT_COMPANY_PROFILE: CompanyProfile = EMPTY_COMPANY_PROFILE;

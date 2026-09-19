@@ -489,31 +489,31 @@ export function SettingsModal({
 
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in font-sans">
-      <div className={`relative w-full max-w-4xl border rounded-lg shadow-2xl overflow-hidden flex flex-col h-[85vh] min-h-[580px] max-h-[820px] ${
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-sans">
+      <div className={`relative w-full max-w-4xl border-0 sm:border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-[88vh] max-h-[100dvh] sm:max-h-[820px] ${
         isDarkMode 
           ? "bg-[#14171a] border-[#C5A059]/40 text-white" 
           : "bg-white border-[#cbd5e1] text-slate-900"
       }`}>
         
-        {/* Header */}
-        <div className={`flex items-center justify-between px-6 py-4 border-b shrink-0 ${
+        {/* Header (Mobil & Masaüstü Düzenli) */}
+        <div className={`flex items-center justify-between px-3.5 sm:px-6 py-2.5 sm:py-4 border-b shrink-0 ${
           isDarkMode ? "bg-[#1c2026] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
         }`}>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded border ${
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className={`p-1.5 sm:p-2 rounded-xl border shrink-0 ${
               isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059]/30 text-[#C5A059]" : "bg-[#B88E3A]/10 border-[#B88E3A]/30 text-[#B88E3A]"
             }`}>
-              <Settings className="w-5 h-5" />
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className={`text-base sm:text-lg font-bold tracking-wide uppercase ${
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap">
+                <h2 className={`text-xs sm:text-base font-black tracking-wide uppercase truncate ${
                   isDarkMode ? "text-white" : "text-slate-900"
                 }`}>
-                  ATÖLYE AYARLARI & GİZLİLİK YÖNETİMİ
+                  ATÖLYE AYARLARI
                 </h2>
-                <span className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded-md border ${
+                <span className={`px-2 py-0.5 text-[9px] sm:text-[10px] font-mono font-bold uppercase rounded-md border shrink-0 ${
                   isShopMode
                     ? (isDarkMode ? "bg-amber-500/20 border-amber-500/40 text-amber-300" : "bg-amber-100 border-amber-300 text-amber-800")
                     : (isDarkMode ? "bg-blue-500/20 border-blue-500/40 text-blue-300" : "bg-blue-100 border-blue-200 text-blue-800")
@@ -521,66 +521,68 @@ export function SettingsModal({
                   {isShopMode ? "ATÖLYE MODU" : "MÜŞTERİ MODU"}
                 </span>
               </div>
-              <p className={`text-xs font-medium ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                Birim maliyetler, profil veritabanı ve ekran gizlilik modu
+              <p className={`text-[10px] sm:text-xs font-medium truncate ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
+                Birim maliyetler, profil kataloğu ve ekran gizlilik modu
               </p>
             </div>
           </div>
           
           <button
+            type="button"
             onClick={onClose}
-            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-              isDarkMode ? "text-neutral-400 hover:text-white hover:bg-white/10" : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+            className={`p-2 rounded-xl transition-colors cursor-pointer shrink-0 min-w-[40px] min-h-[40px] flex items-center justify-center ${
+              isDarkMode ? "text-neutral-400 hover:text-white hover:bg-white/10 active:bg-white/20" : "text-slate-500 hover:text-slate-900 hover:bg-slate-200 active:bg-slate-300"
             }`}
+            title="Kapat"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Navigation Tabs (Yüksek Kontrastlı, Görünürlüğü Artırılmış 3 Sütunlu Izgara) */}
+        {/* Navigation Tabs (3 Sütunlu Dengeli ve Dokunmatik Dostu) */}
         <div 
           className={`grid grid-cols-3 border-b shrink-0 select-none ${
           isDarkMode ? "bg-[#141619] border-neutral-800" : "bg-slate-100 border-slate-200"
         }`}>
           <button
             onClick={() => setActiveTab("prices")}
-            className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 text-xs tracking-wider transition-all border-b-2 cursor-pointer ${
+            className={`flex items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2.5 sm:py-3 text-[11px] sm:text-xs tracking-tight sm:tracking-wider transition-all border-b-2 cursor-pointer active:scale-95 ${
               activeTab === "prices"
                 ? (isDarkMode ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/15 font-bold shadow-2xs" : "border-[#B88E3A] text-[#8C6B23] bg-white font-bold shadow-2xs")
                 : (isDarkMode ? "border-transparent text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/50 font-medium" : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium")
             }`}
           >
-            <DollarSign className={`w-4 h-4 shrink-0 ${activeTab === "prices" ? (isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]") : (isDarkMode ? "text-neutral-400" : "text-slate-500")}`} />
-            <span className="truncate">1. Maliyet & Kâr</span>
+            <DollarSign className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${activeTab === "prices" ? (isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]") : (isDarkMode ? "text-neutral-400" : "text-slate-500")}`} />
+            <span className="truncate">1. Maliyet<span className="hidden sm:inline"> &amp; Kâr</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab("profiles")}
-            className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 text-xs tracking-wider transition-all border-b-2 cursor-pointer ${
+            className={`flex items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2.5 sm:py-3 text-[11px] sm:text-xs tracking-tight sm:tracking-wider transition-all border-b-2 cursor-pointer active:scale-95 ${
               activeTab === "profiles"
                 ? (isDarkMode ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/15 font-bold shadow-2xs" : "border-[#B88E3A] text-[#8C6B23] bg-white font-bold shadow-2xs")
                 : (isDarkMode ? "border-transparent text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/50 font-medium" : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium")
             }`}
           >
-            <Database className={`w-4 h-4 shrink-0 ${activeTab === "profiles" ? (isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]") : (isDarkMode ? "text-neutral-400" : "text-slate-500")}`} />
+            <Database className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${activeTab === "profiles" ? (isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]") : (isDarkMode ? "text-neutral-400" : "text-slate-500")}`} />
             <span className="truncate">2. Profiller ({localProfiles.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab("privacy")}
-            className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 text-xs tracking-wider transition-all border-b-2 cursor-pointer ${
+            className={`flex items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2.5 sm:py-3 text-[11px] sm:text-xs tracking-tight sm:tracking-wider transition-all border-b-2 cursor-pointer active:scale-95 ${
               activeTab === "privacy"
                 ? (isDarkMode ? "border-[#C5A059] text-[#C5A059] bg-[#C5A059]/15 font-bold shadow-2xs" : "border-[#B88E3A] text-[#8C6B23] bg-white font-bold shadow-2xs")
                 : (isDarkMode ? "border-transparent text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/50 font-medium" : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-medium")
             }`}
           >
-            <ShieldCheck className={`w-4 h-4 shrink-0 ${activeTab === "privacy" ? (isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]") : (isDarkMode ? "text-neutral-400" : "text-slate-500")}`} />
-            <span className="truncate">3. Gizlilik Modu</span>
+            <ShieldCheck className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${activeTab === "privacy" ? (isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]") : (isDarkMode ? "text-neutral-400" : "text-slate-500")}`} />
+            <span className="truncate">3. Gizlilik<span className="hidden sm:inline"> Modu</span></span>
           </button>
         </div>
 
         {/* Tab Content */}
-        <div className="p-6 overflow-y-auto flex-1 min-h-[500px] space-y-6">
+        <div className="p-3 sm:p-6 overflow-y-auto overscroll-contain flex-1 min-h-[350px] space-y-4 sm:space-y-6 touch-pan-y">
           {activeTab === "prices" && (
             <div className="flex flex-col gap-5">
               
@@ -1351,7 +1353,7 @@ export function SettingsModal({
                 )}
               </div>
 
-              {/* HIZLI TOPLU ZAM PANELİ (TEK SATIRDA DERLİ TOPLU) */}
+              {/* HIZLI TOPLU ZAM PANELİ */}
               <div 
                 id="bulk-price-section"
                 className={`p-2.5 sm:p-3 rounded-xl border transition-all shadow-xs ${
@@ -1360,79 +1362,55 @@ export function SettingsModal({
                     : "bg-amber-50/80 border-amber-200"
                 }`}
               >
-                <div className="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
                   {/* Sol Bölüm: Başlık, Özel % Girişi ve Zam Yap Butonu */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <div className={`p-1.5 rounded-lg shrink-0 ${
-                      isDarkMode ? "bg-[#C5A059]/15 text-[#C5A059]" : "bg-amber-100 text-amber-800"
-                    }`}>
-                      <TrendingUp className="w-4 h-4" />
-                    </div>
+                  <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <div className={`p-1.5 rounded-lg shrink-0 ${
+                        isDarkMode ? "bg-[#C5A059]/15 text-[#C5A059]" : "bg-amber-100 text-amber-800"
+                      }`}>
+                        <TrendingUp className="w-4 h-4" />
+                      </div>
 
-                    <span className={`text-xs font-bold whitespace-nowrap ${isDarkMode ? "text-neutral-200" : "text-slate-800"}`}>
-                      Toplu Zam:
-                    </span>
+                      <span className={`text-xs font-bold whitespace-nowrap ${isDarkMode ? "text-neutral-200" : "text-slate-800"}`}>
+                        Toplu Zam:
+                      </span>
 
-                    <div className="flex items-center gap-0.5">
-                      <span className={`text-[11px] font-mono font-bold ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>%</span>
-                      <input
-                        type="number"
-                        min="1"
-                        max="300"
-                        value={bulkPercent}
-                        onChange={(e) => setBulkPercent(parseFloat(e.target.value) || 0)}
-                        className={`w-11 px-1 py-1 text-xs font-mono font-bold text-center rounded-md border focus:outline-none ${
-                          isDarkMode 
-                            ? "bg-[#101214] border-neutral-700 text-[#C5A059] focus:border-[#C5A059]" 
-                            : "bg-white border-slate-300 text-[#B88E3A] focus:border-[#B88E3A]"
-                        }`}
-                      />
-                    </div>
+                      <div className="flex items-center gap-0.5">
+                        <span className={`text-[11px] font-mono font-bold ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>%</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="300"
+                          value={bulkPercent}
+                          onChange={(e) => setBulkPercent(parseFloat(e.target.value) || 0)}
+                          className={`w-14 px-1.5 py-1 text-base sm:text-xs font-mono font-bold text-center rounded-md border focus:outline-none ${
+                            isDarkMode 
+                              ? "bg-[#101214] border-neutral-700 text-[#C5A059] focus:border-[#C5A059]" 
+                              : "bg-white border-slate-300 text-[#B88E3A] focus:border-[#B88E3A]"
+                          }`}
+                        />
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleApplyBulkPrice()}
-                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1 shadow-xs cursor-pointer hover:opacity-90 active:scale-95 whitespace-nowrap ${
-                        isDarkMode 
-                          ? "bg-[#C5A059] text-black font-extrabold" 
-                          : "bg-[#B88E3A] text-white"
-                      }`}
-                    >
-                      <TrendingUp className="w-3.5 h-3.5" />
-                      <span>Uygula</span>
-                    </button>
-                  </div>
-
-                  <div className={`h-4 w-px mx-0.5 shrink-0 ${isDarkMode ? "bg-neutral-800" : "bg-amber-200"}`} />
-
-                  {/* Orta Bölüm: Hızlı Zam Butonları 10, 20, 30, 40, 50 */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {[10, 20, 30, 40, 50].map((pct) => (
                       <button
-                        key={pct}
                         type="button"
-                        onClick={() => {
-                          setBulkPercent(pct);
-                          handleApplyBulkPrice(pct);
-                        }}
-                        className={`px-2 py-1 rounded-md text-xs font-mono font-bold border transition-colors cursor-pointer whitespace-nowrap ${
+                        onClick={() => handleApplyBulkPrice()}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 shadow-xs cursor-pointer hover:opacity-90 active:scale-95 whitespace-nowrap min-h-[34px] ${
                           isDarkMode 
-                            ? "bg-[#212429] hover:bg-[#C5A059] text-neutral-200 hover:text-black border-neutral-700 hover:border-[#C5A059]" 
-                            : "bg-white hover:bg-amber-100 text-slate-700 hover:text-amber-900 border-slate-300 hover:border-amber-300 shadow-2xs"
+                            ? "bg-[#C5A059] text-black font-extrabold" 
+                            : "bg-[#B88E3A] text-white"
                         }`}
                       >
-                        +%{pct}
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        <span>Uygula</span>
                       </button>
-                    ))}
-                  </div>
+                    </div>
 
-                  {/* Sağ Bölüm: Zammı Geri Al Butonu */}
-                  <div className="flex items-center shrink-0">
-                    {bulkUndoStack.length > 0 ? (
+                    {bulkUndoStack.length > 0 && (
                       <button
                         type="button"
                         onClick={handleUndoBulkPrice}
-                        className={`px-2.5 py-1 rounded-md border text-xs font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shadow-xs ${
+                        className={`md:hidden px-2.5 py-1 rounded-md border text-xs font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shadow-xs min-h-[34px] ${
                           isDarkMode 
                             ? "bg-neutral-800 hover:bg-neutral-700 text-amber-300 border-amber-500/40" 
                             : "bg-white hover:bg-amber-50 text-amber-800 border-amber-300"
@@ -1442,13 +1420,54 @@ export function SettingsModal({
                         <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
                         <span>Geri Al ({bulkUndoStack.length})</span>
                       </button>
-                    ) : (
-                      <span className={`text-[11px] font-mono px-2 py-0.5 rounded ${
-                        isDarkMode ? "text-neutral-500" : "text-slate-400"
-                      }`}>
-                        Geri alma yok
-                      </span>
                     )}
+                  </div>
+
+                  {/* Orta & Sağ Bölüm: Hızlı Zam Butonları 10, 20, 30, 40, 50 ve Masaüstü Geri Al */}
+                  <div className="flex items-center justify-between gap-1.5 overflow-x-auto drag-scroll touch-pan-x overscroll-x-contain py-0.5 select-none no-scrollbar">
+                    <div className="flex items-center gap-1 shrink-0">
+                      {[10, 20, 30, 40, 50].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => {
+                            setBulkPercent(pct);
+                            handleApplyBulkPrice(pct);
+                          }}
+                          className={`px-2.5 py-1.5 rounded-md text-xs font-mono font-bold border transition-colors cursor-pointer whitespace-nowrap active:scale-95 min-h-[32px] ${
+                            isDarkMode 
+                              ? "bg-[#212429] hover:bg-[#C5A059] text-neutral-200 hover:text-black border-neutral-700 hover:border-[#C5A059]" 
+                              : "bg-white hover:bg-amber-100 text-slate-700 hover:text-amber-900 border-slate-300 hover:border-amber-300 shadow-2xs"
+                          }`}
+                        >
+                          +%{pct}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="hidden md:flex items-center shrink-0 ml-2">
+                      {bulkUndoStack.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={handleUndoBulkPrice}
+                          className={`px-2.5 py-1 rounded-md border text-xs font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shadow-xs ${
+                            isDarkMode 
+                              ? "bg-neutral-800 hover:bg-neutral-700 text-amber-300 border-amber-500/40" 
+                              : "bg-white hover:bg-amber-50 text-amber-800 border-amber-300"
+                          }`}
+                          title="Son zammı geri al"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Geri Al ({bulkUndoStack.length})</span>
+                        </button>
+                      ) : (
+                        <span className={`text-[11px] font-mono px-2 py-0.5 rounded ${
+                          isDarkMode ? "text-neutral-500" : "text-slate-400"
+                        }`}>
+                          Geri alma yok
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1691,22 +1710,22 @@ export function SettingsModal({
 
         </div>
 
-        {/* Footer Actions */}
-        <div className={`flex items-center justify-between px-6 py-4 border-t shrink-0 ${
+        {/* Footer Actions (Mobil & Masaüstü Uyumlu) */}
+        <div className={`flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 px-3.5 sm:px-6 py-3 sm:py-4 border-t shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
           isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
         }`}>
           <button
             onClick={onResetToDefaults}
-            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-mono transition-colors cursor-pointer ${
-              isDarkMode ? "text-neutral-400 hover:text-white" : "text-slate-600 hover:text-slate-900"
+            className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-mono transition-colors cursor-pointer rounded-xl ${
+              isDarkMode ? "text-neutral-400 hover:text-white bg-white/5 sm:bg-transparent" : "text-slate-600 hover:text-slate-900 bg-slate-200/50 sm:bg-transparent"
             }`}
           >
             <RefreshCw className="w-3.5 h-3.5" /> Varsayılana Sıfırla
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             {saveStatusMsg && (
-              <span className={`text-[11px] font-mono px-2 py-1 rounded ${
+              <span className={`text-[11px] font-mono px-2 py-1 rounded-lg text-center ${
                 saveStatusMsg.isError 
                   ? "bg-amber-500/20 text-amber-300 border border-amber-500/40" 
                   : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
@@ -1715,41 +1734,43 @@ export function SettingsModal({
               </span>
             )}
 
-            <button
-              onClick={onClose}
-              disabled={isSaving}
-              className={`px-4 py-2 text-xs font-mono rounded transition-colors cursor-pointer ${
-                isDarkMode ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-300" : "bg-slate-200 hover:bg-slate-300 text-slate-700"
-              }`}
-            >
-              İptal
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={onClose}
+                disabled={isSaving}
+                className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-2 text-xs font-mono rounded-xl transition-colors cursor-pointer text-center ${
+                  isDarkMode ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-300" : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+                }`}
+              >
+                İptal
+              </button>
 
-            <button
-              onClick={handleSaveAll}
-              disabled={isSaving}
-              className={`flex items-center gap-2 px-5 py-2 font-mono font-bold text-xs rounded transition-all shadow-md cursor-pointer ${
-                isSaving
-                  ? "opacity-75 cursor-wait bg-[#C5A059] text-black"
-                  : savedSuccess
-                    ? "bg-green-600 text-white"
-                    : (isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white")
-              }`}
-            >
-              {isSaving ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" /> KAYDEDİLİYOR...
-                </>
-              ) : savedSuccess ? (
-                <>
-                  <Check className="w-4 h-4" /> KAYDEDİLDİ!
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" /> DEĞİŞİKLİKLERİ KAYDET
-                </>
-              )}
-            </button>
+              <button
+                onClick={handleSaveAll}
+                disabled={isSaving}
+                className={`flex-[2] sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 sm:py-2 font-mono font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer active:scale-95 ${
+                  isSaving
+                    ? "opacity-75 cursor-wait bg-[#C5A059] text-black"
+                    : savedSuccess
+                      ? "bg-green-600 text-white"
+                      : (isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white")
+                }`}
+              >
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" /> KAYDEDİLİYOR...
+                  </>
+                ) : savedSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" /> KAYDEDİLDİ!
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" /> DEĞİŞİKLİKLERİ KAYDET
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 

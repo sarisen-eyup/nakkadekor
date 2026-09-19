@@ -195,7 +195,11 @@ export async function ensureFrameProfileExistsInDb(
 ): Promise<string | null> {
   if (!profileId || !isSupabaseConfigured()) return null;
 
-  const tenantId = targetTenantId || await getAuthUserIdOrTenantId();
+  let rawTenantId = targetTenantId || await getAuthUserIdOrTenantId();
+  if (!rawTenantId || rawTenantId === "null" || rawTenantId === "undefined" || !rawTenantId.trim()) {
+    rawTenantId = getTenantId() || "00000000-0000-0000-0000-000000000001";
+  }
+  const tenantId = rawTenantId.trim();
 
   // 1. Veritabanında bu ID ile profil var mı kontrol et
   if (isUUID(profileId)) {
@@ -807,15 +811,13 @@ export async function createOrderInSupabase(
   };
 
   try {
-    // 3. Siparişin veritabanında zaten var olup olmadığını tespit et (ID veya Tenant + Sipariş No ile)
-    const isUuid = !!order.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(order.id);
+    // 3. Siparişin veritabanında zaten var olup olmadığını tespit et (ID veya Sipariş No ile)
     let existingRecordId: string | null = null;
 
-    if (isUuid && order.id) {
+    if (order.id && isUUID(order.id)) {
       const { data: byId } = await supabase
         .from("quotes_orders")
         .select("id")
-        .eq("tenant_id", tenantId)
         .eq("id", order.id)
         .maybeSingle();
       if (byId?.id) {
@@ -835,6 +837,17 @@ export async function createOrderInSupabase(
       }
     }
 
+    if (!existingRecordId && order.orderNumber) {
+      const { data: byAnyNum } = await supabase
+        .from("quotes_orders")
+        .select("id")
+        .eq("order_number", order.orderNumber)
+        .maybeSingle();
+      if (byAnyNum?.id) {
+        existingRecordId = byAnyNum.id;
+      }
+    }
+
     let data: any = null;
     let error: any = null;
 
@@ -848,10 +861,9 @@ export async function createOrderInSupabase(
       const updateRes = await supabase
         .from("quotes_orders")
         .update(updatePayload)
-        .eq("tenant_id", tenantId)
         .eq("id", existingRecordId)
         .select()
-        .single();
+        .maybeSingle();
 
       data = updateRes.data;
       error = updateRes.error;
@@ -865,10 +877,9 @@ export async function createOrderInSupabase(
         const retryUpdate = await supabase
           .from("quotes_orders")
           .update(safeUpdatePayload)
-          .eq("tenant_id", tenantId)
           .eq("id", existingRecordId)
           .select()
-          .single();
+          .maybeSingle();
 
         data = retryUpdate.data;
         error = retryUpdate.error;
@@ -886,18 +897,17 @@ export async function createOrderInSupabase(
 
       // 409 Conflict veya 23505 Unique Constraint Hatası (quotes_orders_tenant_id_order_number_key)
       // Aynı sipariş numarası varsa otomatik olarak UPDATE'e dönüştür:
-      if (error && (error.code === "23505" || error.message?.includes("unique constraint") || error.message?.includes("quotes_orders_tenant_id_order_number_key") || error.code === "409")) {
-        console.info("Order number already exists, falling back to UPDATE by (tenant_id, order_number):", order.orderNumber);
+      if (error && (error.code === "23505" || error.message?.includes("unique constraint") || error.message?.includes("quotes_orders_tenant_id_order_number_key") || error.code === "409" || error.details?.includes("Key (tenant_id, order_number)"))) {
+        console.info("Order number already exists, falling back to UPDATE by (order_number):", order.orderNumber);
         const conflictUpdateRes = await supabase
           .from("quotes_orders")
           .update({
             ...primaryPayload,
             updated_at: new Date().toISOString()
           })
-          .eq("tenant_id", tenantId)
           .eq("order_number", order.orderNumber)
           .select()
-          .single();
+          .maybeSingle();
 
         if (!conflictUpdateRes.error && conflictUpdateRes.data) {
           data = conflictUpdateRes.data;

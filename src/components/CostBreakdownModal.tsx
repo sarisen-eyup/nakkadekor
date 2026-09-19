@@ -19,6 +19,7 @@ interface CostBreakdownModalProps {
   onToggleFlag: (flagKey: keyof MaterialInclusionFlags) => void;
   isDarkMode?: boolean;
   isShopMode?: boolean;
+  isOrderCreated?: boolean;
 }
 
 export function CostBreakdownModal({
@@ -36,7 +37,8 @@ export function CostBreakdownModal({
   flags,
   onToggleFlag,
   isDarkMode = true,
-  isShopMode = false
+  isShopMode = false,
+  isOrderCreated = false
 }: CostBreakdownModalProps) {
   const [overrideInput, setOverrideInput] = useState<string>(
     customOverridePrice ? customOverridePrice.toString() : ""
@@ -61,6 +63,10 @@ export function CostBreakdownModal({
   };
 
   const handlePrint = () => {
+    if (!isOrderCreated) {
+      alert("⚠️ Maliyet tablosunu yazdırmak için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.");
+      return;
+    }
     triggerCostBreakdownPrintWindow({
       breakdown,
       settings,
@@ -74,69 +80,91 @@ export function CostBreakdownModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in font-sans">
-      <div className={`relative w-full max-w-4xl border rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh] ${
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in font-sans">
+      <div className={`relative w-full max-w-4xl border-0 sm:border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh] ${
         isDarkMode 
           ? "bg-[#14171a] border-[#C5A059]/40 text-white" 
           : "bg-white border-[#cbd5e1] text-slate-900"
       }`}>
         
-        {/* Header */}
-        <div className={`flex items-center justify-between px-6 py-4 border-b print:hidden ${
+        {/* Header (Mobil & Masaüstü Yeniden Düzenlenmiş) */}
+        <div className={`px-3.5 sm:px-6 py-2.5 sm:py-4 border-b shrink-0 print:hidden ${
           isDarkMode ? "bg-[#1c2026] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
         }`}>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded border ${
-              isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059]/30 text-[#C5A059]" : "bg-[#B88E3A]/10 border-[#B88E3A]/30 text-[#B88E3A]"
-            }`}>
-              <Calculator className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className={`text-base sm:text-lg font-bold tracking-wide uppercase ${
+          {/* Üst Satır: İkon, Başlık ve Aksiyonlar */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className={`p-1.5 sm:p-2 rounded-xl border shrink-0 ${
+                isDarkMode ? "bg-[#C5A059]/10 border-[#C5A059]/30 text-[#C5A059]" : "bg-[#B88E3A]/10 border-[#B88E3A]/30 text-[#B88E3A]"
+              }`}>
+                <Calculator className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+              <div className="min-w-0">
+                <h2 className={`text-xs sm:text-base font-black tracking-wide uppercase truncate ${
                   isDarkMode ? "text-white" : "text-slate-900"
                 }`}>
-                  FİYAT TEKLİFİ & HESAPLAMA DÖKÜMÜ
+                  FİYAT TEKLİFİ & HESAPLAMA
                 </h2>
-                <span className={`text-xs font-mono px-2 py-0.5 rounded border font-bold ${
-                  isDarkMode 
-                    ? "bg-[#C5A059]/20 text-[#C5A059] border-[#C5A059]/40" 
-                    : "bg-[#B88E3A]/20 text-[#B88E3A] border-[#B88E3A]/40"
-                }`}>
-                  {orderNumber}
-                </span>
+                <p className={`text-[10px] sm:text-xs font-medium truncate ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
+                  Teklif Formu & Atölye Hammadde Analizi
+                </p>
               </div>
-              <p className={`text-xs font-medium ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                Eser {artworkWidthCm}x{artworkHeightCm} cm • Müşteri Teklif Formu & Atölye Hammadde Analizi
-              </p>
+            </div>
+
+            <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={handlePrint}
+                className={`flex items-center justify-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer active:scale-95 ${
+                  isDarkMode
+                    ? "bg-[#C5A059] hover:bg-[#b08c48] text-black"
+                    : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+                }`}
+                title="Yazdır veya PDF Olarak Kaydet"
+              >
+                <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
+                <span className="text-[11px] sm:text-xs">YAZDIR</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className={`p-2 rounded-xl transition-colors cursor-pointer min-w-[40px] min-h-[40px] flex items-center justify-center ${
+                  isDarkMode ? "text-neutral-400 hover:text-white hover:bg-white/10 active:bg-white/20" : "text-slate-500 hover:text-slate-900 hover:bg-slate-200 active:bg-slate-300"
+                }`}
+                title="Kapat"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={handlePrint}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 font-bold text-xs rounded transition-all shadow-md cursor-pointer ${
-                isDarkMode
-                  ? "bg-[#C5A059] hover:bg-[#b08c48] text-black"
-                  : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
-              }`}
-            >
-              <Printer className="w-4 h-4" /> YAZDIR / PDF AL
-            </button>
-
-            <button
-              onClick={onClose}
-              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                isDarkMode ? "text-neutral-400 hover:text-white hover:bg-white/10" : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
-              }`}
-            >
-              <X className="w-5 h-5" />
-            </button>
+          {/* İkinci Satır: Sipariş No & Ebat Rozetleri (Mobilde Ferah) */}
+          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-white/5 dark:border-white/5 border-slate-200/60 flex-wrap">
+            <span className={`text-[10px] sm:text-xs font-mono px-2 py-0.5 rounded-md border font-bold shrink-0 ${
+              isDarkMode 
+                ? "bg-[#C5A059]/20 text-[#C5A059] border-[#C5A059]/40" 
+                : "bg-[#B88E3A]/20 text-[#B88E3A] border-[#B88E3A]/40"
+            }`}>
+              #{orderNumber}
+            </span>
+            <span className={`text-[10px] sm:text-xs font-mono px-2 py-0.5 rounded-md border shrink-0 ${
+              isDarkMode ? "bg-white/5 border-white/10 text-neutral-300" : "bg-slate-100 border-slate-200 text-slate-700"
+            }`}>
+              {artworkWidthCm}×{artworkHeightCm} cm Eser
+            </span>
+            {customerName && (
+              <span className={`text-[10px] sm:text-xs truncate max-w-[200px] ${
+                isDarkMode ? "text-neutral-400" : "text-slate-500"
+              }`}>
+                • {customerName}
+              </span>
+            )}
           </div>
         </div>
 
         {/* Content & Printable Area */}
-        <div ref={printRef} className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 print:p-0 print:bg-white print:text-black">
+        <div ref={printRef} className="p-3 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 flex-1 overscroll-contain print:p-0 print:bg-white print:text-black touch-pan-y">
           
           {/* Printable Corporate Header */}
           <div className="hidden print:block border-b-2 border-black pb-4 mb-4">
@@ -415,23 +443,28 @@ export function CostBreakdownModal({
 
           {/* Itemized Table */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-1">
               <h3 className={`text-xs font-mono font-bold uppercase tracking-wider ${
                 isDarkMode ? "text-neutral-200" : "text-slate-800"
               } print:text-black`}>
                 {isShopMode ? "Malzeme & Hizmet Dağılımı (Hammadde & İşçilik)" : "Seçili Malzeme & Hizmet Detay Fiyatları"}
               </h3>
-              <span className={`text-[11px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"} print:text-gray-600`}>
-                Tüm tutarlar ₺ (TL) cinsindendir
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="sm:hidden text-[10px] font-mono text-[#C5A059] bg-[#C5A059]/10 px-1.5 py-0.5 rounded border border-[#C5A059]/30">
+                  ↔ Yatay Kaydırın
+                </span>
+                <span className={`text-[11px] font-mono hidden sm:inline ${isDarkMode ? "text-neutral-400" : "text-slate-500"} print:text-gray-600`}>
+                  Tüm tutarlar ₺ (TL) cinsindendir
+                </span>
+              </div>
             </div>
 
             <div 
               data-drag-scroll="true"
-              className={`border rounded-xl overflow-x-auto drag-scroll text-xs print:bg-white print:border-gray-300 transition-all ${
+              className={`border rounded-xl overflow-x-auto drag-scroll text-xs print:bg-white print:border-gray-300 transition-all touch-pan-x overscroll-x-contain ${
               isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-white border-[#e8dfcf] shadow-2xs"
             }`}>
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-[540px] text-left border-collapse">
                 <thead>
                   <tr className={`border-b text-[11px] font-bold uppercase tracking-wider print:bg-gray-100 print:border-gray-300 print:text-black ${
                     isDarkMode ? "bg-[#141618] border-neutral-800 text-[#C5A059]" : "bg-[#fbf8f2] border-[#e8dfcf] text-[#8C6B23]"
@@ -758,28 +791,29 @@ export function CostBreakdownModal({
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
               <div className="relative flex-1">
                 <input
                   type="number"
                   placeholder={`Örn: ${Math.ceil(breakdown.calculatedPriceWithVat)}`}
                   value={overrideInput}
                   onChange={(e) => setOverrideInput(e.target.value)}
-                  className={`w-full border rounded-lg px-3 py-2 text-sm font-mono font-bold focus:outline-none transition-colors ${
+                  className={`w-full border rounded-xl px-3.5 py-2.5 sm:py-2 text-base sm:text-sm font-mono font-bold focus:outline-none transition-colors ${
                     isDarkMode ? "bg-[#121415] border-[#C5A059]/40 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] shadow-2xs"
                   }`}
                 />
-                <span className={`absolute right-3 top-2.5 text-xs font-mono font-bold ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>₺ (KDV Dahil)</span>
+                <span className={`absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-mono font-bold ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>₺ (KDV Dahil)</span>
               </div>
 
               <button
                 type="button"
                 onClick={handleApplyOverride}
-                className={`px-4 py-2 font-mono font-bold text-xs rounded-lg transition-all shrink-0 shadow-xs cursor-pointer ${
+                className={`w-full sm:w-auto px-5 py-2.5 sm:py-2 font-mono font-bold text-xs rounded-xl transition-all shrink-0 shadow-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 ${
                   isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
                 }`}
               >
-                FİYATI UYGULA
+                <Tag className="w-3.5 h-3.5" />
+                <span>FİYATI UYGULA</span>
               </button>
             </div>
 
@@ -813,33 +847,43 @@ export function CostBreakdownModal({
 
         </div>
 
-        {/* Footer */}
-        <div className={`flex items-center justify-between px-6 py-4 border-t print:hidden ${
+        {/* Footer (Mobil & Masaüstü Yeniden Düzenlenmiş) */}
+        <div className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-3.5 sm:px-6 py-3 sm:py-4 border-t shrink-0 print:hidden pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
           isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-[#fdfbf8] border-[#e8dfcf]"
         }`}>
-          <div className={`text-xs font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-            Geçerli Fiyat: <span className={`font-bold text-sm ${isDarkMode ? "text-[#C5A059]" : "text-[#7A5A19]"}`}>₺{breakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}</span>
+          <div className={`text-xs font-mono flex items-center justify-between sm:justify-start gap-2.5 ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
+            <span className="text-[11px] sm:text-xs">Toplam Tutar:</span>
+            <span className={`font-black text-lg sm:text-xl font-mono ${isDarkMode ? "text-[#C5A059]" : "text-[#7A5A19]"}`}>
+              ₺{breakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}
+            </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               type="button"
+              disabled={!isOrderCreated}
               onClick={handlePrint}
-              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono rounded-lg border transition-colors cursor-pointer ${
-                isDarkMode ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border-neutral-700" : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-2xs"
+              title={!isOrderCreated ? "Yazdırmak için önce sipariş oluşturulmalıdır." : "Maliyet tablosunu yazdır"}
+              className={`flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2.5 sm:py-2 text-xs font-mono rounded-xl border transition-colors ${
+                !isOrderCreated
+                  ? "opacity-50 cursor-not-allowed bg-neutral-800 text-neutral-400 border-neutral-700"
+                  : isDarkMode 
+                    ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border-neutral-700 cursor-pointer active:scale-95" 
+                    : "bg-white hover:bg-slate-100 text-slate-700 border-slate-300 shadow-2xs cursor-pointer active:scale-95"
               }`}
             >
-              <Printer className="w-3.5 h-3.5" /> YAZDIR / PDF AL
+              {!isOrderCreated ? <Lock className="w-3.5 h-3.5" /> : <Printer className="w-3.5 h-3.5" />}
+              <span className="truncate">{!isOrderCreated ? "KİLİTLİ (ÖNCE SİPARİŞİ OLUŞTURUN)" : "YAZDIR / PDF"}</span>
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              className={`flex items-center gap-2 px-6 py-2.5 font-mono font-bold text-xs rounded-lg shadow-md transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-2.5 font-mono font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer active:scale-95 ${
                 isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
               }`}
             >
-              SİPARİŞE İŞLE VE KAPAT <ArrowRight className="w-4 h-4" />
+              <span>SİPARİŞE İŞLE</span> <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>

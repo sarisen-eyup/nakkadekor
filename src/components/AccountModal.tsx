@@ -38,6 +38,7 @@ import {
   isSupabaseConfigured
 } from "../services/supabaseService";
 import { compressImage } from "../utils/imageCompressor";
+import { LegalTermsModal, LegalTermsCheckbox, LegalDocType } from "./LegalTermsModal";
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -70,6 +71,8 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatusMsg, setSaveStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [creditNotice, setCreditNotice] = useState<string | null>(null);
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState<boolean>(false);
+  const [selectedLegalDoc, setSelectedLegalDoc] = useState<LegalDocType>("user_agreement");
 
   useEffect(() => {
     if (isOpen) {
@@ -724,6 +727,23 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                   </div>
                 </div>
 
+                {/* Yasal Sözleşme, Kurumsal Fatura & KVKK Şartları Onayı */}
+                <div className={`p-3.5 rounded-xl border ${
+                  isDarkMode ? "bg-black/25 border-white/10" : "bg-slate-50 border-slate-200"
+                }`}>
+                  <LegalTermsCheckbox
+                    checked={localCompany.termsAccepted ?? true}
+                    onChange={(val) => {
+                      handleCompanyChange("termsAccepted", val);
+                    }}
+                    onOpenDoc={(doc) => {
+                      setSelectedLegalDoc(doc);
+                      setIsLegalModalOpen(true);
+                    }}
+                    isDarkMode={isDarkMode}
+                  />
+                </div>
+
                 {/* Geri Bildirim ve Kaydet Butonu */}
                 <div className="space-y-3 pt-1">
                   {saveStatusMsg && (
@@ -981,6 +1001,13 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           </button>
         </div>
 
+        {/* Legal Terms & KVKK Popup Modal */}
+        <LegalTermsModal
+          isOpen={isLegalModalOpen}
+          onClose={() => setIsLegalModalOpen(false)}
+          defaultDoc={selectedLegalDoc}
+          isDarkMode={isDarkMode}
+        />
       </div>
     </div>
   );
