@@ -259,7 +259,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                 </span>
               </div>
               <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                Firma kurumsal anteti, iletişim bilgileri ve kredi bakiyesi yönetimi
+                Kurumsal antet, iletişim bilgileri ve kredi bakiyesi
               </p>
             </div>
           </div>
@@ -384,11 +384,11 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className={`text-sm font-bold uppercase tracking-wider ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                          FİRMA RESMİ BİLGİLERİ VE BELGE ANTETİ
+                          FİRMA BİLGİLERİ VE ANTET
                         </h3>
                       </div>
                       <p className={`text-xs mt-0.5 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                        Teklif dökümlerinde, sipariş fişlerinde ve atölye iş emirlerinde yer alan kurumsal antetiniz
+                        Yazdırma belgelerinde ve tekliflerde yer alan kurumsal bilgileriniz
                       </p>
                     </div>
                   </div>

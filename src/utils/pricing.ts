@@ -131,9 +131,9 @@ export function saveSettingsToStorage(settings: UnitPricesSettings): void {
 }
 
 export function loadProfilesFromStorage(_tenantId?: string): FrameProfileItem[] {
-  // Varsayılan başlangıç çıtaları (AV-501, SM-302, CR-405, BL-201, GV-602)
-  // Supabase'den veri çekilene kadar veya şema henüz oluşturulmamışken kesintisiz simülasyon sağlar.
-  return INITIAL_FRAME_PROFILES;
+  // Kullanıcı girişinde sadece kullanıcının yüklediği çerçeveler Supabase'den çekilir;
+  // sahte veya varsayılan demo çerçeveler döndürülmez.
+  return [];
 }
 
 export function saveProfilesToStorage(_profiles: FrameProfileItem[], _tenantId?: string): void {

@@ -522,7 +522,7 @@ export function SettingsModal({
                 </span>
               </div>
               <p className={`text-[10px] sm:text-xs font-medium truncate ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                Birim maliyetler, profil kataloğu ve ekran gizlilik modu
+                Birim fiyatlar, profil kataloğu ve görünüm modu
               </p>
             </div>
           </div>
@@ -1184,19 +1184,10 @@ export function SettingsModal({
                   }`}>
                     <Database className="w-10 h-10 mx-auto opacity-30 text-[#C5A059]" />
                     <div>
-                      <h4 className="font-bold text-sm text-neutral-200">Kayıtlı Profil Bulunmuyor</h4>
+                      <h4 className="font-bold text-sm text-neutral-200">Kayıtlı Profil Yok</h4>
                       <p className="text-xs text-neutral-400 mt-1 max-w-md mx-auto">
-                        Veritabanınızda henüz çerçeve profili bulunmamaktadır. Yukarıdaki formu kullanarak kendi çıtalarınızı ekleyebilir veya tek tıkla 5 adet hazır klasik çerçeve profilini yükleyebilirsiniz.
+                        Yukarıdaki formu kullanarak atölyenize ait çerçeve profillerini ekleyebilirsiniz.
                       </p>
-                    </div>
-                    <div className="pt-2 flex justify-center gap-3">
-                      <button
-                        type="button"
-                        onClick={handleLoadSampleProfiles}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#C5A059] hover:bg-[#b5924b] text-black font-bold text-xs transition-colors cursor-pointer"
-                      >
-                        <Sparkles className="w-4 h-4" /> Örnek 5 Klasik Profili Yükle
-                      </button>
                     </div>
                   </div>
                 ) : (
@@ -1681,7 +1672,7 @@ export function SettingsModal({
                   isDarkMode ? "text-neutral-300" : "text-slate-800"
                 }`}>
                   <ShieldCheck className="w-4 h-4 text-[#C5A059]" />
-                  <span>Kısaca Görünüm Kuralları</span>
+                  <span>Görünüm Kuralları</span>
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">

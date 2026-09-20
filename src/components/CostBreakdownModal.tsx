@@ -103,10 +103,10 @@ export function CostBreakdownModal({
                 <h2 className={`text-xs sm:text-base font-black tracking-wide uppercase truncate ${
                   isDarkMode ? "text-white" : "text-slate-900"
                 }`}>
-                  FİYAT TEKLİFİ & HESAPLAMA
+                  FİYAT VE MALİYET DÖKÜMÜ
                 </h2>
                 <p className={`text-[10px] sm:text-xs font-medium truncate ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                  Teklif Formu & Atölye Hammadde Analizi
+                  Müşteri Teklifi ve Atölye Analizi
                 </p>
               </div>
             </div>

@@ -470,11 +470,8 @@ export const FramingStep: React.FC<FramingStepProps> = ({
         </div>
 
         <div className="space-y-3">
-          <p className={`text-[11px] leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-            İsteğe bağlı olarak tablonun dışına derinlikli kasa çerçeve ekleyebilirsiniz.
-          </p>
           <FrameProfileSelector
-            label="Dış Kasa Çerçeve Koleksiyonu"
+            label="Dış Kasa Çerçeve Profili"
             selectedProfileId={selectedOuterProfileId}
             profiles={frameProfiles}
             onSelectProfile={handleSelectOuterProfile}

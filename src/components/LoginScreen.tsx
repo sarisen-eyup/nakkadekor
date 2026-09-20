@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   ShieldCheck, 
   Building2, 
@@ -15,6 +16,8 @@ import {
   ensureTenantAndUserExist, 
   setAuthenticatedTenantId 
 } from "../lib/supabase";
+import { fetchTenantRecord } from "../services/supabaseService";
+import { useAuthGuard } from "../context/AuthGuardContext";
 import { LegalTermsModal, LegalTermsCheckbox, LegalDocType } from "./LegalTermsModal";
 
 interface LoginScreenProps {
@@ -44,74 +47,83 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   // Modals inside login
   const [isContactModalOpen, setIsContactModalOpen] = useState<boolean>(false);
 
+  const navigate = useNavigate();
+  const { tenantStatus, refreshTenant } = useAuthGuard();
+
+  // Halihazırda oturum durumu netleştiyse ilgili rotaya yönlendir
+  useEffect(() => {
+    if (tenantStatus === "active") {
+      navigate("/", { replace: true });
+    } else if (tenantStatus === "pending" || tenantStatus === "suspended") {
+      navigate("/pending", { replace: true });
+    } else if (tenantStatus === "needs_onboarding") {
+      navigate("/onboarding", { replace: true });
+    }
+  }, [tenantStatus, navigate]);
+
+  // Oturum açan kullanıcının atölye/tenant kaydını kontrol edip doğru ekrana yönlendiren fonksiyon
+  const processUserAuth = async (u: any) => {
+    try {
+      setAuthenticatedTenantId(u.id);
+      await ensureTenantAndUserExist(u);
+      const tenantRes = await fetchTenantRecord(u.id);
+
+      if (tenantRes.status === "needs_onboarding") {
+        setIsGoogleLoading(false);
+        navigate("/onboarding", { replace: true });
+        return;
+      }
+
+      if (tenantRes.status === "pending" || tenantRes.status === "suspended") {
+        setIsGoogleLoading(false);
+        navigate("/pending", { replace: true });
+        return;
+      }
+
+      if (tenantRes.status === "active") {
+        const loggedAccount: UserAccount = {
+          id: u.id,
+          fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Yetkili",
+          username: u.email?.split("@")[0] || "user",
+          email: u.email || "",
+          role: "admin",
+          avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || "",
+          phone: u.user_metadata?.phone || "",
+          isEmailVerified: true,
+          status: "active",
+          lastLoginAt: "Şimdi (Aktif Oturum)"
+        };
+        setIsGoogleLoading(false);
+        onLoginSuccess(loggedAccount, true);
+        navigate("/", { replace: true });
+      }
+    } catch (err) {
+      console.warn("processUserAuth error:", err);
+      setIsGoogleLoading(false);
+    }
+  };
+
   // Supabase Auth Dinleyicisi (Google OAuth ve mevcut oturum)
   useEffect(() => {
     if (isSupabaseConfigured()) {
       // 1. Mevcut aktif Supabase oturumu kontrolü
       supabase.auth.getSession().then(async ({ data: { session } }) => {
         if (session?.user) {
-          const u = session.user;
-          setAuthenticatedTenantId(u.id);
-          await ensureTenantAndUserExist(u);
-          const loggedAccount: UserAccount = {
-            id: u.id,
-            fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Yetkili",
-            username: u.email?.split("@")[0] || "user",
-            email: u.email || "",
-            role: "admin",
-            avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || "",
-            phone: u.user_metadata?.phone || "",
-            isEmailVerified: true,
-            status: "active",
-            lastLoginAt: "Şimdi (Aktif Oturum)"
-          };
-          onLoginSuccess(loggedAccount, true);
+          await processUserAuth(session.user);
         }
       });
 
       // 2. Auth State Değişiklikleri (Google Login Popup veya Yönlendirme Tamamlandığında)
       const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
         if ((event === "SIGNED_IN" || event === "USER_UPDATED") && session?.user) {
-          const u = session.user;
-          setAuthenticatedTenantId(u.id);
-          await ensureTenantAndUserExist(u);
-          const loggedAccount: UserAccount = {
-            id: u.id,
-            fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Yetkili",
-            username: u.email?.split("@")[0] || "user",
-            email: u.email || "",
-            role: "admin",
-            avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || "",
-            phone: u.user_metadata?.phone || "",
-            isEmailVerified: true,
-            status: "active",
-            lastLoginAt: "Şimdi (Aktif Oturum)"
-          };
-          setIsGoogleLoading(false);
-          onLoginSuccess(loggedAccount, true);
+          await processUserAuth(session.user);
         }
       });
 
       // 3. Popup penceresinden gelebilecek mesaj dinleyicisi
-      const handlePopupMessage = (evt: MessageEvent) => {
+      const handlePopupMessage = async (evt: MessageEvent) => {
         if (evt.data?.type === "SUPABASE_AUTH_SUCCESS" && evt.data?.session?.user) {
-          const u = evt.data.session.user;
-          setAuthenticatedTenantId(u.id);
-          ensureTenantAndUserExist(u);
-          const loggedAccount: UserAccount = {
-            id: u.id,
-            fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Yetkili",
-            username: u.email?.split("@")[0] || "user",
-            email: u.email || "",
-            role: "admin",
-            avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || "",
-            phone: u.user_metadata?.phone || "",
-            isEmailVerified: true,
-            status: "active",
-            lastLoginAt: "Şimdi (Aktif Oturum)"
-          };
-          setIsGoogleLoading(false);
-          onLoginSuccess(loggedAccount, true);
+          await processUserAuth(evt.data.session.user);
         }
       };
       window.addEventListener("message", handlePopupMessage);
@@ -121,7 +133,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         window.removeEventListener("message", handlePopupMessage);
       };
     }
-  }, [onLoginSuccess]);
+  }, [onLoginSuccess, navigate]);
 
   // Google OAuth ile Giriş Başlatma
   const handleGoogleLogin = async () => {
@@ -209,21 +221,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               Simülatörü
             </h2>
             <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed max-w-md">
-              Sanatsal çerçeve atölyelerine özel; gönye kesim, dinamik paspartu, kurumsal pdf teklif, üretim emri hazırlama ve maliyet hesabı oluşturma sistemi.
+              Sanatsal çerçeve atölyelerine özel; gönye kesim, dinamik paspartu simülasyonu, iş emri ve maliyet hesaplama platformu.
             </p>
 
             <div className="pt-3 space-y-3 text-xs sm:text-sm text-neutral-200">
               <div className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded-full bg-[#C5A059]/25 border border-[#C5A059]/40 flex items-center justify-center text-[#C5A059] text-xs font-bold shrink-0">✓</div>
-                <span className="font-medium">Sanatı hak ettiği kusursuz çerçeveyle buluşturun</span>
+                <span className="font-medium">Gerçek zamanlı çerçeve ve paspartu simülasyonu</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/40 flex items-center justify-center text-[#C5A059] text-xs font-bold shrink-0">✓</div>
-                <span className="font-medium">Müşterilerinize hayal ettikleri sonucu anında yaşatın</span>
+                <span className="font-medium">Anlık maliyet, fire analizi ve kâr hesaplama</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/40 flex items-center justify-center text-[#C5A059] text-xs font-bold shrink-0">✓</div>
-                <span className="font-medium">Atölyenizin prestijini ve teklif hızını zirveye taşıyın</span>
+                <span className="font-medium">Tek tıkla teklif formu, kesim listesi ve arka etiket çıktısı</span>
               </div>
             </div>
           </div>
@@ -363,6 +375,32 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 )}
               </button>
             </div>
+
+            {/* AI Studio Geliştirici & Tasarım Düzenleme Butonu (Sadece DEV Ortamında) */}
+            {import.meta.env.DEV && onContinueAsGuest && (
+              <div className={`mt-4 p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
+                isDarkMode 
+                  ? "bg-[#C5A059]/10 border-[#C5A059]/30 text-neutral-200" 
+                  : "bg-amber-50/80 border-amber-300 text-amber-950"
+              }`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-[#C5A059]/20 text-[#C5A059] flex items-center justify-center shrink-0">
+                    <Compass className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <div className="text-xs font-bold truncate">AI Studio Tasarım Düzenleme</div>
+                    <div className="text-[10px] opacity-75 truncate">Girişi atlayıp doğrudan simülatörü açar</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onContinueAsGuest}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#C5A059] to-[#a88237] hover:from-[#d5b069] hover:to-[#b89247] text-black font-extrabold text-xs flex items-center gap-1.5 transition-all shadow cursor-pointer active:scale-95 shrink-0"
+                >
+                  <span>Tasarımı Aç</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Footer: Quick Access & Licensing */}

@@ -167,20 +167,172 @@ export async function testSupabaseConnection(): Promise<{
 // ==========================================
 
 /**
- * Veritabanında tenant (atölye) kaydının varlığını garantiler (Foreign key kısıtları için).
+ * Veritabanında tenant (atölye) kaydının varlığını kontrol eder.
  */
 export async function ensureTenantRecord(tenantId: string): Promise<boolean> {
   if (!isSupabaseConfigured() || !isUUID(tenantId)) return false;
   try {
-    const { error } = await supabase.from("tenants").upsert({
-      id: tenantId,
-      name: "Atölye",
-      slug: `tenant-${tenantId.slice(0, 8)}`,
-      status: "active"
-    }, { onConflict: "id" });
-    return !error;
+    const { data } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("id", tenantId)
+      .maybeSingle();
+    return Boolean(data?.id);
   } catch {
     return false;
+  }
+}
+
+/**
+ * Giriş yapan kullanıcının Supabase 'tenants' tablosundaki durumunu sorgular.
+ * Durumlar: 'needs_onboarding' (kayıt yok), 'pending' (onay bekliyor), 'active' (onaylı), 'suspended' (askıda)
+ */
+export async function fetchTenantRecord(userId?: string): Promise<{
+  tenant: any | null;
+  status: "unauthenticated" | "needs_onboarding" | "pending" | "active" | "suspended" | "error";
+  error: any;
+}> {
+  if (!isSupabaseConfigured()) {
+    return { tenant: null, status: "unauthenticated", error: new Error("Supabase yapılandırılmamış") };
+  }
+
+  let uid = userId;
+  if (!uid) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      uid = session?.user?.id;
+    } catch (e) {
+      return { tenant: null, status: "unauthenticated", error: e };
+    }
+  }
+
+  if (!uid) {
+    return { tenant: null, status: "unauthenticated", error: null };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("tenants")
+      .select("*")
+      .eq("id", uid)
+      .maybeSingle();
+
+    if (error) {
+      if (isSchemaMissingError(error)) {
+        console.warn("Tenants tablosu henüz oluşturulmamış veya şemada yok:", error.message);
+        return { tenant: null, status: "needs_onboarding", error: null };
+      }
+      return { tenant: null, status: "error", error };
+    }
+
+    if (!data) {
+      return { tenant: null, status: "needs_onboarding", error: null };
+    }
+
+    const rawStatus = String(data.status || "pending").toLowerCase().trim();
+
+    if (rawStatus === "active") {
+      return { tenant: data, status: "active", error: null };
+    } else if (rawStatus === "suspended") {
+      return { tenant: data, status: "suspended", error: null };
+    } else {
+      return { tenant: data, status: "pending", error: null };
+    }
+  } catch (err) {
+    console.warn("Exception in fetchTenantRecord:", err);
+    return { tenant: null, status: "error", error: err };
+  }
+}
+
+/**
+ * Onboarding aşamasında yeni atölye/firma kaydı oluşturur ve varsayılan olarak status: 'pending' atar.
+ */
+export async function createTenantOnboarding(
+  profile: CompanyProfile,
+  userId?: string
+): Promise<{ success: boolean; tenant?: any | null; error: any }> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, error: new Error("Supabase yapılandırılmamış") };
+  }
+
+  let uid = userId;
+  if (!uid) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      uid = session?.user?.id;
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!uid) {
+    return { success: false, error: new Error("Oturum açmış kullanıcı bulunamadı") };
+  }
+
+  try {
+    let cleanLogoUrl = profile.logoUrl || "";
+    if (cleanLogoUrl.startsWith("data:") || cleanLogoUrl.startsWith("blob:")) {
+      try {
+        const uploadRes = await uploadImageToSupabaseStorage(cleanLogoUrl, "logos", "company_logo");
+        if (uploadRes.publicUrl) {
+          cleanLogoUrl = uploadRes.publicUrl;
+        }
+      } catch (e) {
+        console.warn("Logo yükleme uyarısı:", e);
+      }
+    }
+
+    const payload: Record<string, any> = {
+      id: uid,
+      name: profile.companyName?.trim() || "Atölye",
+      slug: `tenant-${uid.slice(0, 8)}`,
+      status: "pending", // Onboarding sonrası doğrudan 'pending' statüsü atanır
+      trade_title: profile.tradeTitle || "",
+      tagline: profile.tagline || "",
+      tax_office: profile.taxOffice || "",
+      tax_number: profile.taxNumber || "",
+      phone: profile.phone || "",
+      email: profile.email || "",
+      website: profile.website || "",
+      address: profile.address || "",
+      city: profile.city || "",
+      iban: profile.iban || "",
+      logo_url: cleanLogoUrl,
+      primary_color: profile.primaryColor || "#C5A059",
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: insertedTenant, error: insertError } = await supabase
+      .from("tenants")
+      .upsert(payload, { onConflict: "id" })
+      .select()
+      .maybeSingle();
+
+    if (insertError) {
+      console.error("Tenants tablosuna kayıt oluşturulamadı:", insertError);
+      return { success: false, error: insertError };
+    }
+
+    // Ayarları da kaydet
+    try {
+      await supabase.from("tenant_settings").upsert({
+        tenant_id: uid,
+        include_in_quotes: profile.includeInQuotes ?? true,
+        settings: {
+          companyProfile: {
+            ...profile,
+            logoUrl: cleanLogoUrl
+          }
+        }
+      }, { onConflict: "tenant_id" });
+    } catch (settErr) {
+      console.warn("tenant_settings upsert uyarısı:", settErr);
+    }
+
+    return { success: true, tenant: insertedTenant || payload, error: null };
+  } catch (err) {
+    console.error("createTenantOnboarding exception:", err);
+    return { success: false, error: err };
   }
 }
 
@@ -325,37 +477,74 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{
   isSchemaMissing?: boolean;
 }> {
   if (!isSupabaseConfigured()) {
-    return { data: DEFAULT_FRAME_PROFILES, error: null };
+    return { data: [], error: null };
   }
 
   const tenantId = await getAuthUserIdOrTenantId();
 
   try {
+    // Sadece mevcut oturum açmış kullanıcıya (tenantId) ait profilleri getir
+    // tenant_id.is.null sorgulanmaz; böylece veritabanındaki örnek/varsayılan çıtalar asla gelmez
     const { data, error } = await supabase
       .from("frame_profiles")
       .select("*")
-      .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
 
     if (error) {
       if (isSchemaMissingError(error)) {
         console.warn(
-          "[Supabase] 'frame_profiles' tablosu şema önbelleğinde bulunamadı (PGRST205). Varsayılan profiller yükleniyor. 'src/db/schema_update.sql' dosyasını Supabase SQL Editor'de çalıştırabilirsiniz."
+          "[Supabase] 'frame_profiles' tablosu şema önbelleğinde bulunamadı (PGRST205)."
         );
-        return { data: DEFAULT_FRAME_PROFILES, error: null, isSchemaMissing: true };
+        return { data: [], error: null, isSchemaMissing: true };
       }
-      console.warn("Could not fetch frame profiles from Supabase (using default profiles):", error.message || error);
-      return { data: DEFAULT_FRAME_PROFILES, error };
+      console.warn("Could not fetch frame profiles from Supabase:", error.message || error);
+      return { data: [], error };
     }
 
     if (!data || data.length === 0) {
-      // Veritabanı boşsa varsayılan profilleri Supabase'e otomatik ekle (seed/upsert)
-      console.log("[Supabase] frame_profiles tablosu boş tespit edildi. Varsayılan profiller veritabanına otomatik ekleniyor...");
-      const seeded = await seedDefaultFrameProfiles(tenantId);
-      return { data: seeded, error: null };
+      // Kullanıcının henüz kayıtlı profili yoksa boş dizi döndür (asla otomatik seed veya mock çıta ekleme)
+      return { data: [], error: null };
     }
 
-    const profiles: FrameProfileItem[] = data.map((row: any) => ({
+    // Geçmişte otomatik seed ile kullanıcı profillerine girmiş olan örnek çıtaları (örn: AV-501 Altın Varak) temizle
+    const mockCodes = ["AV-501", "SM-302", "CR-405", "BL-201", "GV-602"];
+    const hasLegacyMock = data.some((r: any) => 
+      mockCodes.includes(r.code) && (
+        r.name?.includes("Altın Varak") || 
+        r.name?.includes("Siyah Mat Minimalist") || 
+        r.name?.includes("Doğal Masif Meşe") ||
+        r.name?.includes("Fırçalanmış İnce") ||
+        r.name?.includes("Gümüş Varak Barok")
+      )
+    );
+
+    if (hasLegacyMock) {
+      // Arka planda veritabanından bu eski otomatik seed kayıtlarını temizle
+      supabase
+        .from("frame_profiles")
+        .delete()
+        .eq("tenant_id", tenantId)
+        .in("code", mockCodes)
+        .then(() => {
+          console.log("[Supabase] Eski varsayılan demo profiller temizlendi.");
+        })
+        .catch((e) => console.warn("Mock profiller temizlenirken hata:", e));
+    }
+
+    // Sadece kullanıcının gerçekten yüklediği/kaydettiği profilleri al
+    const userOnlyData = data.filter((row: any) => {
+      const isMock = mockCodes.includes(row.code) && (
+        row.name?.includes("Altın Varak") || 
+        row.name?.includes("Siyah Mat Minimalist") || 
+        row.name?.includes("Doğal Masif Meşe") ||
+        row.name?.includes("Fırçalanmış İnce") ||
+        row.name?.includes("Gümüş Varak Barok")
+      );
+      return !isMock;
+    });
+
+    const profiles: FrameProfileItem[] = userOnlyData.map((row: any) => ({
       id: String(row.id),
       code: row.code,
       name: row.name,
@@ -372,8 +561,8 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{
 
     return { data: profiles, error: null };
   } catch (err: any) {
-    console.warn("Exception fetching frame profiles (using fallback catalog):", err?.message || err);
-    return { data: DEFAULT_FRAME_PROFILES, error: err };
+    console.warn("Exception fetching frame profiles:", err?.message || err);
+    return { data: [], error: err };
   }
 }
 

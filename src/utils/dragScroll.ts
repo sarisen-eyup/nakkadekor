@@ -298,10 +298,27 @@ export function initGlobalDragScroll() {
     if (e.deltaY === 0) return;
 
     const target = e.target as HTMLElement | null;
+    if (!target) return;
+
+    // Asla tablo, tablo hücreleri veya dikey listelerde fare tekerleğini (wheel) engelleme
+    if (
+      target.closest("table") || 
+      target.closest("tbody") || 
+      target.closest("thead") ||
+      target.closest("[data-allow-native-scroll='true']") ||
+      target.closest(".allow-native-scroll")
+    ) {
+      return;
+    }
+
     const { targetX, targetY } = findScrollTargets(target);
 
     // If element can scroll horizontally, but NOT vertically (like tabs, chip rows)
     if (targetX && !targetY && targetX.scrollWidth > targetX.clientWidth + 2) {
+      // Tablo içeren konteynerlerde dikey kaydırmayı yataya çevirme
+      if (targetX.querySelector("table") || targetX.closest("table")) {
+        return;
+      }
       targetX.scrollLeft += e.deltaY;
       e.preventDefault();
     }

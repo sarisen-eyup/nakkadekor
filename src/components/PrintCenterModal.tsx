@@ -145,10 +145,10 @@ export function PrintCenterModal({
                 </div>
                 <div>
                   <h4 className="font-extrabold text-xs sm:text-sm uppercase tracking-wide flex items-center gap-1.5 text-amber-400">
-                    <AlertCircle className="w-4 h-4" /> Belge Yazdırmak İçin Önce Sipariş Oluşturulmalıdır
+                    <AlertCircle className="w-4 h-4" /> Sipariş Kaydı Gerekli
                   </h4>
                   <p className="text-xs opacity-90 mt-1 leading-relaxed">
-                    Sipariş formu, üretim emri, maliyet tablosu ve ürün etiketi basılmadan önce siparişin kaydedilmesi zorunludur. Aşağıdaki butonla siparişi hemen oluşturabilirsiniz.
+                    Belge ve etiket çıktısı alabilmek için önce siparişi kaydedin.
                   </p>
                 </div>
               </div>
@@ -163,7 +163,7 @@ export function PrintCenterModal({
                   }`}
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Siparişi Şimdi Oluştur</span>
+                  <span>Siparişi Oluştur</span>
                 </button>
               )}
             </div>
@@ -175,7 +175,7 @@ export function PrintCenterModal({
             }`}>
               <div className="flex items-center gap-2 text-xs font-semibold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Bu sipariş veritabanında kayıtlıdır (#{orderNumber}). Belgeleri dilediğiniz zaman yazdırabilirsiniz.</span>
+                <span>Sipariş kayıtlı (#{orderNumber}). Belgeleri yazdırabilirsiniz.</span>
               </div>
               <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-black shrink-0">
                 ONAYLANDI
@@ -188,7 +188,7 @@ export function PrintCenterModal({
         <div className="p-6 overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-            {/* 1. SİPARİŞ FORMU & TEKLİF */}
+            {/* 1. SİPARİŞ FORMU */}
             <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
               !isOrderCreated
                 ? (isDarkMode ? "bg-[#181b22]/60 border-white/5 opacity-75" : "bg-slate-100/70 border-slate-200 opacity-75")
@@ -205,13 +205,13 @@ export function PrintCenterModal({
                   </div>
                   <div>
                     <h3 className="text-sm font-bold flex items-center gap-1.5">
-                      <span>1. Sipariş Formu & Teklif</span>
+                      <span>Sipariş Formu</span>
                       {!isOrderCreated && (
                         <span className="text-[9px] uppercase px-1.5 py-0.2 rounded font-mono bg-amber-500/20 text-amber-400 font-bold">Kilitli</span>
                       )}
                     </h3>
                     <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                      Görsel simülasyon, ölçüler ve müşteri onay dökümü
+                      Görsel simülasyon ve müşteri onay dökümü
                     </p>
                   </div>
                 </div>
@@ -219,20 +219,20 @@ export function PrintCenterModal({
 
               <button
                 disabled={!isOrderCreated}
-                onClick={() => handleAction(onPrintJobOrder)}
+                onClick={() => handleAction(onPrintOrderForm)}
                 className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 ${
                   !isOrderCreated
                     ? "bg-neutral-700/50 text-neutral-400 cursor-not-allowed opacity-50"
                     : "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer active:scale-98"
                 }`}
-                title={!isOrderCreated ? "Lütfen önce 'Siparişi Oluştur' butonuna basınız." : "Sipariş formunu yazdır"}
+                title={!isOrderCreated ? "Yazdırmak için önce siparişi oluşturun." : "Sipariş formunu yazdır"}
               >
                 {!isOrderCreated ? <Lock className="w-4 h-4" /> : <Printer className="w-4 h-4" />}
-                <span>{!isOrderCreated ? "Önce Siparişi Oluşturun" : "Sipariş Formunu Yazdır"}</span>
+                <span>{!isOrderCreated ? "Sipariş Kaydı Gerekli" : "Sipariş Formunu Yazdır"}</span>
               </button>
             </div>
 
-            {/* 2. ÜRETİM EMRİ & KESİM LİSTESİ */}
+            {/* 2. ATÖLYE KESİM LİSTESİ */}
             <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
               !isOrderCreated
                 ? (isDarkMode ? "bg-[#181b22]/60 border-white/5 opacity-75" : "bg-slate-100/70 border-slate-200 opacity-75")
@@ -249,13 +249,13 @@ export function PrintCenterModal({
                   </div>
                   <div>
                     <h3 className="text-sm font-bold flex items-center gap-1.5">
-                      <span>2. Üretim Emri & Kesim Listesi</span>
+                      <span>Atölye Kesim Listesi</span>
                       {!isOrderCreated && (
                         <span className="text-[9px] uppercase px-1.5 py-0.2 rounded font-mono bg-amber-500/20 text-amber-400 font-bold">Kilitli</span>
                       )}
                     </h3>
                     <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                      Atölye ve marangoz için milimetrik kesim boyları
+                      45° gönye kesim ve paspartu ölçüleri
                     </p>
                   </div>
                 </div>
@@ -270,10 +270,10 @@ export function PrintCenterModal({
                       ? "bg-neutral-700/50 text-neutral-400 cursor-not-allowed opacity-50"
                       : "bg-amber-600 hover:bg-amber-500 text-white cursor-pointer active:scale-98"
                   }`}
-                  title={!isOrderCreated ? "Lütfen önce 'Siparişi Oluştur' butonuna basınız." : "Üretim emrini yazdır"}
+                  title={!isOrderCreated ? "Yazdırmak için önce siparişi oluşturun." : "Kesim listesini yazdır"}
                 >
                   {!isOrderCreated ? <Lock className="w-4 h-4" /> : <Printer className="w-4 h-4" />}
-                  <span>{!isOrderCreated ? "Önce Siparişi Oluşturun" : "Üretim Emrini Yazdır"}</span>
+                  <span>{!isOrderCreated ? "Sipariş Kaydı Gerekli" : "Kesim Listesini Yazdır"}</span>
                 </button>
                 <button
                   disabled={!isOrderCreated}
@@ -292,7 +292,7 @@ export function PrintCenterModal({
               </div>
             </div>
 
-            {/* 3. MALİYET TABLOSU & ANALİZ */}
+            {/* 3. MALİYET VE FİYAT TABLOSU */}
             <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
               !isOrderCreated
                 ? (isDarkMode ? "bg-[#181b22]/60 border-white/5 opacity-75" : "bg-slate-100/70 border-slate-200 opacity-75")
@@ -309,13 +309,13 @@ export function PrintCenterModal({
                   </div>
                   <div>
                     <h3 className="text-sm font-bold flex items-center gap-1.5">
-                      <span>3. Maliyet Tablosu & Analiz</span>
+                      <span>Maliyet ve Fiyat Tablosu</span>
                       {!isOrderCreated && (
                         <span className="text-[9px] uppercase px-1.5 py-0.2 rounded font-mono bg-amber-500/20 text-amber-400 font-bold">Kilitli</span>
                       )}
                     </h3>
                     <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                      Malzeme sarfiyatı, birim maliyetler ve kâr dökümü
+                      Hammadde sarfiyatı, fire ve kâr analizi
                     </p>
                   </div>
                 </div>
@@ -330,10 +330,10 @@ export function PrintCenterModal({
                       ? "bg-neutral-700/50 text-neutral-400 cursor-not-allowed opacity-50"
                       : "bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer active:scale-98"
                   }`}
-                  title={!isOrderCreated ? "Lütfen önce 'Siparişi Oluştur' butonuna basınız." : "Maliyet tablosunu yazdır"}
+                  title={!isOrderCreated ? "Yazdırmak için önce siparişi oluşturun." : "Maliyet tablosunu yazdır"}
                 >
                   {!isOrderCreated ? <Lock className="w-4 h-4" /> : <Printer className="w-4 h-4" />}
-                  <span>{!isOrderCreated ? "Önce Siparişi Oluşturun" : "Maliyet Tablosunu Yazdır"}</span>
+                  <span>{!isOrderCreated ? "Sipariş Kaydı Gerekli" : "Maliyet Tablosunu Yazdır"}</span>
                 </button>
                 <button
                   disabled={!isOrderCreated}
@@ -352,7 +352,7 @@ export function PrintCenterModal({
               </div>
             </div>
 
-            {/* 4. TABLO ARKA ETİKETİ (4x4 CM) */}
+            {/* 4. ÇERÇEVE ARKA ETİKETİ (4x4 CM) */}
             <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
               !isOrderCreated
                 ? (isDarkMode ? "bg-[#181b22]/60 border-white/5 opacity-75" : "bg-slate-100/70 border-slate-200 opacity-75")
@@ -369,13 +369,13 @@ export function PrintCenterModal({
                   </div>
                   <div>
                     <h3 className="text-sm font-bold flex items-center gap-1.5">
-                      <span>4. Tablo Arka Etiketi (4×4 cm)</span>
+                      <span>Çerçeve Arka Etiketi (4×4 cm)</span>
                       {!isOrderCreated && (
                         <span className="text-[9px] uppercase px-1.5 py-0.2 rounded font-mono bg-amber-500/20 text-amber-400 font-bold">Kilitli</span>
                       )}
                     </h3>
                     <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                      Çerçeve arkasına yapıştırılacak karekodlu ürün etiketi
+                      Karekodlu yapışkanlı ürün etiketi
                     </p>
                   </div>
                 </div>
@@ -391,10 +391,10 @@ export function PrintCenterModal({
                       ? "bg-[#C5A059] hover:bg-[#d8b062] text-black cursor-pointer active:scale-98"
                       : "bg-[#B88E3A] hover:bg-[#a67e2f] text-white cursor-pointer active:scale-98"
                 }`}
-                title={!isOrderCreated ? "Lütfen önce 'Siparişi Oluştur' butonuna basınız." : "Arka etiketi yazdır"}
+                title={!isOrderCreated ? "Yazdırmak için önce siparişi oluşturun." : "Arka etiketi yazdır"}
               >
                 {!isOrderCreated ? <Lock className="w-4 h-4" /> : <Tag className="w-4 h-4" />}
-                <span>{!isOrderCreated ? "Önce Siparişi Oluşturun" : "Arka Etiketi Yazdır"}</span>
+                <span>{!isOrderCreated ? "Sipariş Kaydı Gerekli" : "Arka Etiketi Yazdır"}</span>
               </button>
             </div>
 
@@ -408,11 +408,11 @@ export function PrintCenterModal({
           <div className="text-xs">
             {!isOrderCreated ? (
               <span className="text-amber-400 font-medium flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5" /> Belgeler kilitlidir. Yazdırmak için siparişi oluşturun.
+                <AlertCircle className="w-3.5 h-3.5" /> Belgeleri yazdırmak için önce siparişi oluşturun.
               </span>
             ) : (
               <span className="text-emerald-400 font-medium flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Tüm yazdırma belgeleri hazırdır.
+                <CheckCircle2 className="w-3.5 h-3.5" /> Tüm yazdırma belgeleri hazır.
               </span>
             )}
           </div>

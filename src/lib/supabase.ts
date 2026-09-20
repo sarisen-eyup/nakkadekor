@@ -176,49 +176,7 @@ export async function ensureTenantAndUserExist(user: any) {
 
     const email = user.email || "";
 
-    // 1. Tenants tablosunda atölye kaydını garantiye al
-    try {
-      const { data: existingTenant, error: existingTenantErr } = await supabase
-        .from("tenants")
-        .select("id")
-        .eq("id", tenantId)
-        .maybeSingle();
-
-      if (existingTenantErr) {
-        console.warn("Tenant kontrol hatası:", existingTenantErr.message);
-      }
-
-      if (!existingTenant) {
-        const slug = `tenant-${tenantId.slice(0, 8)}`;
-        const tenantName = user.user_metadata?.company_name || fullName || "Atölye";
-
-        // Tablonun beklediği tüm gerekli ve ilişkisel alanlar
-        const tenantPayload: Record<string, any> = {
-          id: tenantId,
-          name: tenantName,
-          slug: slug,
-          email: email,
-          subscription_status: "active",
-          status: "active"
-        };
-
-        const { error: tErr } = await supabase.from("tenants").insert([tenantPayload]);
-        if (tErr) {
-          console.warn("Tenants tablosu tam şema uyarısı, minimal alanlarla deneniyor:", tErr.message);
-          const { error: minTErr } = await supabase.from("tenants").insert([{
-            id: tenantId,
-            name: tenantName,
-            slug: slug
-          }]);
-          if (minTErr) {
-            console.warn("Tenants tablosu minimal şema uyarısı:", minTErr.message);
-          }
-        }
-      }
-    } catch (tErr) {
-      console.warn("Tenant kaydı bilgisi:", tErr);
-    }
-
+    // 1. Tenants tablosunu otomatik oluşturmuyoruz; kullanıcı Onboarding ekranında kendisi oluşturacak.
     // 2. Users tablosunda kullanıcı profilini garantiye al
     try {
       const { data: existingUser, error: existingUserErr } = await supabase

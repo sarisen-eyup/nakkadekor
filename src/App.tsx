@@ -48,7 +48,8 @@ import {
   RotateCcw,
   Loader2,
   Plus,
-  AlertTriangle
+  AlertTriangle,
+  Compass
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import QRCode from "qrcode";
@@ -60,6 +61,11 @@ import { ImageCropModal } from "./components/ImageCropModal";
 import { ArtworkStep } from "./components/ArtworkStep";
 import { FramingStep } from "./components/FramingStep";
 import { OrderStep } from "./components/OrderStep";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { AuthGuardProvider, useAuthGuard } from "./context/AuthGuardContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { OnboardingScreen } from "./components/OnboardingScreen";
+import { PendingApprovalScreen } from "./components/PendingApprovalScreen";
 import { LoginScreen } from "./components/LoginScreen";
 import { SubscriptionModal } from "./components/SubscriptionModal";
 import { AccountModal } from "./components/AccountModal";
@@ -300,7 +306,10 @@ const PaspartuColorPicker = ({
   );
 };
 
-export default function App() {
+function SimulatorMain() {
+  const { user: authGuardUser, signOut: authGuardSignOut } = useAuthGuard();
+  const navigate = useNavigate();
+
   // Theme Mode State (AI Studio Dark default & Light mode toggle)
   const [themeMode, setThemeMode] = useState<"dark" | "light">(() => {
     const saved = localStorage.getItem("nakka_theme_mode");
@@ -447,6 +456,38 @@ export default function App() {
     loginTime: string;
   } | null>(() => loadAuthSession());
 
+  // Supabase Auth Guard ile oturum ve kullanıcıyı senkronize et
+  useEffect(() => {
+    if (authGuardUser && (!authSession || !authSession.isLoggedIn)) {
+      const u = authGuardUser;
+      const userObj: UserAccount = {
+        id: u.id,
+        fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Atölye Yöneticisi",
+        username: u.email?.split("@")[0] || "yonetici",
+        email: u.email || "",
+        role: "admin",
+        avatar: u.user_metadata?.avatar_url || u.user_metadata?.picture || "",
+        phone: u.user_metadata?.phone || "",
+        isEmailVerified: true,
+        status: "active",
+        lastLoginAt: "Şimdi (Aktif Oturum)"
+      };
+      setActiveUser(userObj);
+      const session = {
+        isLoggedIn: true,
+        userId: userObj.id,
+        email: userObj.email,
+        username: userObj.username,
+        fullName: userObj.fullName,
+        role: userObj.role,
+        rememberMe: true,
+        loginTime: new Date().toISOString()
+      };
+      saveAuthSession(session);
+      setAuthSession(session);
+    }
+  }, [authGuardUser, authSession]);
+
   const handleLoginSuccess = (user: UserAccount, rememberMe: boolean) => {
     setActiveUser(user);
     const session = {
@@ -494,6 +535,7 @@ export default function App() {
         console.warn("Supabase signout warning:", err);
       }
     }
+    await authGuardSignOut();
     clearAuthSession();
     clearAllUserTenantCache();
     setAuthSession(null);
@@ -502,6 +544,7 @@ export default function App() {
     setArchiveOrders([]);
     setCustomPaintingUrl(null);
     setCustomPaintingFile("Henüz görsel seçilmedi");
+    navigate("/login");
   };
 
   const handleContinueAsGuest = () => {
@@ -711,13 +754,11 @@ export default function App() {
     if (!isSupabaseConfigured() || !authSession?.isLoggedIn) return;
     let isMounted = true;
 
-    // 1. Fetch Cloud Frame Profiles for this tenant (Doğrudan Supabase'den çekilir, şema yoksa varsayılan kataloğu korur)
+    // 1. Fetch Cloud Frame Profiles for this tenant (Doğrudan Supabase'den çekilir; sadece kullanıcının yüklediği çerçeveler gelir)
     fetchFrameProfilesFromSupabase().then(({ data, isSchemaMissing }) => {
       if (!isMounted) return;
-      if (data && data.length > 0) {
+      if (data) {
         setFrameProfiles(data);
-      } else {
-        setFrameProfiles(DEFAULT_FRAME_PROFILES);
       }
       if (isSchemaMissing) {
         setIsSchemaPending(true);
@@ -1179,12 +1220,19 @@ export default function App() {
     }
   };
 
-  // Select initial inner frame profile if none selected
+  // Select initial inner frame profile if none selected, or synchronize if previous profile was removed
   useEffect(() => {
-    if (!selectedInnerProfileId && frameProfiles.length > 0) {
+    if (frameProfiles.length === 0) {
+      if (selectedInnerProfileId) {
+        setSelectedInnerProfileId("");
+      }
+      return;
+    }
+
+    if (!selectedInnerProfileId || !frameProfiles.some(p => p.id === selectedInnerProfileId)) {
       handleSelectInnerProfile(frameProfiles[0].id);
     }
-  }, [frameProfiles]);
+  }, [frameProfiles, selectedInnerProfileId]);
 
   // ESC key listener to close reset confirmation modal
   useEffect(() => {
@@ -2639,13 +2687,16 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
 
   if (!authSession || !authSession.isLoggedIn) {
     return (
-      <LoginScreen
-        users={userAccounts}
-        onLoginSuccess={handleLoginSuccess}
-        onRegisterCompany={handleRegisterCompany}
-        onContinueAsGuest={handleContinueAsGuest}
-        isDarkMode={isDarkMode}
-      />
+      <div className={`min-h-screen w-full flex flex-col items-center justify-center p-6 ${
+        isDarkMode ? "bg-[#0b0c0e] text-white" : "bg-[#f8f9fa] text-slate-900"
+      }`}>
+        <div className="flex flex-col items-center max-w-sm text-center">
+          <div className="w-12 h-12 rounded-2xl bg-[#C5A059]/20 border border-[#C5A059]/30 flex items-center justify-center text-[#C5A059] mb-4">
+            <RefreshCw className="w-6 h-6 animate-spin" />
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider">Atölye Yükleniyor...</span>
+        </div>
+      </div>
     );
   }
 
@@ -3595,9 +3646,9 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold">Kaydedilmemiş Değişiklikler Var!</h3>
+                <h3 className="text-base font-bold">Kaydedilmemiş Değişiklikler</h3>
                 <p className={`text-xs mt-1 leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                  Ekrandaki mevcut çerçeve tasarımı ve sipariş bilgileri henüz kaydedilmedi. Tüm simülatörü sıfırlayıp yeni bir siparişe başlamak istediğinize emin misiniz?
+                  Mevcut tasarım henüz kaydedilmedi. Simülatörü sıfırlayıp yeni bir siparişe başlamak istediğinize emin misiniz?
                 </p>
               </div>
             </div>
@@ -3634,7 +3685,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
                 className="px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-rose-600 hover:bg-rose-500 text-white transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Evet, Sıfırla</span>
+                <span>Sıfırla</span>
               </button>
             </div>
           </div>
@@ -3663,3 +3714,88 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
     </div>
   );
 }
+
+function AppRoutes() {
+  const { isDarkMode, enterDevMode, isDevMode, exitDevMode } = useAuthGuard();
+  const navigate = useNavigate();
+  const [userAccounts] = useState<UserAccount[]>(() => loadUsersFromStorage());
+
+  const handleContinueAsGuest = () => {
+    enterDevMode();
+    navigate("/");
+  };
+
+  return (
+    <>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <LoginScreen
+              users={userAccounts}
+              onLoginSuccess={() => {}}
+              onContinueAsGuest={handleContinueAsGuest}
+              isDarkMode={isDarkMode}
+            />
+          }
+        />
+        <Route path="/onboarding" element={<OnboardingScreen />} />
+        <Route path="/pending" element={<PendingApprovalScreen />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <SimulatorMain />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      {/* Sadece AI Studio Geliştirici Önizlemesinde (DEV modunda) görünen Tasarım Düzenleme Butonu */}
+      {import.meta.env.DEV && (
+        <aside aria-label="AI Studio Geliştirici Araçları" className="fixed bottom-4 left-4 z-[9999] pointer-events-auto">
+          {!isDevMode ? (
+            <button
+              type="button"
+              onClick={handleContinueAsGuest}
+              className="group flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#111317]/95 hover:bg-black text-white text-xs font-bold border border-[#C5A059]/60 shadow-2xl backdrop-blur-md transition-all cursor-pointer hover:scale-105 active:scale-95"
+              title="AI Studio Önizlemesi: Oturum ve Onay bariyerlerini atlayıp simülatörü açar"
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C5A059] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#C5A059]" />
+              </span>
+              <Compass className="w-4 h-4 text-[#C5A059]" />
+              <span className="text-[#FAE2B3] group-hover:text-white">AI Studio Tasarım Düzenle</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                exitDevMode();
+                navigate("/login");
+              }}
+              className="group flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-[11px] font-bold border border-amber-500/35 shadow-lg backdrop-blur-md transition-all cursor-pointer hover:scale-105 active:scale-95"
+              title="Giriş ve Onay ekranlarını test etmek için tasarım modunu kapat"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>Tasarım Modu Aktif (Auth Testi)</span>
+            </button>
+          )}
+        </aside>
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthGuardProvider>
+        <AppRoutes />
+      </AuthGuardProvider>
+    </BrowserRouter>
+  );
+}
+

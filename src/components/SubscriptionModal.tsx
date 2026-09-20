@@ -102,7 +102,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             </div>
             <div>
               <h2 className="text-base md:text-lg font-black tracking-wider uppercase flex items-center gap-2 flex-wrap">
-                ABONELİK &amp; KREDİ YÖNETİMİ
+                ABONELİK VE KREDİ YÖNETİMİ
                 <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
                   B2B ATÖLYE
                 </span>
@@ -117,7 +117,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 )}
               </h2>
               <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                Atölye sipariş çıktısı, kurumsal logo anteti ve yüksek çözünürlüklü PDF ihraç paketi
+                Kredi bakiyesi, paket detayları ve belge lisansı
               </p>
             </div>
           </div>

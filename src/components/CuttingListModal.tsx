@@ -66,10 +66,10 @@ export function CuttingListModal({
               <h2 className={`text-base sm:text-lg font-bold tracking-wide uppercase ${
                 isDarkMode ? "text-white" : "text-slate-900"
               }`}>
-                ÜRETİM EMRİ & ATÖLYE KESİM LİSTESİ
+                ATÖLYE KESİM LİSTESİ
               </h2>
               <p className={`text-xs font-medium ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                Marangoz/Atölye Usta Kesim Ölçüleri • 45° Gönye & Paspartu Pencere Detayları
+                45° Gönye Kesim ve Paspartu Ölçüleri
               </p>
             </div>
           </div>

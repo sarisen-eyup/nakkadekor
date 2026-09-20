@@ -404,7 +404,7 @@ export const OrderStep: React.FC<OrderStepProps> = ({
             <span className={`text-[10px] font-mono uppercase font-bold tracking-wider ${
               isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
             }`}>
-              SİPARİŞ ÖZETİ & BİLETİ
+              SİPARİŞ ÖZETİ
             </span>
             <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
               isDarkMode ? "bg-[#101216] border-white/10 text-neutral-300" : "bg-slate-100 border-slate-200 text-slate-600"

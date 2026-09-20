@@ -273,7 +273,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md animate-fade-in font-sans">
-      <div className={`w-full max-w-5xl rounded-none sm:rounded-3xl border-0 sm:border shadow-2xl flex flex-col overflow-hidden h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] transition-all ${
+      <div className={`w-full max-w-5xl rounded-none sm:rounded-3xl border-0 sm:border shadow-2xl flex flex-col overflow-hidden h-[100dvh] sm:h-[88vh] max-h-[100dvh] sm:max-h-[850px] transition-all ${
         isDarkMode ? "bg-[#14171d] border-[#C5A059]/30 text-white" : "bg-white border-slate-200 text-slate-900"
       }`}>
         
@@ -289,13 +289,13 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
             </div>
             <div className="min-w-0">
               <h2 className="text-xs sm:text-base md:text-lg font-black tracking-wider uppercase flex items-center gap-2 truncate">
-                GEÇMİŞ SİPARİŞLER &amp; ARŞİV
+                SİPARİŞ ARŞİVİ
                 <span className="text-[10px] px-2 py-0.5 rounded-md font-mono font-bold uppercase bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/40 shrink-0">
                   {orders.length}
                 </span>
               </h2>
               <p className={`text-[10px] sm:text-xs truncate ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                Çerçeve siparişleri, müşteri teklifleri ve üretim döküm arşivi
+                Kayıtlı siparişler ve üretim dökümleri
               </p>
             </div>
           </div>
@@ -371,12 +371,15 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         )}
 
         {/* List Body (Mobilde Kartlar, Masaüstünde Tablo) */}
-        <div className="flex-1 overflow-y-auto overscroll-contain min-h-[350px] p-3 sm:p-4 md:p-0">
+        <div 
+          data-allow-native-scroll="true"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-4 md:p-0 allow-native-scroll"
+        >
           {filteredOrders.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center p-8 sm:p-12 text-center text-neutral-500">
               <Archive className="w-12 h-12 mb-3 opacity-30" />
-              <p className="text-sm font-bold uppercase tracking-wider">Kayıtlı Sipariş Bulunamadı</p>
-              <p className="text-xs text-neutral-400 mt-1">Arama kriterlerinizi değiştirebilir veya ana ekrandan yeni sipariş oluşturabilirsiniz.</p>
+              <p className="text-sm font-bold uppercase tracking-wider">Kayıtlı Sipariş Yok</p>
+              <p className="text-xs text-neutral-400 mt-1">Aramayı değiştirebilir veya ana ekrandan yeni sipariş oluşturabilirsiniz.</p>
             </div>
           ) : (
             <>
@@ -506,8 +509,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
 
               {/* MASAÜSTÜ GÖRÜNÜM: Detaylı Tablo (hidden md:block) */}
               <div 
-                data-drag-scroll="true"
-                className="hidden md:block overflow-x-auto drag-scroll touch-pan-x overscroll-x-contain"
+                data-allow-native-scroll="true"
+                className="hidden md:block overflow-x-auto allow-native-scroll"
               >
                 <table className="w-full min-w-[700px] text-left border-collapse">
                 <thead>
