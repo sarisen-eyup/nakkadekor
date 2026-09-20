@@ -22,7 +22,8 @@ import {
   Receipt,
   AlertCircle,
   Loader2,
-  Trash2
+  Trash2,
+  Infinity
 } from "lucide-react";
 import { 
   CompanyProfile, 
@@ -305,11 +306,19 @@ export const AccountModal: React.FC<AccountModalProps> = ({
             <Coins className="w-4 h-4" />
             <span>2. Kredi Bilgileri</span>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-              subscription.remainingCredits < 15
-                ? "bg-rose-500/20 text-rose-300"
-                : isDarkMode ? "bg-white/10 text-[#C5A059]" : "bg-amber-100 text-[#B88E3A]"
+              subscription.isUnlimited || subscription.subscriptionTier === "unlimited"
+                ? "bg-emerald-500/20 text-emerald-400"
+                : subscription.remainingCredits < 15
+                  ? "bg-rose-500/20 text-rose-300"
+                  : isDarkMode ? "bg-white/10 text-[#C5A059]" : "bg-amber-100 text-[#B88E3A]"
             }`}>
-              {subscription.remainingCredits} Kredi
+              {subscription.isUnlimited || subscription.subscriptionTier === "unlimited" ? (
+                <span className="flex items-center gap-1">
+                  <Infinity className="w-3 h-3" /> Sınırsız
+                </span>
+              ) : (
+                `${subscription.remainingCredits} / ${subscription.totalCredits} Kredi`
+              )}
             </span>
           </button>
         </div>
@@ -834,9 +843,16 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     </div>
 
                     <div className="flex items-baseline gap-3">
-                      <span className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-[#C5A059]">
-                        {subscription.remainingCredits}
-                      </span>
+                      {subscription.isUnlimited || subscription.subscriptionTier === "unlimited" ? (
+                        <div className="flex items-center gap-2 text-3xl sm:text-4xl font-black font-mono tracking-tight text-emerald-400">
+                          <Infinity className="w-8 h-8" />
+                          <span>Sınırsız</span>
+                        </div>
+                      ) : (
+                        <span className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-[#C5A059]">
+                          {subscription.remainingCredits} <span className="text-xl font-normal text-neutral-400 font-sans">/ {subscription.totalCredits}</span>
+                        </span>
+                      )}
                       <span className="text-sm sm:text-base font-bold text-neutral-400">
                         Adet Sipariş / Teklif Kredisi
                       </span>
@@ -854,19 +870,33 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                   <div className={`w-full md:w-64 p-4 rounded-xl border ${
                     isDarkMode ? "bg-black/30 border-white/10" : "bg-white border-slate-200"
                   }`}>
-                    <div className="flex justify-between text-xs font-mono mb-2">
-                      <span className={isDarkMode ? "text-neutral-400" : "text-slate-600"}>Harcanan: {usedCredits}</span>
-                      <span className="text-[#C5A059] font-bold">Kalan: %{percentageLeft}</span>
-                    </div>
-                    <div className="w-full h-2.5 rounded-full bg-neutral-800 overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-amber-500 to-[#C5A059] rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, Math.max(5, percentageLeft))}%` }}
-                      />
-                    </div>
-                    <div className={`text-[10px] mt-2 text-center font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-500"}`}>
-                      Toplam Yüklenen: {subscription.totalCredits} Kredi
-                    </div>
+                    {subscription.isUnlimited || subscription.subscriptionTier === "unlimited" ? (
+                      <div className="text-center py-2">
+                        <div className="flex items-center justify-center gap-1 text-emerald-400 font-bold text-sm">
+                          <Infinity className="w-4 h-4" />
+                          <span>Sınırsız Kullanım</span>
+                        </div>
+                        <div className={`text-[10px] mt-1 font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                          Kota Limiti Yoktur
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between text-xs font-mono mb-2">
+                          <span className={isDarkMode ? "text-neutral-400" : "text-slate-600"}>Harcanan: {usedCredits}</span>
+                          <span className="text-[#C5A059] font-bold">Kalan: %{percentageLeft}</span>
+                        </div>
+                        <div className="w-full h-2.5 rounded-full bg-neutral-800 overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-amber-500 to-[#C5A059] rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, Math.max(5, percentageLeft))}%` }}
+                          />
+                        </div>
+                        <div className={`text-[10px] mt-2 text-center font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-500"}`}>
+                          Toplam Yüklenen: {subscription.totalCredits} Kredi
+                        </div>
+                      </>
+                    )}
                   </div>
 
                 </div>
@@ -987,7 +1017,9 @@ export const AccountModal: React.FC<AccountModalProps> = ({
         }`}>
           <div className={`text-xs flex items-center gap-2 font-medium ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
             <Coins className={`w-4 h-4 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
-            <span>Kalan Bakiye: <strong className={`font-mono font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>{subscription.remainingCredits} Kredi</strong></span>
+            <span>Kalan Bakiye: <strong className={`font-mono font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+              {subscription.isUnlimited || subscription.subscriptionTier === "unlimited" ? "Sınırsız" : `${subscription.remainingCredits} / ${subscription.totalCredits} Kredi`}
+            </strong></span>
           </div>
 
           <button

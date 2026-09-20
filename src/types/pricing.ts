@@ -382,23 +382,26 @@ export interface SubscriptionData {
   autoRenew: boolean;
   maxUsers: number; // 3 for pay_as_you_go (kredili), 6 for pro_monthly & pro_yearly (aylık/yıllık abonelik)
   isMonthlySubscription: boolean;
+  subscriptionTier?: string;
+  isUnlimited?: boolean;
 }
 
 export function isProPlan(sub?: SubscriptionData | null): boolean {
   if (!sub) return false;
-  return sub.planId === "pro_monthly" || sub.planId === "pro_yearly" || sub.planId === "unlimited_enterprise" || Boolean(sub.isMonthlySubscription);
+  return sub.planId === "pro_monthly" || sub.planId === "pro_yearly" || sub.planId === "unlimited_enterprise" || Boolean(sub.isMonthlySubscription) || Boolean(sub.isUnlimited) || sub.subscriptionTier === "unlimited";
 }
 
 export const DEFAULT_SUBSCRIPTION: SubscriptionData = {
   planId: "pay_as_you_go",
   planName: "Kullandıkça Öde (Kredili Hesap)",
-  remainingCredits: 35,
-  totalCredits: 50,
+  remainingCredits: 0,
+  totalCredits: 0,
   renewalDate: "Dönemsiz (Kredi Bakiyesi)",
   status: "active",
   autoRenew: false,
   maxUsers: 3,
-  isMonthlySubscription: false
+  isMonthlySubscription: false,
+  isUnlimited: false
 };
 
 export type OrderStatus = "quote" | "approved" | "production" | "delivered";

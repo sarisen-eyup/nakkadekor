@@ -210,6 +210,11 @@ export function loadSubscriptionFromStorage(): SubscriptionData {
     const saved = localStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
+      // Hardcoded 35 ve 50 kalıntılarını temizle
+      if (parsed.remainingCredits === 35 && parsed.totalCredits === 50) {
+        parsed.remainingCredits = 0;
+        parsed.totalCredits = 0;
+      }
       const isSub = isProPlan(parsed);
       return { 
         ...DEFAULT_SUBSCRIPTION, 

@@ -12,7 +12,8 @@ import {
   RefreshCw,
   Plus,
   AlertTriangle,
-  Building2
+  Building2,
+  Infinity
 } from "lucide-react";
 import { SubscriptionData, isProPlan } from "../types/pricing";
 
@@ -177,7 +178,20 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               </div>
 
               <div className="text-left sm:text-right">
-                {subscription.isMonthlySubscription ? (
+                {subscription.isUnlimited || subscription.subscriptionTier === "unlimited" ? (
+                  <>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-400">
+                      Sınırsız Paket Kotası
+                    </span>
+                    <div className="flex items-center sm:justify-end gap-2 text-2xl sm:text-3xl font-black font-mono text-emerald-400 mt-0.5">
+                      <Infinity className="w-7 h-7" />
+                      <span>Sınırsız</span>
+                    </div>
+                    <div className="text-[11px] font-medium text-neutral-400 mt-0.5">
+                      Sınırsız Sipariş &amp; PDF İhracı
+                    </div>
+                  </>
+                ) : subscription.isMonthlySubscription ? (
                   <>
                     <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-400">
                       Kalan Sipariş &amp; PDF Kredisi
@@ -192,7 +206,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 ) : (
                   <>
                     <div className="text-4xl sm:text-5xl font-black font-mono text-[#C5A059] tracking-tight">
-                      {subscription.remainingCredits}
+                      {subscription.remainingCredits} <span className="text-sm font-sans font-normal text-neutral-400">/ {subscription.totalCredits}</span>
                     </div>
                     <div className="text-xs font-semibold text-neutral-400 mt-1">
                       Kullanılabilir Kredi Bakiyesi

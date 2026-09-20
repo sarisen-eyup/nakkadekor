@@ -109,6 +109,32 @@ export const OnboardingScreen: React.FC = () => {
       return;
     }
 
+    if (!formData.taxOffice.trim()) {
+      setErrorMessage("Lütfen yasal faturalandırma için Vergi Dairesi bilginizi giriniz.");
+      return;
+    }
+
+    const cleanTaxNum = formData.taxNumber.trim().replace(/[\s-]/g, "");
+    if (!cleanTaxNum) {
+      setErrorMessage("Lütfen fatura kesimi için Vergi No veya TC Kimlik No giriniz.");
+      return;
+    }
+
+    if (cleanTaxNum.length < 10) {
+      setErrorMessage("Vergi Numarası veya T.C. Kimlik Numarası en az 10 haneli olmalıdır (VKN: 10 hane, TCKN: 11 hane).");
+      return;
+    }
+
+    if (!formData.city.trim()) {
+      setErrorMessage("Lütfen işletmenizin bulunduğu İl / İlçe bilgisini giriniz.");
+      return;
+    }
+
+    if (!formData.address.trim()) {
+      setErrorMessage("Lütfen yasal fatura adresinizi eksiksiz giriniz.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -359,21 +385,31 @@ export const OnboardingScreen: React.FC = () => {
             <div className={`p-5 sm:p-6 rounded-2xl border ${
               isDarkMode ? "bg-[#111317] border-white/10" : "bg-white border-slate-200"
             }`}>
-              <div className="flex items-center gap-2 pb-3 mb-4 border-b border-white/5">
-                <FileText className="w-4 h-4 text-[#C5A059]" />
-                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider">
-                  Vergi ve Adres Bilgileri (Opsiyonel)
-                </h3>
+              <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[#C5A059]" />
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider">
+                    Vergi ve Fatura Adres Bilgileri <span className="text-rose-500">*</span>
+                  </h3>
+                </div>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                  Mali Fatura İçin Zorunlu
+                </span>
               </div>
+
+              <p className={`text-[11px] mb-4 leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                Yazılım aboneliği ve hizmet sözleşmesi faturalandırma süreçleri için yasal şirket bilgilerinizin eksiksiz girilmesi zorunludur.
+              </p>
 
               <div className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                      Vergi Dairesi
+                      Vergi Dairesi <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
+                      required
                       value={formData.taxOffice}
                       onChange={(e) => handleChange("taxOffice", e.target.value)}
                       placeholder="Örn: Beyoğlu V.D."
@@ -387,14 +423,16 @@ export const OnboardingScreen: React.FC = () => {
 
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                      Vergi No / TC Kimlik No
+                      Vergi No / TC Kimlik No <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
+                      required
                       value={formData.taxNumber}
                       onChange={(e) => handleChange("taxNumber", e.target.value)}
-                      placeholder="Örn: 1234567890"
-                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none transition-all ${
+                      placeholder="Örn: 1234567890 (10 veya 11 hane)"
+                      maxLength={11}
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none transition-all font-mono ${
                         isDarkMode 
                           ? "bg-[#16181d] border-neutral-700 text-white focus:border-[#C5A059]" 
                           : "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
@@ -406,10 +444,11 @@ export const OnboardingScreen: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                      İl / İlçe
+                      İl / İlçe <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
+                      required
                       value={formData.city}
                       onChange={(e) => handleChange("city", e.target.value)}
                       placeholder="Örn: Kadıköy / İstanbul"
@@ -423,14 +462,14 @@ export const OnboardingScreen: React.FC = () => {
 
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                      Banka IBAN
+                      Banka IBAN <span className="text-[10px] font-normal lowercase opacity-70">(antet ve tahsilat için)</span>
                     </label>
                     <input
                       type="text"
                       value={formData.iban}
                       onChange={(e) => handleChange("iban", e.target.value)}
                       placeholder="TR00 0000 0000 0000 0000 0000 00"
-                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none transition-all ${
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none transition-all font-mono ${
                         isDarkMode 
                           ? "bg-[#16181d] border-neutral-700 text-white focus:border-[#C5A059]" 
                           : "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
@@ -441,13 +480,14 @@ export const OnboardingScreen: React.FC = () => {
 
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Açık Adres
+                    Açık Adres (Yasal Fatura Adresi) <span className="text-rose-500">*</span>
                   </label>
                   <textarea
                     rows={2}
+                    required
                     value={formData.address}
                     onChange={(e) => handleChange("address", e.target.value)}
-                    placeholder="Atölye açık adresi..."
+                    placeholder="Faturanızın düzenleneceği yasal atölye / şirket açık adresi..."
                     className={`w-full px-3.5 py-2 rounded-xl border text-xs focus:outline-none transition-all resize-none ${
                       isDarkMode 
                         ? "bg-[#16181d] border-neutral-700 text-white focus:border-[#C5A059]" 

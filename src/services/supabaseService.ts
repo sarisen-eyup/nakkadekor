@@ -1880,3 +1880,153 @@ export async function saveCompanyProfileToSupabase(
     return { success: false, error: err };
   }
 }
+
+export interface TenantCreditsResult {
+  remainingCredits: number;
+  totalCredits: number;
+  subscriptionTier: string;
+  subscriptionStatus: string;
+  isUnlimited: boolean;
+  status: string;
+  name?: string;
+}
+
+/**
+ * Aktif kullanıcının veya verilen tenant_id'nin Supabase public.tenants tablosundaki
+ * gerçek remaining_credits, total_credits ve subscription_tier bilgilerini çeker.
+ */
+export async function fetchTenantSubscriptionCredits(tenantId?: string): Promise<{
+  data: TenantCreditsResult | null;
+  error: any;
+}> {
+  if (!isSupabaseConfigured()) {
+    return {
+      data: {
+        remainingCredits: 0,
+        totalCredits: 0,
+        subscriptionTier: "pay_as_you_go",
+        subscriptionStatus: "active",
+        isUnlimited: false,
+        status: "active"
+      },
+      error: null
+    };
+  }
+
+  let resolvedId = tenantId;
+  if (!resolvedId) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      resolvedId = session?.user?.id;
+    } catch {
+      // ignore
+    }
+  }
+
+  if (resolvedId === "dev_admin") {
+    return {
+      data: {
+        remainingCredits: 999,
+        totalCredits: 999,
+        subscriptionTier: "unlimited",
+        subscriptionStatus: "active",
+        isUnlimited: true,
+        status: "active",
+        name: "Geliştirici & Tasarımcı Atölyesi"
+      },
+      error: null
+    };
+  }
+
+  if (!resolvedId) {
+    return { data: null, error: new Error("Aktif oturum veya atölye kimliği (tenant_id) bulunamadı") };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("tenants")
+      .select("remaining_credits, total_credits, subscription_tier, subscription_status, status, name")
+      .eq("id", resolvedId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Supabase public.tenants kredi sorgusu hatası:", error);
+      return { data: null, error };
+    }
+
+    if (!data) {
+      return { data: null, error: null };
+    }
+
+    const tier = String(data.subscription_tier || "").toLowerCase().trim();
+    const isUnlimited = tier === "unlimited" || tier.includes("unlimited") || tier === "unlimited_enterprise";
+
+    return {
+      data: {
+        remainingCredits: Number(data.remaining_credits ?? 0),
+        totalCredits: Number(data.total_credits ?? 0),
+        subscriptionTier: data.subscription_tier || "pay_as_you_go",
+        subscriptionStatus: data.subscription_status || "active",
+        isUnlimited,
+        status: data.status || "active",
+        name: data.name
+      },
+      error: null
+    };
+  } catch (err) {
+    console.warn("fetchTenantSubscriptionCredits istisnası:", err);
+    return { data: null, error: err };
+  }
+}
+
+/**
+ * Sipariş oluşturulduğunda veya onaylandığında Supabase public.tenants tablosundaki krediyi 1 azaltır.
+ * Eğer subscription_tier 'unlimited' ise düşüş yapmaz.
+ */
+export async function deductTenantCreditInSupabase(tenantId?: string): Promise<number | null> {
+  if (!isSupabaseConfigured()) return null;
+
+  let resolvedId = tenantId;
+  if (!resolvedId) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      resolvedId = session?.user?.id;
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!resolvedId) return null;
+
+  try {
+    const { data: tenantRow, error: fetchErr } = await supabase
+      .from("tenants")
+      .select("remaining_credits, subscription_tier")
+      .eq("id", resolvedId)
+      .maybeSingle();
+
+    if (fetchErr || !tenantRow) return null;
+
+    const tier = String(tenantRow.subscription_tier || "").toLowerCase();
+    if (tier === "unlimited" || tier.includes("unlimited") || tier === "unlimited_enterprise") {
+      return tenantRow.remaining_credits ?? 9999;
+    }
+
+    const currentCredits = Number(tenantRow.remaining_credits ?? 0);
+    const nextCredits = Math.max(0, currentCredits - 1);
+
+    await supabase
+      .from("tenants")
+      .update({
+        remaining_credits: nextCredits,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", resolvedId);
+
+    return nextCredits;
+  } catch (e) {
+    console.warn("deductTenantCreditInSupabase hatası:", e);
+    return null;
+  }
+}
+

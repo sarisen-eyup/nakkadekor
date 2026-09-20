@@ -24,6 +24,10 @@ export interface TenantRecord {
   iban?: string;
   logo_url?: string;
   primary_color?: string;
+  remaining_credits?: number;
+  total_credits?: number;
+  subscription_tier?: string;
+  subscription_status?: string;
   created_at?: string;
   updated_at?: string;
   [key: string]: any;

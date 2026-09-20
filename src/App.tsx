@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { 
   Upload, 
   Download, 
@@ -69,6 +69,7 @@ import { PendingApprovalScreen } from "./components/PendingApprovalScreen";
 import { LoginScreen } from "./components/LoginScreen";
 import { SubscriptionModal } from "./components/SubscriptionModal";
 import { AccountModal } from "./components/AccountModal";
+import { CreditIndicator } from "./components/CreditIndicator";
 import { OrderArchiveModal } from "./components/OrderArchiveModal";
 import { PrintCenterModal } from "./components/PrintCenterModal";
 import { CustomerWallPreviewModal } from "./components/CustomerWallPreviewModal";
@@ -102,7 +103,9 @@ import {
   updateOrderStatusInSupabase,
   saveTenantSettingsToSupabase,
   fetchCompanyProfileFromSupabase,
-  uploadImageToSupabaseStorage
+  uploadImageToSupabaseStorage,
+  deductTenantCreditInSupabase,
+  TenantCreditsResult
 } from "./services/supabaseService";
 import { compressImage } from "./utils/imageCompressor";
 import { 
@@ -307,7 +310,7 @@ const PaspartuColorPicker = ({
 };
 
 function SimulatorMain() {
-  const { user: authGuardUser, signOut: authGuardSignOut } = useAuthGuard();
+  const { user: authGuardUser, tenant: authGuardTenant, signOut: authGuardSignOut } = useAuthGuard();
   const navigate = useNavigate();
 
   // Theme Mode State (AI Studio Dark default & Light mode toggle)
@@ -487,6 +490,66 @@ function SimulatorMain() {
       setAuthSession(session);
     }
   }, [authGuardUser, authSession]);
+
+  // Atölyenin Supabase public.tenants tablosundaki gerçek kredi verisini senkronize et
+  useEffect(() => {
+    if (authGuardTenant) {
+      const tier = String(authGuardTenant.subscription_tier || "").toLowerCase().trim();
+      const isUnlimited = tier === "unlimited" || tier.includes("unlimited") || tier === "unlimited_enterprise";
+      const remaining = Number(authGuardTenant.remaining_credits ?? 0);
+      const total = Number(authGuardTenant.total_credits ?? 0);
+      const subTier = authGuardTenant.subscription_tier || "pay_as_you_go";
+      const targetStatus = isUnlimited ? "active" : remaining <= 0 ? "exhausted" : remaining < 15 ? "expiring_soon" : "active";
+
+      setSubscriptionData(prev => {
+        if (
+          prev.remainingCredits === remaining &&
+          prev.totalCredits === total &&
+          prev.subscriptionTier === subTier &&
+          prev.isUnlimited === isUnlimited &&
+          prev.status === targetStatus
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          remainingCredits: remaining,
+          totalCredits: total,
+          subscriptionTier: subTier,
+          isUnlimited,
+          status: targetStatus
+        };
+      });
+    }
+  }, [
+    authGuardTenant?.id,
+    authGuardTenant?.remaining_credits,
+    authGuardTenant?.total_credits,
+    authGuardTenant?.subscription_tier
+  ]);
+
+  const handleCreditUpdate = useCallback((info: TenantCreditsResult) => {
+    setSubscriptionData(prev => {
+      const nextStatus = info.isUnlimited ? "active" : info.remainingCredits <= 0 ? "exhausted" : info.remainingCredits < 15 ? "expiring_soon" : "active";
+      if (
+        prev.remainingCredits === info.remainingCredits &&
+        prev.totalCredits === info.totalCredits &&
+        prev.subscriptionTier === info.subscriptionTier &&
+        prev.isUnlimited === info.isUnlimited &&
+        prev.status === nextStatus
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        remainingCredits: info.remainingCredits,
+        totalCredits: info.totalCredits,
+        subscriptionTier: info.subscriptionTier,
+        isUnlimited: info.isUnlimited,
+        status: nextStatus
+      };
+    });
+  }, []);
 
   const handleLoginSuccess = (user: UserAccount, rememberMe: boolean) => {
     setActiveUser(user);
@@ -2207,9 +2270,12 @@ Durum: Onaylandi / Uretime Hazir`;
       })();
     }
 
-    // Deduct 1 credit from subscription
+    // Deduct 1 credit from subscription if not unlimited
     const updatedSub = deductSubscriptionCredit();
     setSubscriptionData(updatedSub);
+    if (isSupabaseConfigured() && !subscriptionData.isUnlimited) {
+      deductTenantCreditInSupabase(authGuardTenant?.id || activeUser?.id);
+    }
   };
 
   // Simülatörden Doğrudan Sipariş Oluşturma (Görsel 3 & 4 Doğrulaması)
@@ -2344,6 +2410,9 @@ Durum: Onaylandi / Uretime Hazir`;
     if (!isUpdate) {
       const updatedSub = deductSubscriptionCredit();
       setSubscriptionData(updatedSub);
+      if (isSupabaseConfigured() && !subscriptionData.isUnlimited) {
+        deductTenantCreditInSupabase(authGuardTenant?.id || activeUser?.id);
+      }
     }
   };
 
@@ -2729,24 +2798,16 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
 
           {/* Mobile-Only Quick System Bar (Aligned to the right on top row) */}
           <div className="flex md:hidden items-center gap-1">
-            {/* Account & Credit */}
-            <button
+            {/* Account & Credit Indicator */}
+            <CreditIndicator
+              variant="mobile"
+              isDarkMode={isDarkMode}
               onClick={() => {
                 setAccountModalInitialTab("company");
                 setIsAccountModalOpen(true);
               }}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg border text-[10px] font-bold tracking-wider transition-all cursor-pointer ${
-                subscriptionData.remainingCredits < 15 
-                  ? "bg-rose-500/10 border-rose-500/40 text-rose-300" 
-                  : isDarkMode 
-                    ? "bg-[#101216] border-[#C5A059]/40 text-[#C5A059]" 
-                    : "bg-white border-[#B88E3A]/40 text-[#B88E3A]"
-              }`}
-              title="Hesap ve Kredi Yönetimi"
-            >
-              <User className="w-3.5 h-3.5" />
-              <span className="font-mono text-[9px] font-black">{subscriptionData.remainingCredits}</span>
-            </button>
+              onCreditUpdate={handleCreditUpdate}
+            />
 
             {/* Settings */}
             <button 
@@ -2869,30 +2930,15 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
           {/* Desktop System & Configuration Cluster */}
           <div className="hidden md:flex items-center gap-1.5">
             {/* Account & Credit Management Button */}
-            <button
+            <CreditIndicator
+              variant="desktop"
+              isDarkMode={isDarkMode}
               onClick={() => {
                 setAccountModalInitialTab("company");
                 setIsAccountModalOpen(true);
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
-                subscriptionData.remainingCredits < 15 
-                  ? "bg-rose-500/10 border-rose-500/40 text-rose-300" 
-                  : isDarkMode 
-                    ? "bg-[#101216] border-[#C5A059]/40 hover:border-[#C5A059] text-[#C5A059]" 
-                    : "bg-white border-[#B88E3A]/40 hover:border-[#B88E3A] text-[#B88E3A]"
-              }`}
-              title="Hesap, Firma Bilgileri ve Kredi Yönetimi"
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>HESAP</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-black ${
-                subscriptionData.remainingCredits < 15
-                  ? "bg-rose-500/20 text-rose-500 font-bold border border-rose-400/40"
-                  : isDarkMode ? "bg-[#C5A059]/20 text-[#E5C158] border border-[#C5A059]/30" : "bg-amber-100 text-amber-900 border border-amber-300"
-              }`}>
-                {subscriptionData.remainingCredits} Kr.
-              </span>
-            </button>
+              onCreditUpdate={handleCreditUpdate}
+            />
 
             {/* Settings Button */}
             <button 
