@@ -462,22 +462,20 @@ BEGIN
   );
   _slug := 'tenant-' || substr(NEW.id::text, 1, 8);
 
-  -- Atölye / Tenant Kaydı
+  -- Atölye / Tenant Kaydı (AÇIKÇA 'pending' statüsü)
   INSERT INTO public.tenants (id, name, slug, subscription_status, status, subscription_plan_id, remaining_credits, total_credits)
   VALUES (
     NEW.id,
     _full_name || ' Çerçeve Atölyesi',
     _slug,
-    'active',
-    'active',
+    'pending',
+    'pending',
     'pay_as_you_go',
-    50,
-    50
-  ) ON CONFLICT (id) DO UPDATE SET
-    status = 'active',
-    subscription_status = 'active';
+    0,
+    0
+  ) ON CONFLICT (id) DO NOTHING;
 
-  -- Kullanıcı / Profil Kaydı
+  -- Kullanıcı / Profil Kaydı (Yeni kayıt için pending)
   INSERT INTO public.users (id, auth_user_id, tenant_id, full_name, username, email, role, status, is_email_verified)
   VALUES (
     NEW.id,
@@ -487,11 +485,9 @@ BEGIN
     COALESCE(split_part(NEW.email, '@', 1), 'admin'),
     COALESCE(NEW.email, ''),
     'owner',
-    'active',
+    'pending',
     true
-  ) ON CONFLICT (id) DO UPDATE SET
-    status = 'active',
-    auth_user_id = NEW.id;
+  ) ON CONFLICT (id) DO NOTHING;
 
   -- Varsayılan Atölye Fiyatlandırma Ayarları
   INSERT INTO public.tenant_settings (tenant_id)

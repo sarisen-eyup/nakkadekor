@@ -65,22 +65,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const processUserAuth = async (u: any) => {
     try {
       setAuthenticatedTenantId(u.id);
+      // Yeni kullanıcı ise status: 'pending' ile tenants kaydını AÇIKÇA oluştur
       await ensureTenantAndUserExist(u);
-      const tenantRes = await fetchTenantRecord(u.id);
+      
+      // AuthGuard state'ini veritabanındaki son durum ile güncelle
+      const freshStatus = await refreshTenant();
+      setIsGoogleLoading(false);
 
-      if (tenantRes.status === "needs_onboarding") {
-        setIsGoogleLoading(false);
+      if (freshStatus === "needs_onboarding") {
         navigate("/onboarding", { replace: true });
         return;
       }
 
-      if (tenantRes.status === "pending" || tenantRes.status === "suspended") {
-        setIsGoogleLoading(false);
+      if (freshStatus === "pending" || freshStatus === "suspended") {
         navigate("/pending", { replace: true });
         return;
       }
 
-      if (tenantRes.status === "active") {
+      if (freshStatus === "active") {
         const loggedAccount: UserAccount = {
           id: u.id,
           fullName: u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0] || "Yetkili",
@@ -93,7 +95,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           status: "active",
           lastLoginAt: "Şimdi (Aktif Oturum)"
         };
-        setIsGoogleLoading(false);
         onLoginSuccess(loggedAccount, true);
         navigate("/", { replace: true });
       }

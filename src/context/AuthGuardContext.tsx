@@ -154,6 +154,50 @@ export const AuthGuardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     let isMounted = true;
 
+    let tenantChannel: any = null;
+
+    const setupTenantRealtime = (userId: string) => {
+      if (!isSupabaseConfigured() || !userId) return;
+      if (tenantChannel) {
+        try {
+          supabase.removeChannel(tenantChannel);
+        } catch {
+          // ignore
+        }
+        tenantChannel = null;
+      }
+      try {
+        tenantChannel = supabase
+          .channel(`tenant_status_watch_${userId}`)
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "tenants",
+              filter: `id=eq.${userId}`
+            },
+            async (payload) => {
+              if (!isMounted) return;
+              const newRow = payload.new as any;
+              if (newRow) {
+                const rawStatus = String(newRow.status || "pending").toLowerCase().trim();
+                const mapped: TenantStatus =
+                  rawStatus === "active" ? "active" :
+                  rawStatus === "suspended" ? "suspended" : "pending";
+                setTenant(newRow);
+                setTenantStatus(mapped);
+              } else {
+                await checkUserTenantStatus(userId);
+              }
+            }
+          )
+          .subscribe();
+      } catch (e) {
+        console.warn("Realtime tenant subscription warning:", e);
+      }
+    };
+
     const initAuth = async () => {
       setIsLoading(true);
 
@@ -199,6 +243,7 @@ export const AuthGuardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setUser(initialSession.user);
           setAuthenticatedTenantId(initialSession.user.id);
           await checkUserTenantStatus(initialSession.user.id);
+          setupTenantRealtime(initialSession.user.id);
         } else {
           setSession(null);
           setUser(null);
@@ -229,8 +274,17 @@ export const AuthGuardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setAuthenticatedTenantId(currentSession.user.id);
         setIsLoading(true);
         await checkUserTenantStatus(currentSession.user.id);
+        setupTenantRealtime(currentSession.user.id);
         setIsLoading(false);
       } else if (event === "SIGNED_OUT") {
+        if (tenantChannel) {
+          try {
+            supabase.removeChannel(tenantChannel);
+          } catch {
+            // ignore
+          }
+          tenantChannel = null;
+        }
         setSession(null);
         setUser(null);
         setTenant(null);
@@ -239,8 +293,41 @@ export const AuthGuardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     });
 
+    // Pencereye odaklanıldığında veya sekme görünür olduğunda statüyü anında kontrol et
+    const handleVisibilityOrFocus = () => {
+      if (!isMounted || !isSupabaseConfigured()) return;
+      supabase.auth.getSession().then(({ data: { session: curSess } }) => {
+        if (curSess?.user?.id && isMounted) {
+          checkUserTenantStatus(curSess.user.id);
+        }
+      });
+    };
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+
+    // Gerçek zamanlı tetikleyiciyi desteklemek için periyodik kontrol (özellikle 'pending' bekleme ekranında hızlı geçiş için)
+    const statusPollTimer = setInterval(() => {
+      if (!isMounted || !isSupabaseConfigured()) return;
+      supabase.auth.getSession().then(({ data: { session: curSess } }) => {
+        if (curSess?.user?.id && isMounted) {
+          checkUserTenantStatus(curSess.user.id);
+        }
+      });
+    }, 6000);
+
     return () => {
       isMounted = false;
+      clearInterval(statusPollTimer);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      if (tenantChannel) {
+        try {
+          supabase.removeChannel(tenantChannel);
+        } catch {
+          // ignore
+        }
+      }
       authListener?.subscription.unsubscribe();
     };
   }, [checkUserTenantStatus]);

@@ -1324,14 +1324,22 @@ export async function saveTenantSettingsToSupabase(
   // 2. Boş bırakılan veya NaN olan tüm alanları 0 (sıfır) olarak varsayılan değere eşitle
   const sanitized = sanitizeUnitPricesSettings(settings);
 
-  // 3. Foreign key kısıtını sağlamak adına tenants tablosunda kayıt varlığını garantile
+  // 3. Foreign key kısıtını sağlamak adına tenants tablosunda kayıt varlığını kontrol et/garantile
   try {
-    await supabase.from("tenants").upsert({
-      id: tenantId,
-      name: "Atölye",
-      slug: `tenant-${tenantId.slice(0, 8)}`,
-      status: "active"
-    }, { onConflict: "id" });
+    const { data: existingTenant } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("id", tenantId)
+      .maybeSingle();
+
+    if (!existingTenant) {
+      await supabase.from("tenants").insert({
+        id: tenantId,
+        name: "Atölye",
+        slug: `tenant-${tenantId.slice(0, 8)}`,
+        status: "pending"
+      });
+    }
   } catch (e) {
     // Tenants tablosu kısıtı varsa veya zaten mevcutsa sessizce devam et
   }

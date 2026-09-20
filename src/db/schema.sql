@@ -374,19 +374,17 @@ BEGIN
   );
   _slug := 'tenant-' || substr(NEW.id::text, 1, 8);
 
-  -- 1. Atölye / Tenant Kaydı
+  -- 1. Atölye / Tenant Kaydı (Varsayılan olarak AÇIKÇA 'pending' statüsü)
   INSERT INTO public.tenants (id, name, slug, subscription_status, status, remaining_credits, total_credits)
   VALUES (
     NEW.id,
     _full_name || ' Çerçeve Atölyesi',
     _slug,
-    'active',
-    'active',
-    50,
-    50
-  ) ON CONFLICT (id) DO UPDATE SET
-    status = 'active',
-    subscription_status = 'active';
+    'pending',
+    'pending',
+    0,
+    0
+  ) ON CONFLICT (id) DO NOTHING;
 
   -- 2. Varsayılan Atölye Fiyatlandırma Ayarları
   INSERT INTO public.tenant_settings (tenant_id)
@@ -403,10 +401,8 @@ BEGIN
     COALESCE(split_part(NEW.email, '@', 1), 'admin'),
     COALESCE(NEW.email, ''),
     'owner',
-    'active'
-  ) ON CONFLICT (id) DO UPDATE SET
-    status = 'active',
-    auth_user_id = NEW.id;
+    'pending'
+  ) ON CONFLICT (id) DO NOTHING;
 
   RETURN NEW;
 END;
