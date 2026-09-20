@@ -176,45 +176,24 @@ export async function ensureTenantAndUserExist(user: any) {
 
     const email = user.email || "";
 
-    // 1. Tenants tablosunu kontrol et: Eğer kayıt yoksa AÇIKÇA (explicitly) status: 'pending' ile oluştur
-    try {
-      const { data: existingTenant, error: tenantCheckErr } = await supabase
-        .from("tenants")
-        .select("id, status")
-        .eq("id", tenantId)
-        .maybeSingle();
+    // 1. Sadece kullanıcının tenants tablosunda var olup olmadığını kontrol et (OTOMATİK INSERT KESİNLİKLE YAPILMAZ)
+    const { data: existingTenant, error: tenantCheckErr } = await supabase
+      .from("tenants")
+      .select("id, status")
+      .eq("id", tenantId)
+      .maybeSingle();
 
-      if (tenantCheckErr) {
-        console.warn("Tenant kontrol uyarısı:", tenantCheckErr.message);
-      }
-
-      if (!existingTenant) {
-        // Yeni kayıt (insert): status AÇIKÇA (explicitly) 'pending' yazılır
-        const tenantPayload: Record<string, any> = {
-          id: tenantId,
-          name: fullName ? `${fullName} Atölyesi` : "Yeni Çerçeve Atölyesi",
-          slug: `tenant-${tenantId.slice(0, 8)}`,
-          status: "pending", // AÇIKÇA 'pending'
-          subscription_status: "pending",
-          subscription_plan_id: "pay_as_you_go",
-          subscription_tier: "free_tier",
-          remaining_credits: 0,
-          total_credits: 0,
-          email: email,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        const { error: insertTenantErr } = await supabase.from("tenants").insert([tenantPayload]);
-        if (insertTenantErr) {
-          console.warn("Tenant 'pending' olarak eklenirken uyarı:", insertTenantErr.message);
-        }
-      }
-    } catch (tErr) {
-      console.warn("Tenant kontrol/ekleme istisnası:", tErr);
+    if (tenantCheckErr) {
+      console.warn("Tenant kontrol uyarısı:", tenantCheckErr.message);
     }
 
-    // 2. Users tablosunda kullanıcı profilini garantiye al (yeni kullanıcı için status: 'pending')
+    // Eğer tenants tablosunda henüz kayıt yoksa KESİNLİKLE otomatik INSERT atma!
+    // Kullanıcı zorunlu olarak Onboarding (Firma Bilgileri) formuna yönlendirilecek ve form submit edildiğinde kayıt oluşacaktır.
+    if (!existingTenant) {
+      return;
+    }
+
+    // 2. Yalnızca tenants kaydı MEVCUTSA ve gerekiyorsa users tablosundaki profil adını güncelle
     try {
       const { data: existingUser, error: existingUserErr } = await supabase
         .from("users")

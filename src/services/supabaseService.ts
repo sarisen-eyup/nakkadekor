@@ -286,7 +286,10 @@ export async function createTenantOnboarding(
       id: uid,
       name: profile.companyName?.trim() || "Atölye",
       slug: `tenant-${uid.slice(0, 8)}`,
-      status: "pending", // Onboarding sonrası doğrudan 'pending' statüsü atanır
+      status: "pending", // Onboarding formundan gelen temiz başvuru: doğrudan 'pending' statüsü
+      subscription_status: "pending",
+      remaining_credits: 0,
+      total_credits: 0,
       trade_title: profile.tradeTitle || "",
       tagline: profile.tagline || "",
       tax_office: profile.taxOffice || "",
@@ -299,6 +302,7 @@ export async function createTenantOnboarding(
       iban: profile.iban || "",
       logo_url: cleanLogoUrl,
       primary_color: profile.primaryColor || "#C5A059",
+      created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
 
@@ -311,6 +315,24 @@ export async function createTenantOnboarding(
     if (insertError) {
       console.error("Tenants tablosuna kayıt oluşturulamadı:", insertError);
       return { success: false, error: insertError };
+    }
+
+    // Kullanıcı profilini de pending olarak ilişkilendir
+    try {
+      await supabase.from("users").upsert({
+        id: uid,
+        auth_user_id: uid,
+        tenant_id: uid,
+        full_name: profile.companyName || "Atölye Sahibi",
+        username: `user_${uid.slice(0, 8)}`,
+        email: profile.email || "",
+        role: "owner",
+        status: "pending",
+        is_email_verified: true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "id" });
+    } catch (uErr) {
+      console.warn("users tablosu güncellenirken uyarı:", uErr);
     }
 
     // Ayarları da kaydet
@@ -1324,7 +1346,7 @@ export async function saveTenantSettingsToSupabase(
   // 2. Boş bırakılan veya NaN olan tüm alanları 0 (sıfır) olarak varsayılan değere eşitle
   const sanitized = sanitizeUnitPricesSettings(settings);
 
-  // 3. Foreign key kısıtını sağlamak adına tenants tablosunda kayıt varlığını kontrol et/garantile
+  // 3. Foreign key kısıtını sağlamak adına tenants tablosunda kayıt varlığını kontrol et
   try {
     const { data: existingTenant } = await supabase
       .from("tenants")
@@ -1333,15 +1355,11 @@ export async function saveTenantSettingsToSupabase(
       .maybeSingle();
 
     if (!existingTenant) {
-      await supabase.from("tenants").insert({
-        id: tenantId,
-        name: "Atölye",
-        slug: `tenant-${tenantId.slice(0, 8)}`,
-        status: "pending"
-      });
+      // Henüz onboarding tamamlanmamış / tenant kaydı yoksa işlem yapma
+      return false;
     }
   } catch (e) {
-    // Tenants tablosu kısıtı varsa veya zaten mevcutsa sessizce devam et
+    // Kontrol hatası durumunda devam et
   }
 
   // 4. Tablodaki tüm ilişkisel sütunları ve yedek JSON'u içeren payload

@@ -358,8 +358,12 @@ USING (bucket_id IN ('uploads', 'visualizations'));
 -- ----------------------------------------------------------------------------
 -- 5. SUPABASE AUTH KULLANICI SENKRONİZASYON TETİKLEYİCİSİ
 -- ----------------------------------------------------------------------------
--- Yeni bir kullanıcı kaydolduğunda (auth.users), otomatik olarak aynı id ile
--- tenants ve tenant_settings kaydını açar. (auth.uid() = tenant_id garantisi)
+-- DİKKAT: auth.users üzerine otomatik tenants kaydı AÇILMAZ.
+-- Kullanıcı önce Onboarding (Firma Bilgileri) formunu doldurmalıdır.
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.handle_new_auth_user();
+
+/*
 CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -409,9 +413,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
+-- CREATE TRIGGER on_auth_user_created ... iptal edildi
+*/
 
 -- ----------------------------------------------------------------------------
 -- 6. BAŞLANGIÇ DEMO / VARSAYILAN ATÖLYE VERİLERİ (İDEMPOTENT)
