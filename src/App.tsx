@@ -420,6 +420,7 @@ function SimulatorMain() {
   // B2B Subscription, Order Archive, and Session state
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData>(() => loadSubscriptionFromStorage());
   const [archiveOrders, setArchiveOrders] = useState<OrderArchiveItem[]>(() => loadOrdersArchiveFromStorage());
+  const [pendingAutoPrint, setPendingAutoPrint] = useState<"order_form" | "cutting_list" | "label" | "cost" | null>(null);
   
   // Derived state: Is the current order saved/created in archive or Supabase?
   const isOrderCreated = Boolean(activeOrderId || archiveOrders.some(o => o.orderNumber === orderNumber));
@@ -1049,7 +1050,10 @@ function SimulatorMain() {
     }
   };
 
-  const handleLoadOrderToWorkspace = (order: OrderArchiveItem) => {
+  const handleLoadOrderToWorkspace = (
+    order: OrderArchiveItem,
+    options?: { autoPrint?: "order_form" | "cutting_list" | "label" | "cost" }
+  ) => {
     // 1. Sipariş Kimliğini ve Numarasını güncelle
     const resolvedId = order.id || ("ord_" + (order.orderNumber ? order.orderNumber.replace(/[^0-9]/g, '') : Date.now()));
     setActiveOrderId(resolvedId);
@@ -1086,6 +1090,9 @@ function SimulatorMain() {
     if (savedPainting) {
       setCustomPaintingUrl(savedPainting);
       setCustomPaintingFile(order.customPaintingFile || order.simulatorConfig?.customPaintingFile || "Kayıtlı Eser Görseli");
+    } else {
+      setCustomPaintingUrl(null);
+      setCustomPaintingFile("Özel Eser (Görselsiz)");
     }
 
     // 5. İç Çerçeve Profilini bul ve yükle
@@ -1094,15 +1101,19 @@ function SimulatorMain() {
     if (!foundInner && order.innerFrameTitle && order.innerFrameTitle !== "Çerçeve Seçilmedi" && order.innerFrameTitle !== "Yok") {
       const cleanTitle = order.innerFrameTitle.toLowerCase().trim();
       foundInner = frameProfiles.find(p => 
-        cleanTitle.includes(p.code.toLowerCase()) || 
-        p.name.toLowerCase().includes(cleanTitle) ||
-        cleanTitle.includes(p.name.toLowerCase())
+        (p.code && cleanTitle.includes(p.code.toLowerCase())) || 
+        (p.name && cleanTitle.includes(p.name.toLowerCase())) ||
+        (p.name && p.name.toLowerCase().includes(cleanTitle))
       );
+    }
+    // Profil listesinden güvenli eşleşme
+    if (!foundInner && frameProfiles.length > 0) {
+      foundInner = frameProfiles[0];
     }
 
     if (foundInner) {
       handleSelectInnerProfile(foundInner.id);
-      const customW = order.frameWidthCm || order.simulatorConfig?.frameWidthCm;
+      const customW = order.frameWidthCm || order.simulatorConfig?.frameWidthCm || foundInner.widthCm;
       if (customW) {
         setFrameWidthInput(String(customW));
       }
@@ -1124,36 +1135,38 @@ function SimulatorMain() {
     if (!foundOuter && order.outerFrameTitle && order.outerFrameTitle !== "Yok" && order.outerFrameTitle !== "Çerçeve Seçilmedi") {
       const cleanTitle = order.outerFrameTitle.toLowerCase().trim();
       foundOuter = frameProfiles.find(p => 
-        cleanTitle.includes(p.code.toLowerCase()) || 
-        p.name.toLowerCase().includes(cleanTitle) ||
-        cleanTitle.includes(p.name.toLowerCase())
+        (p.code && cleanTitle.includes(p.code.toLowerCase())) || 
+        (p.name && cleanTitle.includes(p.name.toLowerCase())) ||
+        (p.name && p.name.toLowerCase().includes(cleanTitle))
       );
     }
 
     if (foundOuter) {
       handleSelectOuterProfile(foundOuter.id);
-      const customOuterW = order.outerFrameWidthCm || order.simulatorConfig?.outerFrameWidthCm;
+      const customOuterW = order.outerFrameWidthCm || order.simulatorConfig?.outerFrameWidthCm || foundOuter.widthCm;
       if (customOuterW) {
         setOuterFrameWidthInput(String(customOuterW));
       }
       setInclusionFlags(prev => ({ ...prev, includeOuterFrame: true }));
-    } else if (order.outerFrameTitle && order.outerFrameTitle !== "Yok" && order.outerFrameTitle !== "Çerçeve Seçilmedi") {
-      setCustomOuterFrameFile(order.outerFrameTitle);
-      const widthMatch = order.outerFrameTitle.match(/([\d.,]+)\s*cm/i);
-      if (widthMatch) {
-        setOuterFrameWidthInput(widthMatch[1].replace(",", "."));
-      } else if (order.outerFrameWidthCm) {
-        setOuterFrameWidthInput(String(order.outerFrameWidthCm));
+    } else if (order.outerFrameWidthCm && Number(order.outerFrameWidthCm) > 0) {
+      const fallbackOuter = frameProfiles.length > 1 ? frameProfiles[1] : (frameProfiles[0] || null);
+      if (fallbackOuter) {
+        handleSelectOuterProfile(fallbackOuter.id);
       }
+      setOuterFrameWidthInput(String(order.outerFrameWidthCm));
       setInclusionFlags(prev => ({ ...prev, includeOuterFrame: true }));
     } else {
       handleSelectOuterProfile("");
+      setOuterFrameWidthInput("0");
+      setInclusionFlags(prev => ({ ...prev, includeOuterFrame: false }));
     }
 
     // 7. Paspartu ve Renkleri
+    let matW = 0;
     if (order.matWidthCm !== undefined) {
+      matW = Number(order.matWidthCm);
       setMatWidthInput(String(order.matWidthCm));
-      setInclusionFlags(prev => ({ ...prev, includeInnerMat: Number(order.matWidthCm) > 0 }));
+      setInclusionFlags(prev => ({ ...prev, includeInnerMat: matW > 0 }));
     } else if (order.matInfo) {
       if (order.matInfo.toLowerCase().includes("paspartusuz") || order.matInfo.toLowerCase().includes("yok")) {
         setMatWidthInput("0");
@@ -1162,8 +1175,9 @@ function SimulatorMain() {
         const matMatch = order.matInfo.match(/([\d.,]+)\s*cm/i);
         if (matMatch) {
           const parsedWidth = matMatch[1].replace(",", ".");
+          matW = parseFloat(parsedWidth) || 0;
           setMatWidthInput(parsedWidth);
-          setInclusionFlags(prev => ({ ...prev, includeInnerMat: parseFloat(parsedWidth) > 0 }));
+          setInclusionFlags(prev => ({ ...prev, includeInnerMat: matW > 0 }));
         }
         const matText = order.matInfo.toLowerCase();
         if (matText.includes("siyah")) setInnerMatColor("#1C1C1E");
@@ -1209,11 +1223,16 @@ function SimulatorMain() {
     // 13. Sayfayı simülatör görsel alanına kaydır
     window.scrollTo({ top: 0, behavior: "smooth" });
 
-    // 14. Bilgilendirici Toast uyarısı ver
-    setToastMessage({
-      text: `${order.orderNumber} numaralı sipariş simülatöre aktarıldı. Çerçeve ve paspartuyu düzenleyebilirsiniz.`,
-      type: "success"
-    });
+    // 14. Otomatik yazdırma isteği varsa kuyruğa al
+    if (options?.autoPrint) {
+      setPendingAutoPrint(options.autoPrint);
+    } else {
+      // Bilgilendirici Toast uyarısı ver
+      setToastMessage({
+        text: `${order.orderNumber} numaralı sipariş simülatöre aktarıldı. Tüm bileşenler yüklendi.`,
+        type: "success"
+      });
+    }
   };
 
   // Simülatördeki Tüm Seçenekleri Sıfırlayıp Yeni Çerçeve Tasarımı Başlatma
@@ -2341,6 +2360,78 @@ Durum: Onaylandi / Uretime Hazir`;
       }
     }
   };
+
+  // Arşivden çağrılan siparişi sahnede tam oluşturup anında eksiksiz yazdırma
+  useEffect(() => {
+    if (!pendingAutoPrint) return;
+    const action = pendingAutoPrint;
+    setPendingAutoPrint(null);
+
+    const timer = setTimeout(() => {
+      if (action === "order_form") {
+        downloadCompositedImage();
+      } else if (action === "cutting_list") {
+        triggerCuttingListPrintWindow({
+          orderNumber,
+          customerName,
+          artworkWidth,
+          artworkHeight,
+          matWidth,
+          middleMatWidth,
+          innerMatColor,
+          frameWidth,
+          outerFrameWidth,
+          innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : customFrameFile,
+          outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
+          totalW,
+          totalH,
+          companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
+          authorUser: activeUser?.fullName,
+          cutList: costBreakdown.cutList
+        });
+      } else if (action === "label") {
+        triggerBackLabelPrintWindow({
+          orderNumber,
+          customerName,
+          customerPhone,
+          deliveryDate,
+          artworkWidth,
+          artworkHeight,
+          totalW,
+          totalH,
+          innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : customFrameFile,
+          outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
+          matInfo: matWidth > 0 ? `${matWidth} cm ${getPaspartuColorName(innerMatColor)}` : "Paspartusuz",
+          effectivePrice: costBreakdown.effectiveFinalPriceWithVat,
+          companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
+          authorUser: activeUser?.fullName
+        });
+      } else if (action === "cost") {
+        triggerCostBreakdownPrintWindow({
+          orderNumber,
+          customerName,
+          artworkWidth,
+          artworkHeight,
+          matWidth,
+          middleMatWidth,
+          innerMatColor,
+          frameWidth,
+          outerFrameWidth,
+          innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : customFrameFile,
+          outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
+          totalW,
+          totalH,
+          effectivePrice: costBreakdown.effectiveFinalPriceWithVat,
+          flags: effectiveInclusionFlags,
+          costBreakdown,
+          companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
+          authorUser: activeUser?.fullName
+        });
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [pendingAutoPrint]);
 
   // Simülatörden Doğrudan Sipariş Oluşturma (Görsel 3 & 4 Doğrulaması)
   const handleCreateOrderFromSimulator = async () => {

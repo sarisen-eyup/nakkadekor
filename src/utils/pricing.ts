@@ -32,6 +32,7 @@ export function getPaspartuColorName(hex?: string): string {
   return hex.toUpperCase();
 }
 
+// LocalStorage anahtarları
 const SETTINGS_STORAGE_KEY = "nakka_unit_prices_v1";
 const PROFILES_STORAGE_KEY = "nakka_frame_profiles_v1";
 const COMPANY_STORAGE_KEY = "nakka_company_profile_v1";
@@ -39,25 +40,6 @@ const USERS_STORAGE_KEY = "nakka_users_v1";
 const SUBSCRIPTION_STORAGE_KEY = "nakka_subscription_v1";
 const ARCHIVE_STORAGE_KEY = "nakka_orders_archive_v1";
 const AUTH_SESSION_KEY = "nakka_auth_session_v1";
-
-// Otomatik Temizlik: Tarayıcı 5MB localStorage limitini doldurmamak için
-// yüksek boyutlu profil dokuları ve sipariş görsel verilerini temizle
-if (typeof window !== "undefined") {
-  try {
-    localStorage.removeItem(PROFILES_STORAGE_KEY);
-    localStorage.removeItem(ARCHIVE_STORAGE_KEY);
-    localStorage.removeItem("nakka_order_archive_v1");
-    localStorage.removeItem("nakka_frame_profiles_v1");
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const k = localStorage.key(i);
-      if (k && (k.includes("frame_profiles") || k.includes("order_archive"))) {
-        localStorage.removeItem(k);
-      }
-    }
-  } catch (e) {
-    // ignore
-  }
-}
 
 /**
  * Oturumlar arası veri sızıntısını ve cache çakışmasını engellemek için anahtarı tenant_id ile kapsüller
@@ -259,17 +241,41 @@ export function deductSubscriptionCredit(): SubscriptionData {
 }
 
 // Archive Orders Storage
-export function loadArchiveOrdersFromStorage(_tenantId?: string): OrderArchiveItem[] {
-  // LocalStorage / Cache mantığı tamamen iptal edildi.
-  // Sipariş arşivleri doğrudan Supabase veritabanından çekilir.
+export function loadArchiveOrdersFromStorage(tenantId?: string): OrderArchiveItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const key = getScopedKey(ARCHIVE_STORAGE_KEY, tenantId);
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.warn("Could not load archive orders from local cache:", e);
+  }
   return [];
 }
 
 export const loadOrdersArchiveFromStorage = loadArchiveOrdersFromStorage;
 
-export function saveArchiveOrdersToStorage(_orders: OrderArchiveItem[], _tenantId?: string): void {
-  // LocalStorage QuotaExceededError önlendi: Büyük sipariş listeleri ve görseller
-  // localStorage'a kaydedilmez; doğrudan Supabase veritabanında saklanır.
+export function saveArchiveOrdersToStorage(orders: OrderArchiveItem[], tenantId?: string): void {
+  if (typeof window === "undefined" || !Array.isArray(orders)) return;
+  try {
+    const key = getScopedKey(ARCHIVE_STORAGE_KEY, tenantId);
+    // QuotaExceededError önlemek için büyük base64 data url'leri yerel önbelleğe yazılmaz, sadece kritik veriler tutulur
+    const lightweightOrders = orders.slice(0, 50).map(o => {
+      const { renderedFrameDataUrl, ...rest } = o;
+      // customPaintingUrl data URL ise ve 50KB'dan büyükse temizle
+      const safePainting = rest.customPaintingUrl && rest.customPaintingUrl.length > 50000 ? "" : rest.customPaintingUrl;
+      return {
+        ...rest,
+        customPaintingUrl: safePainting
+      };
+    });
+    localStorage.setItem(key, JSON.stringify(lightweightOrders));
+  } catch (e) {
+    console.warn("Could not save archive orders to local cache:", e);
+  }
 }
 
 export function addOrderToArchive(newOrder: OrderArchiveItem, currentOrders: OrderArchiveItem[] = []): OrderArchiveItem[] {

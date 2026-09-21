@@ -29,7 +29,6 @@ import {
   triggerCostBreakdownPrintWindow 
 } from "../utils/printHelper";
 import { generateCutList, calculateCostsAndPricing } from "../utils/pricing";
-import { renderOrderFramePreview } from "../utils/orderCanvasRenderer";
 
 interface OrderArchiveModalProps {
   isOpen: boolean;
@@ -38,7 +37,7 @@ interface OrderArchiveModalProps {
   orders: OrderArchiveItem[];
   profiles?: FrameProfileItem[];
   onDeleteOrder: (orderId: string) => void;
-  onLoadOrderToWorkspace: (order: OrderArchiveItem) => void;
+  onLoadOrderToWorkspace: (order: OrderArchiveItem, options?: { autoPrint?: "order_form" | "cutting_list" | "label" | "cost" }) => void;
   companyProfile: CompanyProfile;
   onUpdateStatus?: (orderId: string, status: OrderStatus) => void;
 }
@@ -58,7 +57,6 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [copiedNotice, setCopiedNotice] = useState<string | null>(null);
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<OrderArchiveItem | null>(null);
-  const [isRenderingPrint, setIsRenderingPrint] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -104,111 +102,10 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
     }
   };
 
-  // 1. Sipariş Formu Yazdır
-  const handlePrintOrderForm = async (order: OrderArchiveItem) => {
-    setIsRenderingPrint(true);
-    setCopiedNotice(`${order.orderNumber} tüm bileşenleri ve çerçevesi hazırlanıyor...`);
-
-    let qrDataUrl = "";
-    try {
-      const qrPayload = `https://nakkadekor.com/order/${order.orderNumber}?customer=${encodeURIComponent(order.customerName)}`;
-      qrDataUrl = await QRCode.toDataURL(qrPayload, {
-        width: 140,
-        margin: 1,
-        color: { dark: '#000000', light: '#ffffff' }
-      });
-    } catch (e) {
-      console.warn("QR code error:", e);
-    }
-
-    const docTitle = `${order.orderNumber}_${order.customerName.replace(/\s+/g, "_")}`;
-
-    // Siparişin gerçek ölçüleri ve profilleri
-    const matW = order.matWidthCm ?? order.simulatorConfig?.matWidthCm ?? (order.matInfo && order.matInfo !== "Paspartusuz" ? 5 : 0);
-    const frameW = order.frameWidthCm ?? order.simulatorConfig?.frameWidthCm ?? 4;
-    const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm ?? 0;
-    const outerFrameW = order.outerFrameWidthCm ?? order.simulatorConfig?.outerFrameWidthCm ?? 0;
-    const totalW = order.artworkWidthCm + 2 * (frameW + matW + middleMatW + outerFrameW);
-    const totalH = order.artworkHeightCm + 2 * (frameW + matW + middleMatW + outerFrameW);
-
-    // Siparişin tüm bileşen bayraklarını (flags) eksiksiz ve güvenli şekilde çöz
-    const rawFlags = order.inclusionFlags || order.simulatorConfig?.inclusionFlags || (order.simulatorConfig as any)?.flags || {};
-    const effectiveFlags = {
-      includeArtworkPrint: rawFlags.includeArtworkPrint ?? Boolean(order.customPaintingFile && order.customPaintingFile !== "Özel Sanat Eseri Baskısı Yok" && order.artworkWidthCm > 0),
-      includeInnerMat: rawFlags.includeInnerMat ?? Boolean(matW > 0 || (order.matInfo && order.matInfo !== "Paspartusuz")),
-      includeInnerFrame: rawFlags.includeInnerFrame ?? Boolean(frameW > 0 && order.innerFrameTitle !== "Yok" && order.innerFrameTitle !== "Çerçeve Seçilmedi"),
-      includeMiddleMat: rawFlags.includeMiddleMat ?? Boolean(middleMatW > 0),
-      includeOuterFrame: rawFlags.includeOuterFrame ?? Boolean(outerFrameW > 0 && order.outerFrameTitle && order.outerFrameTitle !== "Yok" && order.outerFrameTitle !== "Çerçeve Seçilmedi"),
-      includeGlass: rawFlags.includeGlass ?? true,
-      includeBackingBoard: rawFlags.includeBackingBoard ?? true,
-      includeBackingCloth: rawFlags.includeBackingCloth ?? true,
-      includeKraftTape: rawFlags.includeKraftTape ?? true,
-      includeLaborCost: rawFlags.includeLaborCost ?? true,
-    };
-
-    // Tüm bileşenleri (iç/dış çerçeveler, 45° gönye miter kesimleri, paspartu, sanat eseri, derinlik ve cam)
-    // simülatördeki gibi eksiksiz olarak HTML5 Canvas üzerinde çiz ve yüksek çözünürlüklü çıktı üret
-    let artworkImage = "";
-    try {
-      artworkImage = await renderOrderFramePreview(order, profiles);
-      if (artworkImage) {
-        order.renderedFrameDataUrl = artworkImage;
-      }
-    } catch (err) {
-      console.warn("Otomatik canvas render hatası, alternatif yola geçiliyor:", err);
-    }
-
-    if (!artworkImage) {
-      artworkImage = order.renderedFrameDataUrl ||
-        order.customPaintingUrl || 
-        order.simulatorConfig?.customPaintingUrl || 
-        "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
-          <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
-            <rect width="100%" height="100%" fill="#f8fafc"/>
-            <rect x="40" y="40" width="720" height="520" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,6" rx="8"/>
-            <text x="400" y="270" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" font-weight="bold" fill="#1e293b">NAKKA DEKOR ATÖLYE</text>
-            <text x="400" y="310" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#64748b">Eser Ölçüsü: ${order.artworkWidthCm} × ${order.artworkHeightCm} cm</text>
-            <text x="400" y="340" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#94a3b8">Profil: ${order.innerFrameTitle || 'Standart Profil'} • Bitmiş Ebat: ${totalW.toFixed(1)} × ${totalH.toFixed(1)} cm</text>
-          </svg>
-        `);
-    }
-
-    setIsRenderingPrint(false);
-
-    triggerImagePrintWindow(
-      docTitle,
-      artworkImage,
-      `${docTitle}.png`,
-      {
-        orderNumber: order.orderNumber,
-        customerName: order.customerName,
-        customerPhone: order.customerPhone || "Belirtilmedi",
-        deliveryDate: order.deliveryDate || "Normal Teslim",
-        artworkWidth: order.artworkWidthCm,
-        artworkHeight: order.artworkHeightCm,
-        matWidth: matW,
-        middleMatWidth: middleMatW,
-        frameWidth: frameW,
-        outerFrameWidth: outerFrameW,
-        totalW: Math.round(totalW * 10) / 10,
-        totalH: Math.round(totalH * 10) / 10,
-        customPaintingFile: order.customPaintingFile || order.simulatorConfig?.customPaintingFile || "Kayıtlı Eser Görseli",
-        customFrameFile: order.innerFrameTitle || "Standart Profil",
-        customOuterFrameFile: order.outerFrameTitle || "Yok",
-        innerMatColor: order.innerMatColor || order.simulatorConfig?.innerMatColor || "#FAF9F5",
-        outerMatColor: order.outerMatColor || order.simulatorConfig?.outerMatColor || "#FAF9F5",
-        effectivePrice: order.totalAmount,
-        deliveryMethod: order.deliveryMethod,
-        shippingCost: order.deliveryMethod === "shipping" ? 150 : 0,
-        qrDataUrl,
-        flags: effectiveFlags,
-        companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
-        authorUser: order.authorUser
-      }
-    );
-
-    setCopiedNotice(`${order.orderNumber} Sipariş Formu yazdırma penceresi açıldı.`);
-    setTimeout(() => setCopiedNotice(null), 3000);
+  // 1. Sipariş Formu Yazdır (Simülatör Canlı Motoru Üzerinden Eksiksiz Baskı)
+  const handlePrintOrderForm = (order: OrderArchiveItem) => {
+    setSelectedOrderForPrint(null);
+    onLoadOrderToWorkspace(order, { autoPrint: "order_form" });
   };
 
   // 2. Üretim Emri & Kesim Listesi Yazdır
@@ -849,18 +746,17 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 </div>
                 <button
                   type="button"
-                  disabled={isRenderingPrint}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handlePrintOrderForm(selectedOrderForPrint);
+                    if (selectedOrderForPrint) {
+                      handlePrintOrderForm(selectedOrderForPrint);
+                    }
                   }}
-                  className={`w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-white font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 transition-all ${
-                    isRenderingPrint ? "bg-blue-400 cursor-wait" : "bg-blue-600 hover:bg-blue-500"
-                  }`}
+                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-white font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 transition-all bg-blue-600 hover:bg-blue-500"
                 >
-                  <Printer className={`w-3.5 h-3.5 ${isRenderingPrint ? "animate-spin" : ""}`} />
-                  <span>{isRenderingPrint ? "Hazırlanıyor..." : "Yazdır"}</span>
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Yazdır</span>
                 </button>
               </div>
 
