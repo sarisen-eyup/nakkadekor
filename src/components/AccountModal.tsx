@@ -23,7 +23,8 @@ import {
   AlertCircle,
   Loader2,
   Trash2,
-  Infinity
+  Infinity,
+  MessageSquare
 } from "lucide-react";
 import { 
   CompanyProfile, 
@@ -969,19 +970,6 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                       </span>
                     </div>
 
-                    {/* Onay Bekleyen Kredi Bilgisi */}
-                    {subscription.pendingCredits !== undefined && subscription.pendingCredits > 0 && (
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold shadow-sm animate-pulse w-fit">
-                        <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span>
-                          Onay Bekleyen: {subscription.pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${subscription.pendingCredits} Kredi`}
-                        </span>
-                        <span className="text-[10px] text-amber-400/80 font-mono font-normal ml-1">
-                          (Havale/EFT Dekontu Bekleniyor)
-                        </span>
-                      </div>
-                    )}
-
                     <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
                       Paketiniz: <strong className={`font-mono ${isDarkMode ? "text-white" : "text-slate-900"}`}>{subscription.planName}</strong>
                       {subscription.renewalDate && (
@@ -1025,6 +1013,99 @@ export const AccountModal: React.FC<AccountModalProps> = ({
 
                 </div>
               </div>
+
+              {/* AYRI VE ÇOK GÖRÜNÜR BÖLÜM: ONAY BEKLEYEN KREDİ / HAVALE-EFT BİLGİ ALANI */}
+              {subscription.pendingCredits !== undefined && subscription.pendingCredits > 0 && (
+                <div className={`p-5 sm:p-6 rounded-2xl border-2 transition-all shadow-md animate-fade-in ${
+                  isDarkMode 
+                    ? "bg-gradient-to-r from-[#211a0f] via-[#1a1610] to-[#121419] border-amber-500/60 shadow-amber-950/30" 
+                    : "bg-gradient-to-r from-amber-50 via-amber-100/70 to-orange-50/80 border-amber-400 text-amber-950 shadow-amber-200/50"
+                }`}>
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+                    
+                    {/* Sol Bilgilendirme ve Vurgu */}
+                    <div className="flex items-start gap-4">
+                      <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 shadow-sm ${
+                        isDarkMode 
+                          ? "bg-amber-500/20 border-amber-400/50 text-amber-400" 
+                          : "bg-amber-200 border-amber-400 text-amber-900"
+                      }`}>
+                        <Clock className="w-6 h-6 animate-pulse" />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`text-[10px] font-mono font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full border shadow-2xs ${
+                            isDarkMode 
+                              ? "bg-amber-500/25 text-amber-300 border-amber-400/50" 
+                              : "bg-amber-200/90 text-amber-950 border-amber-400"
+                          }`}>
+                            ONAY BEKLEYEN KREDİ TALEBİ
+                          </span>
+                          <span className={`text-xs font-semibold ${isDarkMode ? "text-amber-400/90" : "text-amber-900"}`}>
+                            • Havale / EFT Kontrolü
+                          </span>
+                        </div>
+
+                        <div className="flex items-baseline gap-2.5">
+                          <span className={`text-2xl sm:text-3xl font-black font-mono tracking-tight ${
+                            isDarkMode ? "text-amber-300" : "text-amber-950"
+                          }`}>
+                            {subscription.pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `+${subscription.pendingCredits} KREDİ`}
+                          </span>
+                          <span className={`text-xs font-bold ${isDarkMode ? "text-neutral-400" : "text-amber-900/80"}`}>
+                            aktif bakiyenize eklenmek üzere sırada
+                          </span>
+                        </div>
+
+                        <p className={`text-xs leading-relaxed max-w-xl ${isDarkMode ? "text-neutral-300" : "text-amber-950/90 font-medium"}`}>
+                          Ödeme bildiriminiz alınmıştır. Havale/EFT dekontunuz iletildiğinde ve yönetici onayının ardından kredileriniz hemen hesabınıza yansıtılacaktır.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Sağ Hızlı Butonlar */}
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full md:w-auto shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingPaymentInfo({
+                            packageName: subscription.pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${subscription.pendingCredits} Kredi Paketi`,
+                            packagePriceText: subscription.pendingCredits >= 999999 ? "37.500 ₺ / Yıl" : subscription.pendingCredits >= 150 ? "3.750 ₺" : "1.500 ₺",
+                            amount: subscription.pendingCredits
+                          });
+                          setIsBankTransferModalOpen(true);
+                        }}
+                        className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 ${
+                          isDarkMode 
+                            ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" 
+                            : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+                        }`}
+                      >
+                        <Building2 className="w-4 h-4" />
+                        <span>Banka &amp; IBAN Gör</span>
+                      </button>
+
+                      <a
+                        href={`https://wa.me/905424710686?text=${encodeURIComponent(
+                          `Merhaba, Nakka Dekor atölye hesabım için ${subscription.pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${subscription.pendingCredits} Kredi`} havale/EFT ödemesini gerçekleştirdim. Dekontu iletiyorum, kredimin onaylanmasını rica ederim.`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95 ${
+                          isDarkMode 
+                            ? "bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/40 text-emerald-300" 
+                            : "bg-emerald-100 hover:bg-emerald-200 border-emerald-300 text-emerald-950 font-bold"
+                        }`}
+                      >
+                        <MessageSquare className="w-4 h-4 text-emerald-600" />
+                        <span>WhatsApp ile Dekont İlet</span>
+                      </a>
+                    </div>
+
+                  </div>
+                </div>
+              )}
 
               {/* Hızlı Kredi Yükleme Paketleri */}
               <div>

@@ -158,16 +158,14 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
       <button
         type="button"
         onClick={onClick}
-        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-[10px] font-bold tracking-wider transition-all cursor-pointer ${
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-bold tracking-wider transition-all cursor-pointer shadow-xs ${
           isLowCredits
-            ? "bg-rose-500/10 border-rose-500/40 text-rose-300"
-            : isUnlimited
-              ? isDarkMode 
-                ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400"
-                : "bg-emerald-50 border-emerald-300 text-emerald-700"
-              : isDarkMode 
-                ? "bg-[#101216] border-[#C5A059]/40 text-[#C5A059]" 
-                : "bg-white border-[#B88E3A]/40 text-[#B88E3A]"
+            ? isDarkMode 
+              ? "bg-rose-950/25 border-rose-500/40 text-rose-300"
+              : "bg-rose-50 border-rose-300 text-rose-800"
+            : isDarkMode 
+              ? "bg-[#13161c] border-[#C5A059]/40 hover:border-[#C5A059] text-neutral-200" 
+              : "bg-white border-amber-200/90 hover:border-[#B88E3A] text-slate-800"
         }`}
         title={
           isUnlimited 
@@ -175,11 +173,11 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
             : `Kalan Kredi: ${remainingCredits} / Toplam: ${totalCredits}${pendingCredits > 0 ? ` (Onay Bekleyen: ${pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`})` : ""}`
         }
       >
-        <User className="w-3.5 h-3.5" />
+        <User className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
         {loading ? (
           <Loader2 className="w-3 h-3 animate-spin text-[#C5A059]" />
         ) : isUnlimited ? (
-          <span className="flex items-center gap-0.5 text-emerald-400 font-bold">
+          <span className={`flex items-center gap-0.5 font-bold ${isDarkMode ? "text-emerald-400" : "text-emerald-700"}`}>
             <Infinity className="w-3.5 h-3.5" />
           </span>
         ) : (
@@ -191,7 +189,11 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
         {/* Mobil Onay Bekleyen Rozeti */}
         {pendingCredits > 0 && (
           <span 
-            className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 shrink-0"
+            className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-black border shrink-0 ${
+              isDarkMode 
+                ? "bg-amber-500/25 text-amber-300 border-amber-400/50" 
+                : "bg-amber-100 border-amber-400 text-amber-950 shadow-xs"
+            }`}
             title={`Onay Bekleyen: ${pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`}`}
           >
             +{pendingCredits >= 999999 ? "∞" : pendingCredits}
@@ -226,7 +228,11 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
           </div>
 
           {isUnlimited ? (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 ${
+              isDarkMode 
+                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" 
+                : "bg-emerald-50 text-emerald-700 border-emerald-300"
+            }`}>
               <Infinity className="w-3 h-3" /> Sınırsız
             </span>
           ) : isLowCredits ? (
@@ -269,12 +275,16 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
 
         {/* Standalone Onay Bekleyen Kredi Rozeti */}
         {pendingCredits > 0 && (
-          <div className="mt-3 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-between text-xs text-amber-300 font-bold">
+          <div className={`mt-3 p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold ${
+            isDarkMode 
+              ? "bg-amber-500/15 border-amber-500/40 text-amber-300" 
+              : "bg-amber-100/80 border-amber-300 text-amber-950"
+          }`}>
             <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <Clock className={`w-3.5 h-3.5 ${isDarkMode ? "text-amber-400" : "text-amber-700"}`} />
               <span>Onay Bekleyen: {pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${pendingCredits} Kredi`}</span>
             </span>
-            <span className="text-[10px] text-amber-400/90 font-mono font-normal">
+            <span className={`text-[10px] font-mono font-medium ${isDarkMode ? "text-amber-400/90" : "text-amber-800"}`}>
               Havale Bekleniyor
             </span>
           </div>
@@ -288,16 +298,14 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer select-none ${
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-xs cursor-pointer select-none ${
         isLowCredits
-          ? "bg-rose-500/10 border-rose-500/40 text-rose-300 hover:bg-rose-500/20"
-          : isUnlimited
-            ? isDarkMode
-              ? "bg-emerald-500/10 border-emerald-500/40 hover:border-emerald-400 text-emerald-400 hover:bg-emerald-500/20"
-              : "bg-emerald-50 border-emerald-300 hover:border-emerald-500 text-emerald-800 hover:bg-emerald-100"
-            : isDarkMode 
-              ? "bg-[#101216] border-[#C5A059]/40 hover:border-[#C5A059] text-[#C5A059]" 
-              : "bg-white border-[#B88E3A]/40 hover:border-[#B88E3A] text-[#B88E3A]"
+          ? isDarkMode
+            ? "bg-rose-950/25 border-rose-500/40 text-rose-300 hover:bg-rose-900/30"
+            : "bg-rose-50 border-rose-300 text-rose-800 hover:bg-rose-100"
+          : isDarkMode 
+            ? "bg-[#13161c] border-[#C5A059]/35 hover:border-[#C5A059] hover:bg-[#181d25] text-neutral-200 shadow-sm" 
+            : "bg-white border-amber-200/90 hover:border-[#B88E3A] hover:bg-amber-50/40 text-slate-800 shadow-xs"
       }`}
       title={
         isUnlimited 
@@ -305,19 +313,21 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
           : `Atölye Kredisi: ${remainingCredits} Kalan / ${totalCredits} Toplam Kota${pendingCredits > 0 ? ` (Onay Bekleyen: ${pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`})` : ""}`
       }
     >
-      <User className="w-3.5 h-3.5" />
-      <span>HESAP</span>
+      <User className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+      <span className={isDarkMode ? "text-neutral-200 font-bold" : "text-slate-800 font-bold"}>HESAP</span>
 
       {loading ? (
-        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-white/10 text-neutral-300">
-          <Loader2 className="w-2.5 h-2.5 animate-spin text-[#C5A059]" />
+        <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ${
+          isDarkMode ? "bg-white/10 text-neutral-300" : "bg-slate-100 text-slate-600"
+        }`}>
+          <Loader2 className={`w-2.5 h-2.5 animate-spin ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
           <span>...</span>
         </span>
       ) : isUnlimited ? (
         <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-black ${
           isDarkMode 
-            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
-            : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+            ? "bg-emerald-950/60 text-emerald-400 border border-emerald-500/40" 
+            : "bg-emerald-50 text-emerald-700 border border-emerald-300/80 shadow-2xs"
         }`}>
           <Infinity className="w-3 h-3" />
           <span>SINIRSIZ</span>
@@ -327,8 +337,8 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
           isLowCredits
             ? "bg-rose-500/20 text-rose-500 font-bold border border-rose-400/40"
             : isDarkMode 
-              ? "bg-[#C5A059]/20 text-[#E5C158] border border-[#C5A059]/30" 
-              : "bg-amber-100 text-amber-900 border border-amber-300"
+              ? "bg-[#C5A059]/15 text-[#E5C158] border border-[#C5A059]/30" 
+              : "bg-amber-50 text-amber-900 border border-amber-200"
         }`}>
           {remainingCredits} / {totalCredits} Kr.
         </span>
@@ -337,11 +347,15 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
       {/* Dikkat Çekici Onay Bekleyen Kredi Rozeti (pending_credits > 0 ise) */}
       {pendingCredits > 0 && (
         <span 
-          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/25 text-amber-300 border border-amber-500/50 shadow-sm animate-pulse"
+          className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-mono font-black border shadow-xs animate-pulse ${
+            isDarkMode
+              ? "bg-amber-500/20 border-amber-400/60 text-amber-300"
+              : "bg-amber-100/90 border-amber-400 text-amber-950"
+          }`}
           title={`Onay Bekleyen Kredi: ${pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${pendingCredits} Kredi`} (Havale veya WhatsApp ile dekont iletiniz)`}
         >
-          <Clock className="w-2.5 h-2.5 text-amber-400 shrink-0" />
-          <span>Onay Bekleyen: {pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`}</span>
+          <Clock className={`w-2.5 h-2.5 shrink-0 ${isDarkMode ? "text-amber-400" : "text-amber-700"}`} />
+          <span>ONAY BEKLEYEN: {pendingCredits >= 999999 ? "SINIRSIZ" : `${pendingCredits} KREDİ`}</span>
         </span>
       )}
     </button>
