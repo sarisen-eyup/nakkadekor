@@ -104,7 +104,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
   const handlePrintOrderForm = async (order: OrderArchiveItem) => {
     let qrDataUrl = "";
     try {
-      const qrPayload = `https://nakka.decor/order/${order.orderNumber}?customer=${encodeURIComponent(order.customerName)}`;
+      const qrPayload = `https://nakkadekor.com/order/${order.orderNumber}?customer=${encodeURIComponent(order.customerName)}`;
       qrDataUrl = await QRCode.toDataURL(qrPayload, {
         width: 140,
         margin: 1,
@@ -115,9 +115,31 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
     }
 
     const docTitle = `${order.orderNumber}_${order.customerName.replace(/\s+/g, "_")}`;
+
+    // Siparişin gerçek ölçüleri ve profilleri
+    const matW = order.matWidthCm ?? order.simulatorConfig?.matWidthCm ?? (order.matInfo && order.matInfo !== "Paspartusuz" ? 5 : 0);
+    const frameW = order.frameWidthCm ?? order.simulatorConfig?.frameWidthCm ?? 4;
+    const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm ?? 0;
+    const outerFrameW = order.outerFrameWidthCm ?? order.simulatorConfig?.outerFrameWidthCm ?? 0;
+    const totalW = order.artworkWidthCm + 2 * (frameW + matW + middleMatW + outerFrameW);
+    const totalH = order.artworkHeightCm + 2 * (frameW + matW + middleMatW + outerFrameW);
+
+    // Siparişin gerçek tasarım görseli (varsa yüklenen görsel, yoksa kurumsal zarif sanat alanı taslağı)
+    const artworkImage = order.customPaintingUrl || 
+      order.simulatorConfig?.customPaintingUrl || 
+      "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+          <rect width="100%" height="100%" fill="#f8fafc"/>
+          <rect x="40" y="40" width="720" height="520" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,6" rx="8"/>
+          <text x="400" y="270" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" font-weight="bold" fill="#1e293b">NAKKA DEKOR ATÖLYE</text>
+          <text x="400" y="310" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#64748b">Eser Ölçüsü: ${order.artworkWidthCm} × ${order.artworkHeightCm} cm</text>
+          <text x="400" y="340" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#94a3b8">Profil: ${order.innerFrameTitle || 'Standart Profil'} • Bitmiş Ebat: ${totalW.toFixed(1)} × ${totalH.toFixed(1)} cm</text>
+        </svg>
+      `);
+
     triggerImagePrintWindow(
       docTitle,
-      "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=800&auto=format&fit=crop",
+      artworkImage,
       `${docTitle}.png`,
       {
         orderNumber: order.orderNumber,
@@ -126,15 +148,17 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
         deliveryDate: order.deliveryDate || "Normal Teslim",
         artworkWidth: order.artworkWidthCm,
         artworkHeight: order.artworkHeightCm,
-        matWidth: 5,
-        middleMatWidth: 0,
-        frameWidth: 4,
-        outerFrameWidth: 0,
-        totalW: order.artworkWidthCm + 18,
-        totalH: order.artworkHeightCm + 18,
-        customPaintingFile: "Arşivlenmiş Eser",
-        customFrameFile: order.innerFrameTitle,
-        customOuterFrameFile: order.outerFrameTitle,
+        matWidth: matW,
+        middleMatWidth: middleMatW,
+        frameWidth: frameW,
+        outerFrameWidth: outerFrameW,
+        totalW: Math.round(totalW * 10) / 10,
+        totalH: Math.round(totalH * 10) / 10,
+        customPaintingFile: order.customPaintingFile || order.simulatorConfig?.customPaintingFile || "Kayıtlı Eser Görseli",
+        customFrameFile: order.innerFrameTitle || "Standart Profil",
+        customOuterFrameFile: order.outerFrameTitle || "Yok",
+        innerMatColor: order.innerMatColor || order.simulatorConfig?.innerMatColor || "#FAF9F5",
+        outerMatColor: order.outerMatColor || order.simulatorConfig?.outerMatColor || "#FAF9F5",
         effectivePrice: order.totalAmount,
         deliveryMethod: order.deliveryMethod,
         shippingCost: order.deliveryMethod === "shipping" ? 150 : 0,
@@ -150,18 +174,23 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
 
   // 2. Üretim Emri & Kesim Listesi Yazdır
   const handlePrintCuttingList = (order: OrderArchiveItem) => {
+    const matW = order.matWidthCm ?? order.simulatorConfig?.matWidthCm ?? (order.matInfo && order.matInfo !== "Paspartusuz" ? 5 : 0);
+    const frameW = order.frameWidthCm ?? order.simulatorConfig?.frameWidthCm ?? 4;
+    const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm ?? 0;
+    const outerFrameW = order.outerFrameWidthCm ?? order.simulatorConfig?.outerFrameWidthCm ?? 0;
+
     const cutList = generateCutList({
       artworkWidthCm: order.artworkWidthCm,
       artworkHeightCm: order.artworkHeightCm,
-      matWidthCm: 5,
-      frameWidthCm: 4,
-      middleMatWidthCm: 0,
-      outerFrameWidthCm: 0,
+      matWidthCm: matW,
+      frameWidthCm: frameW,
+      middleMatWidthCm: middleMatW,
+      outerFrameWidthCm: outerFrameW,
       innerFrameCode: order.innerFrameTitle,
       outerFrameCode: order.outerFrameTitle,
-      innerMatColor: "#FAF9F5",
-      outerMatColor: "#FAF9F5",
-      flags: {
+      innerMatColor: order.innerMatColor || order.simulatorConfig?.innerMatColor || "#FAF9F5",
+      outerMatColor: order.outerMatColor || order.simulatorConfig?.outerMatColor || "#FAF9F5",
+      flags: order.inclusionFlags || order.simulatorConfig?.flags || {
         includeArtworkPrint: false,
         includeInnerMat: order.matInfo !== "Paspartusuz",
         includeInnerFrame: true,
@@ -191,12 +220,19 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
 
   // 3. 4x4 cm Tablo Arka Etiketi Yazdır
   const handlePrintBackLabel = async (order: OrderArchiveItem) => {
+    const matW = order.matWidthCm ?? order.simulatorConfig?.matWidthCm ?? (order.matInfo && order.matInfo !== "Paspartusuz" ? 5 : 0);
+    const frameW = order.frameWidthCm ?? order.simulatorConfig?.frameWidthCm ?? 4;
+    const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm ?? 0;
+    const outerFrameW = order.outerFrameWidthCm ?? order.simulatorConfig?.outerFrameWidthCm ?? 0;
+    const totalW = order.artworkWidthCm + 2 * (frameW + matW + middleMatW + outerFrameW);
+    const totalH = order.artworkHeightCm + 2 * (frameW + matW + middleMatW + outerFrameW);
+
     let qrDataUrl = "";
     try {
       const qrText = `SİPARİŞ NO: ${order.orderNumber}
 MÜŞTERİ: ${order.customerName}
 ESER: ${order.artworkWidthCm}x${order.artworkHeightCm} cm
-DIŞ EBAT: ${(order.artworkWidthCm + 18).toFixed(1)}x${(order.artworkHeightCm + 18).toFixed(1)} cm
+DIŞ EBAT: ${totalW.toFixed(1)}x${totalH.toFixed(1)} cm
 TARİH: ${order.createdAt}
 ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
 
@@ -214,8 +250,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
       customerName: order.customerName,
       artworkWidthCm: order.artworkWidthCm,
       artworkHeightCm: order.artworkHeightCm,
-      finalOuterWidthCm: order.artworkWidthCm + 18,
-      finalOuterHeightCm: order.artworkHeightCm + 18,
+      finalOuterWidthCm: Math.round(totalW * 10) / 10,
+      finalOuterHeightCm: Math.round(totalH * 10) / 10,
       frameProfileName: order.innerFrameTitle,
       createdAt: order.createdAt,
       companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
@@ -228,7 +264,12 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
 
   // 4. Maliyet Tablosu Yazdır
   const handlePrintCostBreakdown = (order: OrderArchiveItem) => {
-    const flags = {
+    const matW = order.matWidthCm ?? order.simulatorConfig?.matWidthCm ?? (order.matInfo && order.matInfo !== "Paspartusuz" ? 5 : 0);
+    const frameW = order.frameWidthCm ?? order.simulatorConfig?.frameWidthCm ?? 4;
+    const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm ?? 0;
+    const outerFrameW = order.outerFrameWidthCm ?? order.simulatorConfig?.outerFrameWidthCm ?? 0;
+
+    const flags = order.inclusionFlags || order.simulatorConfig?.flags || {
       includeArtworkPrint: false,
       includeInnerMat: order.matInfo !== "Paspartusuz",
       includeInnerFrame: true,
@@ -244,10 +285,10 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
     const breakdown = calculateCostsAndPricing({
       artworkWidthCm: order.artworkWidthCm,
       artworkHeightCm: order.artworkHeightCm,
-      matWidthCm: 5,
-      frameWidthCm: 4,
-      middleMatWidthCm: 0,
-      outerFrameWidthCm: 0,
+      matWidthCm: matW,
+      frameWidthCm: frameW,
+      middleMatWidthCm: middleMatW,
+      outerFrameWidthCm: outerFrameW,
       deliveryMethod: order.deliveryMethod,
       customShippingCost: order.deliveryMethod === "shipping" ? 150 : 0,
       customOverridePrice: order.totalAmount,
@@ -267,7 +308,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
       companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined
     });
 
-    setCopiedNotice(`${order.orderNumber} Maliyet Tablosu açıldı.`);
+    setCopiedNotice(`${order.orderNumber} Maliyet Analiz Tablosu açıldı.`);
     setTimeout(() => setCopiedNotice(null), 3000);
   };
 
@@ -765,9 +806,10 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     handlePrintOrderForm(selectedOrderForPrint);
-                    setSelectedOrderForPrint(null);
                   }}
                   className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
                 >
@@ -793,9 +835,10 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     handlePrintCuttingList(selectedOrderForPrint);
-                    setSelectedOrderForPrint(null);
                   }}
                   className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
                 >
@@ -824,9 +867,10 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     handlePrintBackLabel(selectedOrderForPrint);
-                    setSelectedOrderForPrint(null);
                   }}
                   className={`w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
                     isDarkMode ? "bg-[#C5A059] hover:bg-[#b8944c] text-black" : "bg-[#B88E3A] hover:bg-[#a17a2b] text-white"
@@ -854,9 +898,10 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     handlePrintCostBreakdown(selectedOrderForPrint);
-                    setSelectedOrderForPrint(null);
                   }}
                   className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
                 >

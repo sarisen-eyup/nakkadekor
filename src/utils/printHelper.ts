@@ -9,7 +9,7 @@ import {
 
 // Centralized safe document printing handler (handles popup window & iframe fallback)
 export function renderPrintHtml(title: string, fullHtml: string) {
-  // First attempt: Popup Window
+  // First attempt: Popup Window (ensure it's not the same window)
   let printWin: Window | null = null;
   try {
     printWin = window.open("", "_blank");
@@ -17,18 +17,22 @@ export function renderPrintHtml(title: string, fullHtml: string) {
     console.warn("window.open failed, trying iframe fallback:", e);
   }
 
-  if (printWin && !printWin.closed) {
+  // Safety check: printWin MUST NOT be the current window!
+  if (printWin && printWin !== window && !printWin.closed && typeof printWin.document !== "undefined") {
     try {
       printWin.document.open();
       printWin.document.write(fullHtml);
       printWin.document.close();
+      try {
+        printWin.focus();
+      } catch {}
       return;
     } catch (e) {
-      console.warn("Writing to popup window failed:", e);
+      console.warn("Writing to popup window failed, trying fallback:", e);
     }
   }
 
-  // Fallback: Embed full-screen print iframe in case browser popup is blocked (especially in iframe sandboxes)
+  // Fallback: Use clean, non-disruptive hidden printing iframe so simulator screen stays intact
   const existingIframe = document.getElementById("nakka-print-iframe");
   if (existingIframe) {
     existingIframe.remove();
@@ -36,51 +40,43 @@ export function renderPrintHtml(title: string, fullHtml: string) {
 
   const iframe = document.createElement("iframe");
   iframe.id = "nakka-print-iframe";
+  // Invisible off-screen iframe to prevent closing/disrupting simulator screen
   iframe.style.position = "fixed";
-  iframe.style.top = "0";
-  iframe.style.left = "0";
-  iframe.style.width = "100vw";
-  iframe.style.height = "100vh";
-  iframe.style.zIndex = "999999";
-  iframe.style.background = "#ffffff";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
   iframe.style.border = "none";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
+  iframe.style.zIndex = "-1";
   document.body.appendChild(iframe);
 
   const doc = iframe.contentWindow?.document;
   if (doc) {
-    doc.open();
-    doc.write(fullHtml);
-    doc.close();
+    try {
+      doc.open();
+      doc.write(fullHtml);
+      doc.close();
 
-    // Add a close button for iframe mode
-    const closeBtn = doc.createElement("button");
-    closeBtn.innerText = "✕ Kapat";
-    closeBtn.style.position = "fixed";
-    closeBtn.style.top = "10px";
-    closeBtn.style.right = "10px";
-    closeBtn.style.zIndex = "9999999";
-    closeBtn.style.padding = "8px 16px";
-    closeBtn.style.backgroundColor = "#ef4444";
-    closeBtn.style.color = "#ffffff";
-    closeBtn.style.border = "none";
-    closeBtn.style.borderRadius = "6px";
-    closeBtn.style.cursor = "pointer";
-    closeBtn.style.fontWeight = "bold";
-    closeBtn.style.fontSize = "12px";
-    closeBtn.className = "no-print-close-btn";
-    closeBtn.onclick = () => {
-      iframe.remove();
-    };
-    doc.body.appendChild(closeBtn);
-
-    setTimeout(() => {
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch (err) {
-        console.error("Iframe print error:", err);
-      }
-    }, 400);
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (err) {
+          console.error("Iframe print error:", err);
+        } finally {
+          // Cleanup after printing is triggered
+          setTimeout(() => {
+            try {
+              iframe.remove();
+            } catch {}
+          }, 60000);
+        }
+      }, 500);
+    } catch (e) {
+      console.error("Failed to write to print iframe:", e);
+    }
   }
 }
 

@@ -980,10 +980,20 @@ function SimulatorMain() {
 
   const handleLoadOrderToWorkspace = (order: OrderArchiveItem) => {
     // 1. Sipariş Kimliğini ve Numarasını güncelle
-    setActiveOrderId(order.id || null);
+    const resolvedId = order.id || ("ord_" + (order.orderNumber ? order.orderNumber.replace(/[^0-9]/g, '') : Date.now()));
+    setActiveOrderId(resolvedId);
     if (order.orderNumber) {
       setOrderNumber(order.orderNumber);
     }
+
+    // Arşiv listesinde mevcut siparişin id ve numarasını senkronize et (isOrderCreated garantisi)
+    setArchiveOrders(prev => {
+      const exists = prev.some(o => o.orderNumber === order.orderNumber || o.id === resolvedId);
+      if (exists) {
+        return prev.map(o => (o.orderNumber === order.orderNumber || o.id === resolvedId) ? { ...o, ...order, id: resolvedId } : o);
+      }
+      return [{ ...order, id: resolvedId }, ...prev];
+    });
 
     // 2. Müşteri ve Teslimat Bilgilerini yükle
     if (order.customerName) setCustomerName(order.customerName);
@@ -2362,6 +2372,8 @@ Durum: Onaylandi / Uretime Hazir`;
       }
     };
 
+    setActiveOrderId(resolvedId);
+
     setArchiveOrders(prev => {
       const exists = prev.some(o => o.orderNumber === newArchiveItem.orderNumber || o.id === newArchiveItem.id);
       if (exists) {
@@ -3536,6 +3548,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         totalPriceWithVat={costBreakdown.effectiveFinalPriceWithVat}
         isOrderCreated={isOrderCreated}
         onCreateOrder={handleCreateOrderFromSimulator}
+        onPrintOrderForm={downloadCompositedImage}
         onPrintJobOrder={downloadCompositedImage}
         onPrintCuttingList={handlePrintCuttingList}
         onOpenCuttingListModal={() => {

@@ -226,7 +226,7 @@ export const CustomerWallPreviewModal: React.FC<CustomerWallPreviewModalProps> =
   const outerProfileName = props.outerProfileName || "Dış Profil";
   const orderNumber = props.orderNumber || "";
   const customer = props.customerName || "Değerli Müşterimiz";
-  const atelierName = props.companyName || "Nakkaş Çerçeve Atölyesi";
+  const atelierName = props.companyName || "Nakka Dekor";
 
   const wallContainerRef = useRef<HTMLDivElement | null>(null);
   const frameWrapperRef = useRef<HTMLDivElement | null>(null);

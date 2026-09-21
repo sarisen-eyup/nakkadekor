@@ -474,7 +474,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 isDarkMode ? "bg-[#0e1014] border-white/10" : "bg-slate-50 border-slate-200"
               }`}>
                 <span className="text-neutral-400">Doğrudan İletişim:</span>
-                <span className="font-bold text-[#C5A059]">kurumsal@nakkadecor.com</span>
+                <span className="font-bold text-[#C5A059]">kurumsal@nakkadekor.com</span>
               </div>
               <div className={`p-3 rounded-xl border flex items-center justify-between ${
                 isDarkMode ? "bg-[#0e1014] border-white/10" : "bg-slate-50 border-slate-200"

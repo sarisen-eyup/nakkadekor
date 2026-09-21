@@ -32,7 +32,8 @@ interface PrintCenterModalProps {
   totalPriceWithVat: number;
   isOrderCreated?: boolean;
   onCreateOrder?: () => void;
-  onPrintJobOrder: () => void;
+  onPrintOrderForm?: () => void;
+  onPrintJobOrder?: () => void;
   onPrintCuttingList: () => void;
   onOpenCuttingListModal: () => void;
   onPrintCostBreakdown: () => void;
@@ -59,6 +60,7 @@ export function PrintCenterModal({
   totalPriceWithVat,
   isOrderCreated = false,
   onCreateOrder,
+  onPrintOrderForm,
   onPrintJobOrder,
   onPrintCuttingList,
   onOpenCuttingListModal,
@@ -68,10 +70,16 @@ export function PrintCenterModal({
 }: PrintCenterModalProps) {
   if (!isOpen) return null;
 
-  const handleAction = (callback: () => void) => {
-    if (!isOrderCreated) return;
-    callback();
+  const handleAction = (callback?: () => void) => {
+    if (!isOrderCreated || !callback) return;
+    try {
+      callback();
+    } catch (err) {
+      console.error("Print action error:", err);
+    }
   };
+
+  const printOrderFormFn = onPrintOrderForm || onPrintJobOrder;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -218,8 +226,12 @@ export function PrintCenterModal({
               </div>
 
               <button
+                type="button"
                 disabled={!isOrderCreated}
-                onClick={() => handleAction(onPrintOrderForm)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAction(printOrderFormFn);
+                }}
                 className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 ${
                   !isOrderCreated
                     ? "bg-neutral-700/50 text-neutral-400 cursor-not-allowed opacity-50"
@@ -263,8 +275,12 @@ export function PrintCenterModal({
 
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   disabled={!isOrderCreated}
-                  onClick={() => handleAction(onPrintCuttingList)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAction(onPrintCuttingList);
+                  }}
                   className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 ${
                     !isOrderCreated
                       ? "bg-neutral-700/50 text-neutral-400 cursor-not-allowed opacity-50"
@@ -276,8 +292,12 @@ export function PrintCenterModal({
                   <span>{!isOrderCreated ? "Sipariş Kaydı Gerekli" : "Kesim Listesini Yazdır"}</span>
                 </button>
                 <button
+                  type="button"
                   disabled={!isOrderCreated}
-                  onClick={() => handleAction(onOpenCuttingListModal)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAction(onOpenCuttingListModal);
+                  }}
                   title={!isOrderCreated ? "Önce siparişi oluşturmalısınız." : "Kesim Tablosunu Ekranda İncele"}
                   className={`py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center ${
                     !isOrderCreated
@@ -323,8 +343,12 @@ export function PrintCenterModal({
 
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   disabled={!isOrderCreated}
-                  onClick={() => handleAction(onPrintCostBreakdown)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAction(onPrintCostBreakdown);
+                  }}
                   className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 ${
                     !isOrderCreated
                       ? "bg-neutral-700/50 text-neutral-400 cursor-not-allowed opacity-50"
@@ -336,8 +360,12 @@ export function PrintCenterModal({
                   <span>{!isOrderCreated ? "Sipariş Kaydı Gerekli" : "Maliyet Tablosunu Yazdır"}</span>
                 </button>
                 <button
+                  type="button"
                   disabled={!isOrderCreated}
-                  onClick={() => handleAction(onOpenCostBreakdownModal)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAction(onOpenCostBreakdownModal);
+                  }}
                   title={!isOrderCreated ? "Önce siparişi oluşturmalısınız." : "Fiyat ve Kalemleri Düzenle"}
                   className={`py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center ${
                     !isOrderCreated
@@ -362,8 +390,8 @@ export function PrintCenterModal({
                 <div className="flex items-center gap-3 mb-2">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                     !isOrderCreated 
-                      ? (isDarkMode ? "bg-white/5 text-neutral-500" : "bg-slate-200 text-slate-400")
-                      : (isDarkMode ? "bg-[#C5A059]/20 text-[#C5A059]" : "bg-[#B88E3A]/15 text-[#B88E3A]")
+                    ? (isDarkMode ? "bg-white/5 text-neutral-500" : "bg-slate-200 text-slate-400")
+                    : (isDarkMode ? "bg-[#C5A059]/20 text-[#C5A059]" : "bg-[#B88E3A]/15 text-[#B88E3A]")
                   }`}>
                     {!isOrderCreated ? <Lock className="w-5 h-5" /> : <Tag className="w-5 h-5" />}
                   </div>
@@ -382,8 +410,12 @@ export function PrintCenterModal({
               </div>
 
               <button
+                type="button"
                 disabled={!isOrderCreated}
-                onClick={() => handleAction(onPrintBackLabel)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAction(onPrintBackLabel);
+                }}
                 className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center justify-center gap-2 ${
                   !isOrderCreated
                     ? "bg-neutral-700/50 text-neutral-400 cursor-not-allowed opacity-50"
