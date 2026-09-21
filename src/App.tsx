@@ -148,47 +148,14 @@ import {
 } from "./utils/printHelper";
 
 const NakkaLogo = ({ size = 36 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 transition-transform duration-300 hover:scale-105">
-    <defs>
-      <linearGradient id="nakkaGold" x1="15%" y1="0%" x2="85%" y2="100%">
-        <stop offset="0%" stopColor="#FAE2B3" />
-        <stop offset="30%" stopColor="#E5C17B" />
-        <stop offset="65%" stopColor="#C5A059" />
-        <stop offset="100%" stopColor="#805F21" />
-      </linearGradient>
-      
-      {/* Premium mask to cut out the inner hollow portion of the outer monogram with absolute transparency */}
-      <mask id="logoMask">
-        <rect x="0" y="0" width="100" height="100" fill="white" />
-        <path d="M 8 50 L 50 92 L 92 50 L 86 44 L 50 80 L 14 44 Z" fill="black" />
-      </mask>
-    </defs>
-    
-    {/* 1. Centered top golden diamond */}
-    <path 
-      d="M 50 12 L 64 26 L 50 40 L 36 26 Z" 
-      fill="url(#nakkaGold)" 
-    />
-    
-    {/* 2. Concentric middle golden chevron with flat parallel cuts */}
-    <path 
-      d="M 24 20 L 50 46 L 76 20 L 82 26 L 50 58 L 18 26 Z" 
-      fill="url(#nakkaGold)" 
-    />
-    
-    {/* 3. Outer golden "G" chevron structure with transparent mask cutouts */}
-    <path 
-      d="M 18 32 L 0 50 L 50 100 L 100 50 L 82 32 L 50 64 Z" 
-      fill="url(#nakkaGold)" 
-      mask="url(#logoMask)"
-    />
-    
-    {/* 4. Interlocking inner gold hook/tongue within the cutout track */}
-    <path 
-      d="M 86 44 L 56 74 L 50 68 L 80 38 Z" 
-      fill="url(#nakkaGold)" 
-    />
-  </svg>
+  <img 
+    src="/favicon.png" 
+    alt="Nakka Decor Logo" 
+    width={size} 
+    height={size} 
+    style={{ width: size, height: size }}
+    className="shrink-0 transition-transform duration-300 hover:scale-105 rounded-full object-contain shadow-sm"
+  />
 );
 
 // Türkiye telefon numarası formatlayıcı (5XX XXX XX XX)

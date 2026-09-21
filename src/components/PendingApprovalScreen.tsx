@@ -81,13 +81,11 @@ export const PendingApprovalScreen: React.FC = () => {
         isDarkMode ? "bg-[#0e1013]/90 border-white/10" : "bg-white/90 border-slate-200"
       } backdrop-blur-md sticky top-0 z-20`}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#E5C17B] to-[#9E782F] p-0.5 shadow-md flex items-center justify-center">
-            <div className={`w-full h-full rounded-[10px] flex items-center justify-center font-serif font-black text-xs ${
-              isDarkMode ? "bg-[#111317] text-[#E5C17B]" : "bg-white text-[#9E782F]"
-            }`}>
-              N
-            </div>
-          </div>
+          <img 
+            src="/favicon.png" 
+            alt="Nakka Studio Logo" 
+            className="w-8 h-8 rounded-full object-contain shadow-sm shrink-0" 
+          />
           <div>
             <span className="text-sm font-black tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-[#FAE2B3] via-[#E5C17B] to-[#C5A059]">
               NAKKA STUDIO

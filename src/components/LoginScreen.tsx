@@ -196,11 +196,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           {/* Top: Logo */}
           <div className="relative z-10 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#C5A059] to-[#805F21] p-0.5 shadow-lg shadow-[#C5A059]/20 flex items-center justify-center">
-                <div className="w-full h-full bg-[#121418] rounded-[14px] flex items-center justify-center">
-                  <span className="text-xl font-black text-[#C5A059] tracking-wider">N</span>
-                </div>
-              </div>
+              <img 
+                src="/favicon.png" 
+                alt="Nakka Decor Logo" 
+                className="w-12 h-12 rounded-2xl object-contain shadow-lg shadow-[#C5A059]/20 shrink-0" 
+              />
               <div>
                 <h1 className="text-xl font-black tracking-widest uppercase text-white">
                   NAKKA <span className="text-[#C5A059]">DECOR</span>

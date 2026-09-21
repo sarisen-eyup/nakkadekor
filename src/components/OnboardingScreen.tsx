@@ -167,13 +167,11 @@ export const OnboardingScreen: React.FC = () => {
         isDarkMode ? "bg-[#0e1013]/90 border-white/10" : "bg-white/90 border-slate-200"
       }`}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#E5C17B] to-[#9E782F] p-0.5 shadow-md flex items-center justify-center">
-            <div className={`w-full h-full rounded-[10px] flex items-center justify-center font-serif font-black text-xs ${
-              isDarkMode ? "bg-[#111317] text-[#E5C17B]" : "bg-white text-[#9E782F]"
-            }`}>
-              N
-            </div>
-          </div>
+          <img 
+            src="/favicon.png" 
+            alt="Nakka Studio Logo" 
+            className="w-8 h-8 rounded-full object-contain shadow-sm shrink-0" 
+          />
           <div>
             <span className="text-sm font-black tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-[#FAE2B3] via-[#E5C17B] to-[#C5A059]">
               NAKKA STUDIO
@@ -498,86 +496,61 @@ export const OnboardingScreen: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. Bölüm: Logo & Marka Rengi */}
+            {/* 3. Bölüm: Kurumsal Logo */}
             <div className={`p-5 sm:p-6 rounded-2xl border ${
               isDarkMode ? "bg-[#111317] border-white/10" : "bg-white border-slate-200"
             }`}>
               <div className="flex items-center gap-2 pb-3 mb-4 border-b border-white/5">
                 <Upload className="w-4 h-4 text-[#C5A059]" />
                 <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider">
-                  Kurumsal Logo ve Marka Rengi
+                  Kurumsal Atölye Logosu
                 </h3>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                {/* Logo Upload Box */}
-                <div>
-                  <input 
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleLogoUpload}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                  {formData.logoUrl ? (
-                    <div className="flex items-center gap-3 p-3 rounded-xl border border-[#C5A059]/40 bg-[#C5A059]/5">
-                      <img 
-                        src={formData.logoUrl} 
-                        alt="Logo" 
-                        className="w-12 h-12 object-contain rounded-lg bg-white p-1 border"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-bold block truncate text-[#C5A059]">Logo Yüklendi</span>
-                        <span className="text-[10px] text-neutral-400 block">Antette gösterilecek</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleChange("logoUrl", "")}
-                        className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 cursor-pointer"
-                        title="Logoyu Kaldır"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+              {/* Logo Upload Box */}
+              <div>
+                <input 
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleLogoUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
+                {formData.logoUrl ? (
+                  <div className="flex items-center gap-3 p-3.5 rounded-xl border border-[#C5A059]/40 bg-[#C5A059]/5">
+                    <img 
+                      src={formData.logoUrl} 
+                      alt="Logo" 
+                      className="w-14 h-14 object-contain rounded-lg bg-white p-1 border shadow-sm"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-bold block truncate text-[#C5A059]">Kurumsal Logo Yüklendi</span>
+                      <span className="text-[10px] text-neutral-400 block mt-0.5">Antet ve PDF teklif belgelerinde otomatik yer alacaktır</span>
                     </div>
-                  ) : (
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`w-full py-4 px-3 border border-dashed rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                        isDarkMode 
-                          ? "border-neutral-700 hover:border-[#C5A059] bg-[#16181d] hover:bg-[#1b1e24]" 
-                          : "border-slate-300 hover:border-[#B88E3A] bg-slate-50 hover:bg-slate-100"
-                      }`}
+                      onClick={() => handleChange("logoUrl", "")}
+                      className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                      title="Logoyu Kaldır"
                     >
-                      <Upload className="w-5 h-5 text-[#C5A059]" />
-                      <span className="text-xs font-bold">Logo Seç veya Sürükle</span>
-                      <span className="text-[10px] text-neutral-400">PNG, JPG (Önerilen: 300x120px)</span>
+                      <Trash2 className="w-4 h-4" />
                     </button>
-                  )}
-                </div>
-
-                {/* Marka Rengi */}
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-neutral-400">
-                    Kurumsal Belge Vurgu Rengi
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={formData.primaryColor || "#C5A059"}
-                      onChange={(e) => handleChange("primaryColor", e.target.value)}
-                      className="w-10 h-10 rounded-xl cursor-pointer bg-transparent border-0"
-                    />
-                    <input
-                      type="text"
-                      value={formData.primaryColor || "#C5A059"}
-                      onChange={(e) => handleChange("primaryColor", e.target.value)}
-                      className={`flex-1 px-3 py-2 rounded-xl border text-xs font-mono uppercase focus:outline-none ${
-                        isDarkMode ? "bg-[#16181d] border-neutral-700 text-white" : "bg-slate-50 border-slate-200 text-slate-900"
-                      }`}
-                    />
                   </div>
-                </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`w-full py-5 px-4 border border-dashed rounded-xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      isDarkMode 
+                        ? "border-neutral-700 hover:border-[#C5A059] bg-[#16181d] hover:bg-[#1b1e24]" 
+                        : "border-slate-300 hover:border-[#B88E3A] bg-slate-50 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Upload className="w-5 h-5 text-[#C5A059]" />
+                    <span className="text-xs font-bold">Logo Seç veya Sürükle</span>
+                    <span className="text-[10px] text-neutral-400">PNG, JPG veya WebP (Önerilen: 300x120px)</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -662,6 +635,69 @@ export const OnboardingScreen: React.FC = () => {
                     <span>V.No: {formData.taxNumber}</span>
                   </div>
                 )}
+              </div>
+
+              {/* Kurumsal Belge Vurgu Rengi (Canlı Antet Önizlemesi ile Entegre) */}
+              <div className={`mt-4 p-4 rounded-xl border ${
+                isDarkMode ? "bg-[#16181d] border-white/10" : "bg-slate-50 border-slate-200"
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 text-neutral-400">
+                    <span 
+                      className="w-2.5 h-2.5 rounded-full ring-1 ring-black/10 inline-block shrink-0" 
+                      style={{ backgroundColor: formData.primaryColor || "#C5A059" }} 
+                    />
+                    Kurumsal Belge Vurgu Rengi
+                  </label>
+                  <span className="text-[10px] font-mono text-neutral-400">PDF & Antet</span>
+                </div>
+
+                <p className={`text-[10px] mb-3 leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                  Teklif mektubu ve kesim föyünüzün antet çizgisi, başlıkları ve vurguları bu renkle basılır.
+                </p>
+
+                <div className="flex items-center gap-2.5">
+                  <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-white/20 shadow-sm shrink-0 cursor-pointer">
+                    <input
+                      type="color"
+                      value={formData.primaryColor || "#C5A059"}
+                      onChange={(e) => handleChange("primaryColor", e.target.value)}
+                      className="absolute -top-2 -left-2 w-14 h-14 cursor-pointer bg-transparent border-0"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.primaryColor || "#C5A059"}
+                    onChange={(e) => handleChange("primaryColor", e.target.value)}
+                    placeholder="#C5A059"
+                    className={`flex-1 px-3 py-2 rounded-xl border text-xs font-mono uppercase focus:outline-none transition-all ${
+                      isDarkMode 
+                        ? "bg-[#0e1013] border-neutral-700 text-white focus:border-[#C5A059]" 
+                        : "bg-white border-slate-200 text-slate-900 focus:border-[#B88E3A]"
+                    }`}
+                  />
+                  <div className="flex items-center gap-1 pl-2 border-l border-white/10 shrink-0">
+                    {[
+                      { name: "Klasik Altın", hex: "#C5A059" },
+                      { name: "Kurumsal Lacivert", hex: "#1E3A8A" },
+                      { name: "Zümrüt Yeşili", hex: "#065F46" },
+                      { name: "Mat Antrasit", hex: "#1F2937" }
+                    ].map((c) => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        onClick={() => handleChange("primaryColor", c.hex)}
+                        className={`w-6 h-6 rounded-lg transition-transform hover:scale-110 cursor-pointer border ${
+                          (formData.primaryColor || "#C5A059").toUpperCase() === c.hex.toUpperCase()
+                            ? "ring-2 ring-offset-1 ring-[#C5A059] border-white"
+                            : "border-transparent"
+                        }`}
+                        style={{ backgroundColor: c.hex }}
+                        title={c.name}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Bilgilendirme Notu */}
