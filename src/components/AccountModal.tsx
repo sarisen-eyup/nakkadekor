@@ -42,6 +42,7 @@ import {
 import { compressImage } from "../utils/imageCompressor";
 import { LegalTermsModal, LegalTermsCheckbox, LegalDocType } from "./LegalTermsModal";
 import { PaymentBankTransferModal } from "./PaymentBankTransferModal";
+import { useToast } from "../context/ToastContext";
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -78,6 +79,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatusMsg, setSaveStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [creditNotice, setCreditNotice] = useState<string | null>(null);
+  const { toast } = useToast();
   const [purchasingPackage, setPurchasingPackage] = useState<"credits_50" | "credits_150" | "unlimited" | null>(null);
   const [paymentToast, setPaymentToast] = useState<{ text: string; subText?: string } | null>(null);
   const [isLegalModalOpen, setIsLegalModalOpen] = useState<boolean>(false);
@@ -187,15 +189,20 @@ export const AccountModal: React.FC<AccountModalProps> = ({
         text: "Firma bilgileri veritabanına başarıyla kaydedildi ve güncel veriler senkronize edildi."
       });
 
+      // Global Toast Bildirimi
+      toast.success("Firma bilgileriniz başarıyla güncellendi.");
+
       setTimeout(() => {
         setSavedSuccess(false);
       }, 3500);
     } catch (err: any) {
       console.error("Firma bilgileri kaydedilemedi:", err);
+      const errMsg = err?.message ? `Kayıt Hatası: ${err.message}` : "Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin.";
       setSaveStatusMsg({
         type: "error",
-        text: err?.message ? `Kayıt Hatası: ${err.message}` : "Kayıt sırasında bir hata oluştu. Lütfen tekrar deneyin."
+        text: errMsg
       });
+      toast.error(errMsg);
     } finally {
       setIsSaving(false);
     }
@@ -230,6 +237,9 @@ export const AccountModal: React.FC<AccountModalProps> = ({
         // Kural 3: Veritabanı güncellemesi başarılı olduktan hemen sonra Havale/EFT Bilgilendirme Modalını aç
         setIsBankTransferModalOpen(true);
 
+        // Global Toast Bildirimi
+        toast.success("Kredi talebiniz başarıyla alındı.");
+
         setPaymentToast({
           text: "Talep Alındı (Onay Bekleniyor)",
           subText: "Havale/EFT dekontunuz iletildiğinde kredileriniz aktif bakiyenize tanımlanacaktır."
@@ -244,13 +254,16 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           }
         }
       } else {
+        const errorMsg = res.message || "Lütfen tekrar deneyiniz.";
+        toast.error(`Kredi talebi alınamadı: ${errorMsg}`);
         setPaymentToast({
           text: "İşlem Tamamlanamadı",
-          subText: res.message || "Lütfen tekrar deneyiniz."
+          subText: errorMsg
         });
       }
     } catch (e: any) {
       console.error("Satın alma hatası:", e);
+      toast.error("Kredi talebi sırasında hata oluştu. Lütfen daha sonra tekrar deneyiniz.");
       setPaymentToast({
         text: "İşlem Hatası",
         subText: "Lütfen daha sonra tekrar deneyiniz."

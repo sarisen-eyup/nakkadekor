@@ -31,6 +31,7 @@ import {
 } from "../services/supabaseService";
 import { compressImage } from "../utils/imageCompressor";
 import { isSupabaseConfigured } from "../lib/supabase";
+import { useToast } from "../context/ToastContext";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -132,6 +133,7 @@ export function SettingsModal({
 
 
   // Shop mode PIN verification states
+  const { toast } = useToast();
   const [showPinPrompt, setShowPinPrompt] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState<string | null>(null);
@@ -288,56 +290,68 @@ export function SettingsModal({
     e.preventDefault();
     if (!newProfile.name || !newProfile.code) return;
 
-    const created: FrameProfileItem = {
-      id: generateUUID(),
-      name: newProfile.name,
-      code: newProfile.code.toUpperCase(),
-      imageUrl: newProfile.imageUrl || "",
-      widthCm: newProfile.widthCm || 4.0,
-      unitPricePerMeter: newProfile.unitPricePerMeter || 120,
-      materialType: (newProfile.materialType as any) || "wood",
-      category: (newProfile.category as any) || "both",
-      isRepeatingPattern: newProfile.isRepeatingPattern ?? true
-    };
+    try {
+      const created: FrameProfileItem = {
+        id: generateUUID(),
+        name: newProfile.name,
+        code: newProfile.code.toUpperCase(),
+        imageUrl: newProfile.imageUrl || "",
+        widthCm: newProfile.widthCm || 4.0,
+        unitPricePerMeter: newProfile.unitPricePerMeter || 120,
+        materialType: (newProfile.materialType as any) || "wood",
+        category: (newProfile.category as any) || "both",
+        isRepeatingPattern: newProfile.isRepeatingPattern ?? true
+      };
 
-    setLocalProfiles((prev) => [created, ...prev]);
-    if (isSupabaseConfigured()) {
-      (async () => {
-        try {
-          const { error } = await createFrameProfileInSupabase(created);
-          if (error) {
-            console.warn("Supabase create profile error:", error);
+      setLocalProfiles((prev) => [created, ...prev]);
+      if (isSupabaseConfigured()) {
+        (async () => {
+          try {
+            const { error } = await createFrameProfileInSupabase(created);
+            if (error) {
+              console.warn("Supabase create profile error:", error);
+            }
+          } catch (err) {
+            console.warn("Supabase create profile exception:", err);
           }
-        } catch (err) {
-          console.warn("Supabase create profile exception:", err);
-        }
-      })();
+        })();
+      }
+      setNewProfile({
+        name: "",
+        code: "",
+        imageUrl: "",
+        widthCm: 5.0,
+        unitPricePerMeter: 150,
+        materialType: "wood",
+        category: "both",
+        isRepeatingPattern: true
+      });
+      toast.success("Çerçeve başarıyla eklendi.");
+    } catch (err: any) {
+      console.warn("Çerçeve ekleme hatası:", err);
+      toast.error(`Çerçeve eklenirken hata oluştu: ${err?.message || "Lütfen tekrar deneyiniz."}`);
     }
-    setNewProfile({
-      name: "",
-      code: "",
-      imageUrl: "",
-      widthCm: 5.0,
-      unitPricePerMeter: 150,
-      materialType: "wood",
-      category: "both",
-      isRepeatingPattern: true
-    });
   };
 
   const handleDeleteProfile = (id: string) => {
-    setLocalProfiles((prev) => prev.filter((p) => p.id !== id));
-    if (isSupabaseConfigured()) {
-      (async () => {
-        try {
-          const { error } = await deleteFrameProfileFromSupabase(id);
-          if (error) {
-            console.warn("Supabase delete profile error:", error);
+    try {
+      setLocalProfiles((prev) => prev.filter((p) => p.id !== id));
+      if (isSupabaseConfigured()) {
+        (async () => {
+          try {
+            const { error } = await deleteFrameProfileFromSupabase(id);
+            if (error) {
+              console.warn("Supabase delete profile error:", error);
+            }
+          } catch (err) {
+            console.warn("Supabase delete profile exception:", err);
           }
-        } catch (err) {
-          console.warn("Supabase delete profile exception:", err);
-        }
-      })();
+        })();
+      }
+      toast.success("Çerçeve başarıyla silindi.");
+    } catch (err: any) {
+      console.warn("Çerçeve silme hatası:", err);
+      toast.error(`Çerçeve silinirken hata oluştu: ${err?.message || "Lütfen tekrar deneyiniz."}`);
     }
   };
 
@@ -466,6 +480,15 @@ export function SettingsModal({
       // 4. Firma profilini de kaydet
       await saveCompanyProfileToSupabase(localCompany);
       setSavedSuccess(true);
+
+      if (activeTab === "profiles") {
+        toast.success("Çerçeve başarıyla güncellendi.");
+      } else if (activeTab === "company") {
+        toast.success("Firma bilgileriniz başarıyla güncellendi.");
+      } else {
+        toast.success("Ayarlar başarıyla güncellendi.");
+      }
+
       setTimeout(() => {
         setSavedSuccess(false);
         onClose();
@@ -476,6 +499,7 @@ export function SettingsModal({
         text: `Bağlantı hatası: ${err?.message || "Kayıt tamamlanamadı"}`, 
         isError: true 
       });
+      toast.error(`Kayıt sırasında hata oluştu: ${err?.message || "Lütfen tekrar deneyiniz."}`);
       // Yine de yerel olarak kaydedildiği için kullanıcıyı bloke etmeyelim
       setSavedSuccess(true);
       setTimeout(() => {

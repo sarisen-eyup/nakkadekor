@@ -63,6 +63,7 @@ import { FramingStep } from "./components/FramingStep";
 import { OrderStep } from "./components/OrderStep";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthGuardProvider, useAuthGuard } from "./context/AuthGuardContext";
+import { useToast } from "./context/ToastContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { PendingApprovalScreen } from "./components/PendingApprovalScreen";
@@ -379,16 +380,15 @@ function SimulatorMain() {
 
   const [orderNumber, setOrderNumber] = useState<string>(() => generateOrderNumber());
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<{ text: string; type?: "success" | "info" } | null>(null);
+  const { toast } = useToast();
+  const setToastMessage = (msg: { text: string; type?: "success" | "info" | "error" | "warning" } | null) => {
+    if (!msg) return;
+    if (msg.type === "error") toast.error(msg.text);
+    else if (msg.type === "info") toast.info(msg.text);
+    else if (msg.type === "warning") toast.warning(msg.text);
+    else toast.success(msg.text);
+  };
   const [isSchemaPending, setIsSchemaPending] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (!toastMessage) return;
-    const timer = setTimeout(() => {
-      setToastMessage(null);
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, [toastMessage]);
 
   const [activeSidebarTab, setActiveSidebarTab] = useState<"artwork" | "framing" | "materials" | "all">("artwork");
   const [inclusionFlags, setInclusionFlags] = useState<MaterialInclusionFlags>({
@@ -1745,10 +1745,15 @@ function SimulatorMain() {
   // Dynamic Image Compositer and Download Handler (HTML5 Canvas magic)
   const downloadCompositedImage = async () => {
     if (!isOrderCreated) {
-      setToastMessage({
-        text: "⚠️ Sipariş formu basabilmek için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.",
-        type: "error"
-      });
+      toast.error("⚠️ Sipariş formu basabilmek için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.");
+      return;
+    }
+
+    // Kredi Kontrolü: Sınırsız değilse ve kredi sıfır veya altındaysa engelle ve uyar
+    const isUnlimited = subscriptionData.isUnlimited || subscriptionData.subscriptionTier === "unlimited";
+    if (!isUnlimited && subscriptionData.remainingCredits <= 0) {
+      toast.error("Krediniz yetersiz, lütfen kredi yükleyin.");
+      setIsPricingModalOpen(true);
       return;
     }
 
@@ -2256,10 +2261,7 @@ Durum: Onaylandi / Uretime Hazir`;
       return [newArchiveItem, ...filtered];
     });
 
-    setToastMessage({
-      text: `${orderNumber} numaralı sipariş başarıyla arşive eklendi.`,
-      type: "success"
-    });
+    toast.success("Sipariş başarıyla oluşturuldu.");
 
     if (isSupabaseConfigured()) {
       (async () => {
@@ -2335,6 +2337,15 @@ Durum: Onaylandi / Uretime Hazir`;
       o => o.orderNumber === currentOrderNum || (activeOrderId && o.id === activeOrderId)
     );
     const isUpdate = Boolean(activeOrderId || existingOrder);
+
+    // Kredi Kontrolü: Yeni sipariş oluşturulurken (güncelleme değilse) kredi sıfır veya altındaysa engelle
+    const isUnlimited = subscriptionData.isUnlimited || subscriptionData.subscriptionTier === "unlimited";
+    if (!isUpdate && !isUnlimited && subscriptionData.remainingCredits <= 0) {
+      toast.error("Krediniz yetersiz, lütfen kredi yükleyin.");
+      setIsPricingModalOpen(true);
+      return;
+    }
+
     const resolvedId = activeOrderId || existingOrder?.id || ("ord_" + Date.now());
 
     const newArchiveItem: OrderArchiveItem = {
@@ -2392,12 +2403,11 @@ Durum: Onaylandi / Uretime Hazir`;
       return [newArchiveItem, ...prev];
     });
 
-    setToastMessage({
-      text: isUpdate
-        ? `✅ ${currentOrderNum} numaralı sipariş başarıyla güncellendi!`
-        : `✅ ${currentOrderNum} numaralı sipariş başarıyla oluşturuldu! Belgeleri yazdırmak için üstteki "Belge Yazdır" butonunu kullanabilirsiniz.`,
-      type: "success"
-    });
+    if (isUpdate) {
+      toast.success(`${currentOrderNum} numaralı sipariş başarıyla güncellendi.`);
+    } else {
+      toast.success("Sipariş başarıyla oluşturuldu.");
+    }
 
     if (isSupabaseConfigured()) {
       (async () => {
@@ -3747,25 +3757,6 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-neutral-900/95 text-white px-4 py-3 rounded-2xl border border-[#C5A059]/40 shadow-2xl backdrop-blur-md flex items-center gap-3 animate-in fade-in slide-in-from-bottom-3 duration-300">
-          <div className="w-8 h-8 rounded-full bg-[#C5A059]/20 text-[#C5A059] flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-          <div className="flex-1 text-xs sm:text-sm font-medium">
-            {toastMessage.text}
-          </div>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="text-neutral-400 hover:text-white p-1 rounded-lg cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
       )}
 
