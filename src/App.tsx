@@ -3599,6 +3599,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         onClose={() => setIsArchiveModalOpen(false)}
         isDarkMode={isDarkMode}
         orders={archiveOrders}
+        profiles={frameProfiles}
         onDeleteOrder={handleDeleteArchiveOrder}
         onLoadOrderToWorkspace={handleLoadOrderToWorkspace}
         companyProfile={companyProfile}

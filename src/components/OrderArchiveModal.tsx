@@ -21,7 +21,7 @@ import {
   Tag
 } from "lucide-react";
 import QRCode from "qrcode";
-import { OrderArchiveItem, OrderStatus, CompanyProfile, DEFAULT_UNIT_PRICES } from "../types/pricing";
+import { OrderArchiveItem, OrderStatus, CompanyProfile, DEFAULT_UNIT_PRICES, FrameProfileItem } from "../types/pricing";
 import { 
   triggerImagePrintWindow, 
   triggerCuttingListPrintWindow, 
@@ -29,12 +29,14 @@ import {
   triggerCostBreakdownPrintWindow 
 } from "../utils/printHelper";
 import { generateCutList, calculateCostsAndPricing } from "../utils/pricing";
+import { renderOrderFramePreview } from "../utils/orderCanvasRenderer";
 
 interface OrderArchiveModalProps {
   isOpen: boolean;
   onClose: () => void;
   isDarkMode: boolean;
   orders: OrderArchiveItem[];
+  profiles?: FrameProfileItem[];
   onDeleteOrder: (orderId: string) => void;
   onLoadOrderToWorkspace: (order: OrderArchiveItem) => void;
   companyProfile: CompanyProfile;
@@ -46,6 +48,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
   onClose,
   isDarkMode,
   orders,
+  profiles = [],
   onDeleteOrder,
   onLoadOrderToWorkspace,
   companyProfile,
@@ -55,6 +58,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [copiedNotice, setCopiedNotice] = useState<string | null>(null);
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<OrderArchiveItem | null>(null);
+  const [isRenderingPrint, setIsRenderingPrint] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -102,6 +106,9 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
 
   // 1. Sipariş Formu Yazdır
   const handlePrintOrderForm = async (order: OrderArchiveItem) => {
+    setIsRenderingPrint(true);
+    setCopiedNotice(`${order.orderNumber} tüm bileşenleri ve çerçevesi hazırlanıyor...`);
+
     let qrDataUrl = "";
     try {
       const qrPayload = `https://nakkadekor.com/order/${order.orderNumber}?customer=${encodeURIComponent(order.customerName)}`;
@@ -124,20 +131,6 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
     const totalW = order.artworkWidthCm + 2 * (frameW + matW + middleMatW + outerFrameW);
     const totalH = order.artworkHeightCm + 2 * (frameW + matW + middleMatW + outerFrameW);
 
-    // Siparişin gerçek tasarım görseli (varsa kaydedilmiş tam çerçeveli render çıktısı, yoksa yüklenen görsel, yoksa kurumsal zarif sanat alanı taslağı)
-    const artworkImage = order.renderedFrameDataUrl ||
-      order.customPaintingUrl || 
-      order.simulatorConfig?.customPaintingUrl || 
-      "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
-          <rect width="100%" height="100%" fill="#f8fafc"/>
-          <rect x="40" y="40" width="720" height="520" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,6" rx="8"/>
-          <text x="400" y="270" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" font-weight="bold" fill="#1e293b">NAKKA DEKOR ATÖLYE</text>
-          <text x="400" y="310" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#64748b">Eser Ölçüsü: ${order.artworkWidthCm} × ${order.artworkHeightCm} cm</text>
-          <text x="400" y="340" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#94a3b8">Profil: ${order.innerFrameTitle || 'Standart Profil'} • Bitmiş Ebat: ${totalW.toFixed(1)} × ${totalH.toFixed(1)} cm</text>
-        </svg>
-      `);
-
     // Siparişin tüm bileşen bayraklarını (flags) eksiksiz ve güvenli şekilde çöz
     const rawFlags = order.inclusionFlags || order.simulatorConfig?.inclusionFlags || (order.simulatorConfig as any)?.flags || {};
     const effectiveFlags = {
@@ -152,6 +145,35 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
       includeKraftTape: rawFlags.includeKraftTape ?? true,
       includeLaborCost: rawFlags.includeLaborCost ?? true,
     };
+
+    // Tüm bileşenleri (iç/dış çerçeveler, 45° gönye miter kesimleri, paspartu, sanat eseri, derinlik ve cam)
+    // simülatördeki gibi eksiksiz olarak HTML5 Canvas üzerinde çiz ve yüksek çözünürlüklü çıktı üret
+    let artworkImage = "";
+    try {
+      artworkImage = await renderOrderFramePreview(order, profiles);
+      if (artworkImage) {
+        order.renderedFrameDataUrl = artworkImage;
+      }
+    } catch (err) {
+      console.warn("Otomatik canvas render hatası, alternatif yola geçiliyor:", err);
+    }
+
+    if (!artworkImage) {
+      artworkImage = order.renderedFrameDataUrl ||
+        order.customPaintingUrl || 
+        order.simulatorConfig?.customPaintingUrl || 
+        "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
+          <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+            <rect width="100%" height="100%" fill="#f8fafc"/>
+            <rect x="40" y="40" width="720" height="520" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="6,6" rx="8"/>
+            <text x="400" y="270" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" font-weight="bold" fill="#1e293b">NAKKA DEKOR ATÖLYE</text>
+            <text x="400" y="310" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="600" fill="#64748b">Eser Ölçüsü: ${order.artworkWidthCm} × ${order.artworkHeightCm} cm</text>
+            <text x="400" y="340" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#94a3b8">Profil: ${order.innerFrameTitle || 'Standart Profil'} • Bitmiş Ebat: ${totalW.toFixed(1)} × ${totalH.toFixed(1)} cm</text>
+          </svg>
+        `);
+    }
+
+    setIsRenderingPrint(false);
 
     triggerImagePrintWindow(
       docTitle,
@@ -827,15 +849,41 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 </div>
                 <button
                   type="button"
+                  disabled={isRenderingPrint}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     handlePrintOrderForm(selectedOrderForPrint);
                   }}
-                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                  className={`w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-white font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 transition-all ${
+                    isRenderingPrint ? "bg-blue-400 cursor-wait" : "bg-blue-600 hover:bg-blue-500"
+                  }`}
                 >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Yazdır</span>
+                  <Printer className={`w-3.5 h-3.5 ${isRenderingPrint ? "animate-spin" : ""}`} />
+                  <span>{isRenderingPrint ? "Hazırlanıyor..." : "Yazdır"}</span>
+                </button>
+              </div>
+
+              {/* Hızlı Seçenek: Simülatörde Aç ve İncele */}
+              <div className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${
+                isDarkMode ? "bg-white/5 border-white/5" : "bg-amber-50/60 border-amber-200/50"
+              }`}>
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 text-[#C5A059]" />
+                  <span className={`text-xs ${isDarkMode ? "text-neutral-300" : "text-amber-950 font-medium"}`}>
+                    Siparişi ana simülatöre yükleyip sahnede canlı incelemek veya yazdırmak ister misiniz?
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onLoadOrderToWorkspace(selectedOrderForPrint);
+                    setSelectedOrderForPrint(null);
+                    onClose();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-[#C5A059] hover:bg-[#b59049] text-black font-bold text-xs shrink-0 cursor-pointer transition-colors shadow-sm"
+                >
+                  Simülatöre Aktar
                 </button>
               </div>
 
