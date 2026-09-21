@@ -15,6 +15,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <>{children}</>;
   }
 
+  // Kullanıcı zaten "active" doğrulanmışsa, arka plandaki geçici sorgular UI'ı ASLA unmount etmemelidir
+  if (tenantStatus === "active") {
+    return <>{children}</>;
+  }
+
   if (isLoading || tenantStatus === "loading") {
     return (
       <div className={`min-h-screen w-full flex flex-col items-center justify-center p-6 ${

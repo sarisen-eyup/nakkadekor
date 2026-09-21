@@ -268,7 +268,7 @@ export const AuthGuardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       if (!isMounted) return;
 
-      if ((event === "SIGNED_IN" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") && currentSession?.user) {
+      if (event === "SIGNED_IN" && currentSession?.user) {
         setSession(currentSession);
         setUser(currentSession.user);
         setAuthenticatedTenantId(currentSession.user.id);
@@ -276,6 +276,12 @@ export const AuthGuardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         await checkUserTenantStatus(currentSession.user.id);
         setupTenantRealtime(currentSession.user.id);
         setIsLoading(false);
+      } else if ((event === "USER_UPDATED" || event === "TOKEN_REFRESHED") && currentSession?.user) {
+        // Token yenilemelerinde veya arka plan güncellemelerinde ASLA UI loading durumuna sokulmamalıdır!
+        // Sessiz (silent) oturum tazelemesi yapılır.
+        setSession(currentSession);
+        setUser(currentSession.user);
+        setAuthenticatedTenantId(currentSession.user.id);
       } else if (event === "SIGNED_OUT") {
         if (tenantChannel) {
           try {
@@ -293,34 +299,8 @@ export const AuthGuardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     });
 
-    // Pencereye odaklanıldığında veya sekme görünür olduğunda statüyü anında kontrol et
-    const handleVisibilityOrFocus = () => {
-      if (!isMounted || !isSupabaseConfigured()) return;
-      supabase.auth.getSession().then(({ data: { session: curSess } }) => {
-        if (curSess?.user?.id && isMounted) {
-          checkUserTenantStatus(curSess.user.id);
-        }
-      });
-    };
-
-    window.addEventListener("focus", handleVisibilityOrFocus);
-    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
-
-    // Gerçek zamanlı tetikleyiciyi desteklemek için periyodik kontrol (özellikle 'pending' bekleme ekranında hızlı geçiş için)
-    const statusPollTimer = setInterval(() => {
-      if (!isMounted || !isSupabaseConfigured()) return;
-      supabase.auth.getSession().then(({ data: { session: curSess } }) => {
-        if (curSess?.user?.id && isMounted) {
-          checkUserTenantStatus(curSess.user.id);
-        }
-      });
-    }, 6000);
-
     return () => {
       isMounted = false;
-      clearInterval(statusPollTimer);
-      window.removeEventListener("focus", handleVisibilityOrFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
       if (tenantChannel) {
         try {
           supabase.removeChannel(tenantChannel);

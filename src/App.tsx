@@ -141,6 +141,11 @@ import {
   clearAllUserTenantCache
 } from "./utils/pricing";
 import { 
+  loadWorkspaceDraft, 
+  saveWorkspaceDraft, 
+  clearWorkspaceDraft 
+} from "./utils/workspaceDraft";
+import { 
   triggerImagePrintWindow, 
   triggerBackLabelPrintWindow, 
   triggerCuttingListPrintWindow, 
@@ -304,32 +309,35 @@ function SimulatorMain() {
 
   const isDarkMode = themeMode === "dark";
 
+  // Çalışma alanı taslağını (sekme değişimi veya arka plan belleğe alma durumları için) oku
+  const initialDraft = loadWorkspaceDraft();
+
   // State management for custom visual configurator
-  const [customPaintingUrl, setCustomPaintingUrl] = useState<string | null>(null);
-  const [customPaintingFile, setCustomPaintingFile] = useState<string>("Henüz görsel seçilmedi");
+  const [customPaintingUrl, setCustomPaintingUrl] = useState<string | null>(() => initialDraft?.customPaintingUrl ?? null);
+  const [customPaintingFile, setCustomPaintingFile] = useState<string>(() => initialDraft?.customPaintingFile ?? "Henüz görsel seçilmedi");
   
   // Custom states for keyboard inputs (stored as string to prevent mid-typing lockups)
-  const [widthInput, setWidthInput] = useState<string>("50");
-  const [heightInput, setHeightInput] = useState<string>("70");
+  const [widthInput, setWidthInput] = useState<string>(() => initialDraft?.widthInput ?? "50");
+  const [heightInput, setHeightInput] = useState<string>(() => initialDraft?.heightInput ?? "70");
   
   // Custom frame profile uploader
-  const [customFrameUrl, setCustomFrameUrl] = useState<string | null>(null);
-  const [customFrameFile, setCustomFrameFile] = useState<string>("Çerçeve Seçilmedi");
-  const [frameWidthInput, setFrameWidthInput] = useState<string>("4.0");
-  const [matWidthInput, setMatWidthInput] = useState<string>("0"); // Default 0.0 cm (Paspartusuz)
+  const [customFrameUrl, setCustomFrameUrl] = useState<string | null>(() => initialDraft?.customFrameUrl ?? null);
+  const [customFrameFile, setCustomFrameFile] = useState<string>(() => initialDraft?.customFrameFile ?? "Çerçeve Seçilmedi");
+  const [frameWidthInput, setFrameWidthInput] = useState<string>(() => initialDraft?.frameWidthInput ?? "4.0");
+  const [matWidthInput, setMatWidthInput] = useState<string>(() => initialDraft?.matWidthInput ?? "0"); // Default 0.0 cm (Paspartusuz)
 
   // Custom outer frame profile uploader
-  const [customOuterFrameUrl, setCustomOuterFrameUrl] = useState<string | null>(null);
-  const [customOuterFrameFile, setCustomOuterFrameFile] = useState<string>("Yok");
-  const [outerFrameWidthInput, setOuterFrameWidthInput] = useState<string>("0.0"); // Default 0.0 cm (disabled/hidden)
-  const [outerFrameLayoutMode, setOuterFrameLayoutMode] = useState<string>("repeat"); // "miter-stretch" or "repeat"
-  const [middleMatWidthInput, setMiddleMatWidthInput] = useState<string>("0.0"); // Default 0.0 cm (3D Paspartusuz)
-  const [innerMatColor, setInnerMatColor] = useState<string>("#FAF9F5"); // İç paspartu rengi (Varsayılan Krem)
-  const [outerMatColor, setOuterMatColor] = useState<string>("#FAF9F5"); // Dış/Ara paspartu rengi (Varsayılan Krem)
-  const [deliveryMethod, setDeliveryMethod] = useState<"store" | "shipping">("store");
-  const [customerName, setCustomerName] = useState<string>("");
-  const [customerPhone, setCustomerPhone] = useState<string>("");
-  const [deliveryDate, setDeliveryDate] = useState<string>("");
+  const [customOuterFrameUrl, setCustomOuterFrameUrl] = useState<string | null>(() => initialDraft?.customOuterFrameUrl ?? null);
+  const [customOuterFrameFile, setCustomOuterFrameFile] = useState<string>(() => initialDraft?.customOuterFrameFile ?? "Yok");
+  const [outerFrameWidthInput, setOuterFrameWidthInput] = useState<string>(() => initialDraft?.outerFrameWidthInput ?? "0.0"); // Default 0.0 cm (disabled/hidden)
+  const [outerFrameLayoutMode, setOuterFrameLayoutMode] = useState<string>(() => initialDraft?.outerFrameLayoutMode ?? "repeat"); // "miter-stretch" or "repeat"
+  const [middleMatWidthInput, setMiddleMatWidthInput] = useState<string>(() => initialDraft?.middleMatWidthInput ?? "0.0"); // Default 0.0 cm (3D Paspartusuz)
+  const [innerMatColor, setInnerMatColor] = useState<string>(() => initialDraft?.innerMatColor ?? "#FAF9F5"); // İç paspartu rengi (Varsayılan Krem)
+  const [outerMatColor, setOuterMatColor] = useState<string>(() => initialDraft?.outerMatColor ?? "#FAF9F5"); // Dış/Ara paspartu rengi (Varsayılan Krem)
+  const [deliveryMethod, setDeliveryMethod] = useState<"store" | "shipping">(() => initialDraft?.deliveryMethod ?? "store");
+  const [customerName, setCustomerName] = useState<string>(() => initialDraft?.customerName ?? "");
+  const [customerPhone, setCustomerPhone] = useState<string>(() => initialDraft?.customerPhone ?? "");
+  const [deliveryDate, setDeliveryDate] = useState<string>(() => initialDraft?.deliveryDate ?? "");
   const [customerNameError, setCustomerNameError] = useState<boolean>(false);
   const [customerPhoneError, setCustomerPhoneError] = useState<boolean>(false);
   const [deliveryDateError, setDeliveryDateError] = useState<boolean>(false);
@@ -343,10 +351,10 @@ function SimulatorMain() {
     const list = loadUsersFromStorage();
     return list[0];
   });
-  const [customOverridePrice, setCustomOverridePrice] = useState<number | null>(null);
+  const [customOverridePrice, setCustomOverridePrice] = useState<number | null>(() => initialDraft?.customOverridePrice ?? null);
 
-  const [orderNumber, setOrderNumber] = useState<string>(() => generateOrderNumber());
-  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState<string>(() => initialDraft?.orderNumber ?? generateOrderNumber());
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(() => initialDraft?.activeOrderId ?? null);
   const { toast } = useToast();
   const setToastMessage = (msg: { text: string; type?: "success" | "info" | "error" | "warning" } | null) => {
     if (!msg) return;
@@ -358,7 +366,7 @@ function SimulatorMain() {
   const [isSchemaPending, setIsSchemaPending] = useState<boolean>(false);
 
   const [activeSidebarTab, setActiveSidebarTab] = useState<"artwork" | "framing" | "materials" | "all">("artwork");
-  const [inclusionFlags, setInclusionFlags] = useState<MaterialInclusionFlags>({
+  const [inclusionFlags, setInclusionFlags] = useState<MaterialInclusionFlags>(() => initialDraft?.inclusionFlags ?? {
     includeArtworkPrint: false,
     includeInnerMat: false,
     includeInnerFrame: true,
@@ -414,6 +422,68 @@ function SimulatorMain() {
   
   // Derived state: Is the current order saved/created in archive or Supabase?
   const isOrderCreated = Boolean(activeOrderId || archiveOrders.some(o => o.orderNumber === orderNumber));
+
+  // Sekmeler arası geçişlerde ve olası sayfa yenilemelerinde çalışma alanını otomatik koruma
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveWorkspaceDraft({
+        customPaintingUrl,
+        customPaintingFile,
+        widthInput,
+        heightInput,
+        customFrameUrl,
+        customFrameFile,
+        frameWidthInput,
+        matWidthInput,
+        customOuterFrameUrl,
+        customOuterFrameFile,
+        outerFrameWidthInput,
+        outerFrameLayoutMode,
+        middleMatWidthInput,
+        innerMatColor,
+        outerMatColor,
+        deliveryMethod,
+        customerName,
+        customerPhone,
+        deliveryDate,
+        selectedInnerProfileId,
+        selectedOuterProfileId,
+        inclusionFlags,
+        orderNumber,
+        activeOrderId,
+        customOverridePrice,
+        timestamp: Date.now()
+      });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [
+    customPaintingUrl,
+    customPaintingFile,
+    widthInput,
+    heightInput,
+    customFrameUrl,
+    customFrameFile,
+    frameWidthInput,
+    matWidthInput,
+    customOuterFrameUrl,
+    customOuterFrameFile,
+    outerFrameWidthInput,
+    outerFrameLayoutMode,
+    middleMatWidthInput,
+    innerMatColor,
+    outerMatColor,
+    deliveryMethod,
+    customerName,
+    customerPhone,
+    deliveryDate,
+    selectedInnerProfileId,
+    selectedOuterProfileId,
+    inclusionFlags,
+    orderNumber,
+    activeOrderId,
+    customOverridePrice
+  ]);
 
   const [authSession, setAuthSession] = useState<{
     isLoggedIn: boolean;
@@ -1202,6 +1272,7 @@ function SimulatorMain() {
     const newNum = generateOrderNumber();
     setOrderNumber(newNum);
     setActiveOrderId(null);
+    clearWorkspaceDraft();
 
     // 9. Sekmeyi 1. Eser adımına getir
     setActiveSidebarTab("artwork");
