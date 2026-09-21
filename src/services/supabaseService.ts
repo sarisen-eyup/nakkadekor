@@ -288,8 +288,8 @@ export async function createTenantOnboarding(
       slug: `tenant-${uid.slice(0, 8)}`,
       status: "pending", // Onboarding formundan gelen temiz başvuru: doğrudan 'pending' statüsü
       subscription_status: "pending",
-      remaining_credits: 0,
-      total_credits: 0,
+      remaining_credits: 5,
+      total_credits: 5,
       trade_title: profile.tradeTitle || "",
       tagline: profile.tagline || "",
       tax_office: profile.taxOffice || "",
@@ -2029,4 +2029,164 @@ export async function deductTenantCreditInSupabase(tenantId?: string): Promise<n
     return null;
   }
 }
+
+export interface PurchasePackageResult {
+  success: boolean;
+  remainingCredits: number;
+  totalCredits: number;
+  subscriptionTier: string;
+  isUnlimited: boolean;
+  message: string;
+  error?: any;
+}
+
+/**
+ * Atölye için kredi veya yıllık sınırsız paket satın alma işlemi (Mock ödeme sonrası veritabanı senkronizasyonu).
+ * - credits_50: +50 kredi ekler, subscription_tier: 'credit_based'
+ * - credits_150: +150 kredi ekler, subscription_tier: 'credit_based'
+ * - unlimited: subscription_tier: 'unlimited', limitsiz kullanım modu aktifleşir
+ */
+export async function purchaseTenantPackageInSupabase(
+  tenantId?: string,
+  packageKey: "credits_50" | "credits_150" | "unlimited" = "credits_50"
+): Promise<PurchasePackageResult> {
+  let resolvedId = tenantId;
+  if (!resolvedId) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      resolvedId = session?.user?.id;
+    } catch {
+      // ignore
+    }
+  }
+
+  // Geliştirici veya offline ortam kontrolü
+  if (!isSupabaseConfigured() || resolvedId === "dev_admin") {
+    if (packageKey === "unlimited") {
+      return {
+        success: true,
+        remainingCredits: 9999,
+        totalCredits: 9999,
+        subscriptionTier: "unlimited",
+        isUnlimited: true,
+        message: "Yıllık Sınırsız Paket başarıyla aktif edildi (Simülasyon Modu)"
+      };
+    }
+    const addedAmount = packageKey === "credits_150" ? 150 : 50;
+    return {
+      success: true,
+      remainingCredits: 50 + addedAmount,
+      totalCredits: 50 + addedAmount,
+      subscriptionTier: "credit_based",
+      isUnlimited: false,
+      message: `+${addedAmount} Kredi başarıyla yüklendi (Simülasyon Modu)`
+    };
+  }
+
+  if (!resolvedId) {
+    return {
+      success: false,
+      remainingCredits: 0,
+      totalCredits: 0,
+      subscriptionTier: "credit_based",
+      isUnlimited: false,
+      message: "Aktif atölye oturumu bulunamadı.",
+      error: new Error("No tenant id")
+    };
+  }
+
+  try {
+    // Mevcut tenant kaydını çek
+    const { data: currentTenant, error: fetchErr } = await supabase
+      .from("tenants")
+      .select("id, remaining_credits, total_credits, subscription_tier, subscription_status")
+      .eq("id", resolvedId)
+      .maybeSingle();
+
+    if (fetchErr || !currentTenant) {
+      console.error("purchaseTenantPackageInSupabase tenant okuma hatası:", fetchErr);
+      return {
+        success: false,
+        remainingCredits: 0,
+        totalCredits: 0,
+        subscriptionTier: "credit_based",
+        isUnlimited: false,
+        message: "Atölye kaydına erişilemedi.",
+        error: fetchErr
+      };
+    }
+
+    let updatePayload: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    };
+    let nextRemaining = Number(currentTenant.remaining_credits ?? 0);
+    let nextTotal = Number(currentTenant.total_credits ?? 0);
+    let nextTier = currentTenant.subscription_tier || "credit_based";
+    let isUnlimited = false;
+
+    if (packageKey === "unlimited") {
+      nextTier = "unlimited";
+      isUnlimited = true;
+      updatePayload = {
+        ...updatePayload,
+        subscription_tier: "unlimited",
+        subscription_status: "active"
+      };
+    } else {
+      const increment = packageKey === "credits_150" ? 150 : 50;
+      nextRemaining += increment;
+      nextTotal += increment;
+      nextTier = "credit_based";
+      isUnlimited = false;
+      updatePayload = {
+        ...updatePayload,
+        remaining_credits: nextRemaining,
+        total_credits: nextTotal,
+        subscription_tier: "credit_based",
+        subscription_status: "active"
+      };
+    }
+
+    const { error: updateErr } = await supabase
+      .from("tenants")
+      .update(updatePayload)
+      .eq("id", resolvedId);
+
+    if (updateErr) {
+      console.error("purchaseTenantPackageInSupabase güncelleme hatası:", updateErr);
+      return {
+        success: false,
+        remainingCredits: Number(currentTenant.remaining_credits ?? 0),
+        totalCredits: Number(currentTenant.total_credits ?? 0),
+        subscriptionTier: currentTenant.subscription_tier || "credit_based",
+        isUnlimited: currentTenant.subscription_tier === "unlimited",
+        message: "Paket veritabanına işlenemedi.",
+        error: updateErr
+      };
+    }
+
+    return {
+      success: true,
+      remainingCredits: nextRemaining,
+      totalCredits: nextTotal,
+      subscriptionTier: nextTier,
+      isUnlimited,
+      message: packageKey === "unlimited"
+        ? "Yıllık Sınırsız Paketiniz başarıyla aktif edildi! Sınırsız sipariş oluşturabilirsiniz."
+        : `Tebrikler! Hesabınıza +${packageKey === "credits_150" ? 150 : 50} sipariş/teklif kredisi başarıyla tanımlandı.`
+    };
+  } catch (err: any) {
+    console.error("purchaseTenantPackageInSupabase beklenmeyen hata:", err);
+    return {
+      success: false,
+      remainingCredits: 0,
+      totalCredits: 0,
+      subscriptionTier: "credit_based",
+      isUnlimited: false,
+      message: err?.message || "Beklenmeyen işlem hatası.",
+      error: err
+    };
+  }
+}
+
 

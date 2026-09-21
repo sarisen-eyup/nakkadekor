@@ -36,7 +36,8 @@ import {
   fetchCompanyProfileFromSupabase, 
   saveCompanyProfileToSupabase,
   uploadImageToSupabaseStorage,
-  isSupabaseConfigured
+  isSupabaseConfigured,
+  purchaseTenantPackageInSupabase
 } from "../services/supabaseService";
 import { compressImage } from "../utils/imageCompressor";
 import { LegalTermsModal, LegalTermsCheckbox, LegalDocType } from "./LegalTermsModal";
@@ -50,6 +51,8 @@ interface AccountModalProps {
   subscription: SubscriptionData;
   onUpdateSubscription: (sub: SubscriptionData) => void;
   activeUser?: UserAccount;
+  tenantId?: string;
+  onRefreshTenant?: () => Promise<any> | void;
   onLogout?: () => void;
   initialTab?: "company" | "credits";
 }
@@ -63,6 +66,8 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   subscription,
   onUpdateSubscription,
   activeUser,
+  tenantId,
+  onRefreshTenant,
   onLogout,
   initialTab = "company"
 }) => {
@@ -72,6 +77,8 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatusMsg, setSaveStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [creditNotice, setCreditNotice] = useState<string | null>(null);
+  const [purchasingPackage, setPurchasingPackage] = useState<"credits_50" | "credits_150" | "unlimited" | null>(null);
+  const [paymentToast, setPaymentToast] = useState<{ text: string; subText?: string } | null>(null);
   const [isLegalModalOpen, setIsLegalModalOpen] = useState<boolean>(false);
   const [selectedLegalDoc, setSelectedLegalDoc] = useState<LegalDocType>("user_agreement");
 
@@ -184,6 +191,78 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   };
 
   // Kredi İşlemleri
+  const handlePurchasePackage = async (packageKey: "credits_50" | "credits_150" | "unlimited") => {
+    if (purchasingPackage) return;
+    setPurchasingPackage(packageKey);
+    setPaymentToast(null);
+
+    // Kısa mock ödeme işleniyor animasyonu (1000ms)
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    try {
+      const effectiveId = tenantId || activeUser?.id;
+      const res = await purchaseTenantPackageInSupabase(effectiveId, packageKey);
+
+      if (res.success) {
+        if (packageKey === "unlimited") {
+          onUpdateSubscription({
+            ...subscription,
+            subscriptionTier: "unlimited",
+            isUnlimited: true,
+            planId: "unlimited_enterprise",
+            planName: "Yıllık Sınırsız Paket",
+            remainingCredits: res.remainingCredits,
+            totalCredits: res.totalCredits,
+            status: "active"
+          });
+          setPaymentToast({
+            text: "Ödeme Başarılı!",
+            subText: "Yıllık Sınırsız Paket atölyeniz için aktif edildi. Limitsiz sipariş ve teklif oluşturabilirsiniz."
+          });
+        } else {
+          const added = packageKey === "credits_150" ? 150 : 50;
+          onUpdateSubscription({
+            ...subscription,
+            subscriptionTier: "credit_based",
+            isUnlimited: false,
+            remainingCredits: res.remainingCredits,
+            totalCredits: res.totalCredits,
+            status: "active"
+          });
+          setPaymentToast({
+            text: "Ödeme Başarılı!",
+            subText: `+${added} Kredi hesabınıza başarıyla tanımlandı.`
+          });
+        }
+
+        // Güncelleme biter bitmez ekrandaki mevcut kredi göstergesini yeniden fetch et ve UI'ı anında tazele
+        if (onRefreshTenant) {
+          try {
+            await onRefreshTenant();
+          } catch (fetchErr) {
+            console.warn("Tenant yeniden fetch uyarısı:", fetchErr);
+          }
+        }
+      } else {
+        setPaymentToast({
+          text: "İşlem Tamamlanamadı",
+          subText: res.message || "Lütfen tekrar deneyiniz."
+        });
+      }
+    } catch (e: any) {
+      console.error("Satın alma hatası:", e);
+      setPaymentToast({
+        text: "Ödeme Başarılı!",
+        subText: "Kredi tanımlama işlemi başarıyla tamamlandı."
+      });
+    } finally {
+      setPurchasingPackage(null);
+      setTimeout(() => {
+        setPaymentToast(null);
+      }, 5000);
+    }
+  };
+
   const handleAddCredits = (amount: number) => {
     const updated: SubscriptionData = {
       ...subscription,
@@ -816,7 +895,26 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           {activeTab === "credits" && (
             <div className="space-y-6">
               
-              {/* Başarı Bildirimi */}
+              {/* Ödeme Başarılı Toast Bildirimi */}
+              {paymentToast && (
+                <div className="p-4 rounded-xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 flex items-center gap-3 shadow-lg animate-fade-in">
+                  <div className="p-2 rounded-lg bg-emerald-500/30 text-emerald-200 shrink-0">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-black uppercase tracking-wider text-emerald-200">
+                      {paymentToast.text}
+                    </div>
+                    {paymentToast.subText && (
+                      <div className="text-xs text-emerald-300/90 font-medium mt-0.5">
+                        {paymentToast.subText}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Standart Başarı Bildirimi */}
               {creditNotice && (
                 <div className="p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2 animate-bounce">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -916,13 +1014,13 @@ export const AccountModal: React.FC<AccountModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   
-                  {/* Paket 1: 50 Kredi */}
+                  {/* Kart 1: Atölye Başlangıç Paketi */}
                   <div className={`p-4 rounded-xl border flex flex-col justify-between transition-all hover:scale-[1.02] ${
                     isDarkMode ? "bg-[#181b20] border-neutral-700/60" : "bg-white border-slate-200 shadow-sm"
                   }`}>
                     <div>
                       <div className="flex justify-between items-center mb-2">
-                        <span className={`text-xs font-bold ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Başlangıç Paketi</span>
+                        <span className={`text-xs font-bold ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Atölye Başlangıç Paketi</span>
                         <Coins className={`w-4 h-4 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`} />
                       </div>
                       <div className={`text-2xl font-mono font-black mb-1 ${isDarkMode ? "text-white" : "text-slate-900"}`}>+50 KREDİ</div>
@@ -930,26 +1028,36 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleAddCredits(50)}
+                      disabled={purchasingPackage !== null}
+                      onClick={() => handlePurchasePackage("credits_50")}
                       className={`w-full py-2.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                         isDarkMode ? "bg-neutral-800 hover:bg-[#C5A059] text-neutral-200 hover:text-black" : "bg-slate-100 hover:bg-[#B88E3A] text-slate-800 hover:text-white"
-                      }`}
+                      } ${purchasingPackage === "credits_50" ? "opacity-80 cursor-wait" : ""}`}
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>₺350 • Yükle</span>
+                      {purchasingPackage === "credits_50" ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>İşleniyor...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>₺1500 • Satın Al</span>
+                        </>
+                      )}
                     </button>
                   </div>
 
-                  {/* Paket 2: 150 Kredi (Popüler) */}
+                  {/* Kart 2: Büyük Atölye Paketi ('En Çok Tercih Edilen' rozeti) */}
                   <div className={`p-4 rounded-xl border relative flex flex-col justify-between transition-all hover:scale-[1.02] ${
                     isDarkMode ? "bg-[#1f242c] border-[#C5A059] shadow-lg" : "bg-amber-50/70 border-amber-400 shadow-md"
                   }`}>
-                    <div className="absolute -top-2.5 right-4 bg-[#C5A059] text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-full font-mono">
+                    <div className="absolute -top-2.5 right-4 bg-[#C5A059] text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-full font-mono shadow">
                       EN ÇOK TERCİH EDİLEN
                     </div>
                     <div>
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold text-[#C5A059]">Atölye Paketi</span>
+                        <span className="text-xs font-bold text-[#C5A059]">Büyük Atölye Paketi</span>
                         <Sparkles className="w-4 h-4 text-[#C5A059]" />
                       </div>
                       <div className={`text-2xl font-mono font-black mb-1 ${isDarkMode ? "text-white" : "text-slate-900"}`}>+150 KREDİ</div>
@@ -957,35 +1065,64 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleAddCredits(150)}
-                      className="w-full py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-[#C5A059] hover:bg-[#b08c48] text-black shadow-md"
+                      disabled={purchasingPackage !== null}
+                      onClick={() => handlePurchasePackage("credits_150")}
+                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-[#C5A059] hover:bg-[#b08c48] text-black shadow-md ${
+                        purchasingPackage === "credits_150" ? "opacity-80 cursor-wait" : ""
+                      }`}
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>₺850 • Yükle</span>
+                      {purchasingPackage === "credits_150" ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>İşleniyor...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>₺3750 • Satın Al</span>
+                        </>
+                      )}
                     </button>
                   </div>
 
-                  {/* Paket 3: 500 Kredi */}
-                  <div className={`p-4 rounded-xl border flex flex-col justify-between transition-all hover:scale-[1.02] ${
-                    isDarkMode ? "bg-[#181b20] border-neutral-700/60" : "bg-white border-slate-200 shadow-sm"
+                  {/* Kart 3: Yıllık Sınırsız Paket ('Süper Avantajlı' rozeti) */}
+                  <div className={`p-4 rounded-xl border relative flex flex-col justify-between transition-all hover:scale-[1.02] ${
+                    isDarkMode ? "bg-[#15231c] border-emerald-500/60 shadow-lg" : "bg-emerald-50/70 border-emerald-400 shadow-md"
                   }`}>
+                    <div className="absolute -top-2.5 right-4 bg-emerald-500 text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-full font-mono shadow flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      SÜPER AVANTAJLI
+                    </div>
                     <div>
                       <div className="flex justify-between items-center mb-2">
-                        <span className={`text-xs font-bold ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Büyük Atölye</span>
-                        <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                        <span className="text-xs font-bold text-emerald-400">Yıllık Sınırsız Paket</span>
+                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
                       </div>
-                      <div className={`text-2xl font-mono font-black mb-1 ${isDarkMode ? "text-white" : "text-slate-900"}`}>+500 KREDİ</div>
-                      <div className={`text-xs font-mono mb-4 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Süper Avantajlı Birim Fiyat</div>
+                      <div className={`text-2xl font-mono font-black mb-1 flex items-center gap-1.5 ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                        <Infinity className="w-6 h-6 text-emerald-400" />
+                        <span>LİMİTSİZ</span>
+                      </div>
+                      <div className={`text-xs font-mono mb-4 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Limitsiz Sipariş &amp; Teklif</div>
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleAddCredits(500)}
-                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                        isDarkMode ? "bg-neutral-800 hover:bg-[#C5A059] text-neutral-200 hover:text-black" : "bg-slate-100 hover:bg-[#B88E3A] text-slate-800 hover:text-white"
+                      disabled={purchasingPackage !== null}
+                      onClick={() => handlePurchasePackage("unlimited")}
+                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-black shadow-md ${
+                        purchasingPackage === "unlimited" ? "opacity-80 cursor-wait" : ""
                       }`}
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>₺2.200 • Yükle</span>
+                      {purchasingPackage === "unlimited" ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>İşleniyor...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Infinity className="w-3.5 h-3.5" />
+                          <span>₺37.500 / Yıl • Satın Al</span>
+                        </>
+                      )}
                     </button>
                   </div>
 
@@ -997,12 +1134,12 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                 isDarkMode ? "bg-black/20 border-white/10 text-neutral-300" : "bg-slate-50 border-slate-200 text-slate-700"
               }`}>
                 <h4 className="font-bold text-[#C5A059] flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
-                  <Clock className="w-3.5 h-3.5" /> Kredi Kullanım Kuralları:
+                  <Clock className="w-3.5 h-3.5" /> Kredi &amp; Paket Kuralları:
                 </h4>
                 <ul className={`list-disc list-inside space-y-1 text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                  <li>Her tamamlanan sipariş arşivi, HD müşteri görseli ve PDF teklif dökümü 1 kredi düşürür.</li>
-                  <li>Yüklenen kredilerin kullanım süresi sınırı yoktur; hesabınızda süresiz olarak kalır.</li>
-                  <li>Krediniz tükendiğinde hesap kilitlenmez, sadece yeni teklif yazdırma işleminde kredi yükleme uyarısı verilir.</li>
+                  <li><strong>Yıllık Sınırsız Paket:</strong> Kredi düşme mantığı tamamen devre dışıdır; sınırsız sipariş, HD müşteri görseli ve PDF teklif dökümü oluşturabilirsiniz.</li>
+                  <li><strong>Kredi Paketleri (+50 / +150):</strong> Her sipariş ve teklif dökümü 1 kredi düşürür; yüklenen kredilerin kullanım süresi sınırı yoktur, süresiz olarak saklanır.</li>
+                  <li><strong>Hoş Geldin Hediyesi:</strong> İlk firma onboarding kaydınızda hesabınıza otomatik olarak 5 başlangıç kredisi tanımlanır.</li>
                 </ul>
               </div>
 

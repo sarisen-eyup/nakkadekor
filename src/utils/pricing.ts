@@ -245,6 +245,9 @@ export function saveSubscriptionToStorage(sub: SubscriptionData): void {
 
 export function deductSubscriptionCredit(): SubscriptionData {
   const current = loadSubscriptionFromStorage();
+  if (current.isUnlimited || current.subscriptionTier === "unlimited") {
+    return current;
+  }
   const nextCredits = Math.max(0, current.remainingCredits - 1);
   const updated: SubscriptionData = {
     ...current,

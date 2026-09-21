@@ -310,7 +310,7 @@ const PaspartuColorPicker = ({
 };
 
 function SimulatorMain() {
-  const { user: authGuardUser, tenant: authGuardTenant, signOut: authGuardSignOut } = useAuthGuard();
+  const { user: authGuardUser, tenant: authGuardTenant, signOut: authGuardSignOut, refreshTenant } = useAuthGuard();
   const navigate = useNavigate();
 
   // Theme Mode State (AI Studio Dark default & Light mode toggle)
@@ -2271,10 +2271,12 @@ Durum: Onaylandi / Uretime Hazir`;
     }
 
     // Deduct 1 credit from subscription if not unlimited
-    const updatedSub = deductSubscriptionCredit();
-    setSubscriptionData(updatedSub);
-    if (isSupabaseConfigured() && !subscriptionData.isUnlimited) {
-      deductTenantCreditInSupabase(authGuardTenant?.id || activeUser?.id);
+    if (!subscriptionData.isUnlimited && subscriptionData.subscriptionTier !== "unlimited") {
+      const updatedSub = deductSubscriptionCredit();
+      setSubscriptionData(updatedSub);
+      if (isSupabaseConfigured()) {
+        deductTenantCreditInSupabase(authGuardTenant?.id || activeUser?.id);
+      }
     }
   };
 
@@ -2408,10 +2410,12 @@ Durum: Onaylandi / Uretime Hazir`;
     }
 
     if (!isUpdate) {
-      const updatedSub = deductSubscriptionCredit();
-      setSubscriptionData(updatedSub);
-      if (isSupabaseConfigured() && !subscriptionData.isUnlimited) {
-        deductTenantCreditInSupabase(authGuardTenant?.id || activeUser?.id);
+      if (!subscriptionData.isUnlimited && subscriptionData.subscriptionTier !== "unlimited") {
+        const updatedSub = deductSubscriptionCredit();
+        setSubscriptionData(updatedSub);
+        if (isSupabaseConfigured()) {
+          deductTenantCreditInSupabase(authGuardTenant?.id || activeUser?.id);
+        }
       }
     }
   };
@@ -3473,6 +3477,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         subscription={subscriptionData}
         onUpdateSubscription={handleUpdateSubscription}
         activeUser={activeUser}
+        tenantId={authGuardTenant?.id || activeUser?.id}
+        onRefreshTenant={refreshTenant}
         onLogout={handleLogout}
         initialTab={accountModalInitialTab}
       />
