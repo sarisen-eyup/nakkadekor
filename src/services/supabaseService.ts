@@ -290,6 +290,7 @@ export async function createTenantOnboarding(
       subscription_status: "pending",
       remaining_credits: 5,
       total_credits: 5,
+      pending_credits: 0,
       trade_title: profile.tradeTitle || "",
       tagline: profile.tagline || "",
       tax_office: profile.taxOffice || "",
@@ -1884,6 +1885,7 @@ export async function saveCompanyProfileToSupabase(
 export interface TenantCreditsResult {
   remainingCredits: number;
   totalCredits: number;
+  pendingCredits: number;
   subscriptionTier: string;
   subscriptionStatus: string;
   isUnlimited: boolean;
@@ -1893,7 +1895,7 @@ export interface TenantCreditsResult {
 
 /**
  * Aktif kullanıcının veya verilen tenant_id'nin Supabase public.tenants tablosundaki
- * gerçek remaining_credits, total_credits ve subscription_tier bilgilerini çeker.
+ * gerçek remaining_credits, total_credits, pending_credits ve subscription_tier bilgilerini çeker.
  */
 export async function fetchTenantSubscriptionCredits(tenantId?: string): Promise<{
   data: TenantCreditsResult | null;
@@ -1904,6 +1906,7 @@ export async function fetchTenantSubscriptionCredits(tenantId?: string): Promise
       data: {
         remainingCredits: 0,
         totalCredits: 0,
+        pendingCredits: 0,
         subscriptionTier: "pay_as_you_go",
         subscriptionStatus: "active",
         isUnlimited: false,
@@ -1928,6 +1931,7 @@ export async function fetchTenantSubscriptionCredits(tenantId?: string): Promise
       data: {
         remainingCredits: 999,
         totalCredits: 999,
+        pendingCredits: 0,
         subscriptionTier: "unlimited",
         subscriptionStatus: "active",
         isUnlimited: true,
@@ -1945,7 +1949,7 @@ export async function fetchTenantSubscriptionCredits(tenantId?: string): Promise
   try {
     const { data, error } = await supabase
       .from("tenants")
-      .select("remaining_credits, total_credits, subscription_tier, subscription_status, status, name")
+      .select("remaining_credits, total_credits, pending_credits, subscription_tier, subscription_status, status, name")
       .eq("id", resolvedId)
       .maybeSingle();
 
@@ -1965,6 +1969,7 @@ export async function fetchTenantSubscriptionCredits(tenantId?: string): Promise
       data: {
         remainingCredits: Number(data.remaining_credits ?? 0),
         totalCredits: Number(data.total_credits ?? 0),
+        pendingCredits: Number(data.pending_credits ?? 0),
         subscriptionTier: data.subscription_tier || "pay_as_you_go",
         subscriptionStatus: data.subscription_status || "active",
         isUnlimited,
@@ -2034,22 +2039,46 @@ export interface PurchasePackageResult {
   success: boolean;
   remainingCredits: number;
   totalCredits: number;
+  pendingCredits: number;
   subscriptionTier: string;
   isUnlimited: boolean;
+  packageKey: "credits_50" | "credits_150" | "unlimited";
+  packageName: string;
+  packagePriceText: string;
+  packageAmount: number;
   message: string;
   error?: any;
 }
 
 /**
- * Atölye için kredi veya yıllık sınırsız paket satın alma işlemi (Mock ödeme sonrası veritabanı senkronizasyonu).
- * - credits_50: +50 kredi ekler, subscription_tier: 'credit_based'
- * - credits_150: +150 kredi ekler, subscription_tier: 'credit_based'
- * - unlimited: subscription_tier: 'unlimited', limitsiz kullanım modu aktifleşir
+ * Atölye için kredi veya yıllık sınırsız paket satın alma talebi:
+ * - remaining_credits (aktif kredi) kesinlikle artırılmaz.
+ * - public.tenants tablosundaki pending_credits değerine seçilen miktar eklenir (increment).
+ * - Yıllık Sınırsız paket için pending_credits 999999 bayrak (flag) değerine ayarlanır.
+ * - İşlem tamamlandıktan sonra Banka Havalesi / WhatsApp onay modalı tetiklenir.
  */
 export async function purchaseTenantPackageInSupabase(
   tenantId?: string,
   packageKey: "credits_50" | "credits_150" | "unlimited" = "credits_50"
 ): Promise<PurchasePackageResult> {
+  const packageMeta = {
+    credits_50: {
+      name: "Atölye Başlangıç Paketi (+50 Kredi)",
+      priceText: "1.500 ₺",
+      amount: 50
+    },
+    credits_150: {
+      name: "Büyük Atölye Paketi (+150 Kredi)",
+      priceText: "3.750 ₺",
+      amount: 150
+    },
+    unlimited: {
+      name: "Yıllık Sınırsız Paket",
+      priceText: "37.500 ₺",
+      amount: 999999
+    }
+  }[packageKey];
+
   let resolvedId = tenantId;
   if (!resolvedId) {
     try {
@@ -2062,24 +2091,19 @@ export async function purchaseTenantPackageInSupabase(
 
   // Geliştirici veya offline ortam kontrolü
   if (!isSupabaseConfigured() || resolvedId === "dev_admin") {
-    if (packageKey === "unlimited") {
-      return {
-        success: true,
-        remainingCredits: 9999,
-        totalCredits: 9999,
-        subscriptionTier: "unlimited",
-        isUnlimited: true,
-        message: "Yıllık Sınırsız Paket başarıyla aktif edildi (Simülasyon Modu)"
-      };
-    }
-    const addedAmount = packageKey === "credits_150" ? 150 : 50;
+    const nextPending = packageKey === "unlimited" ? 999999 : packageMeta.amount;
     return {
       success: true,
-      remainingCredits: 50 + addedAmount,
-      totalCredits: 50 + addedAmount,
+      remainingCredits: 5,
+      totalCredits: 5,
+      pendingCredits: nextPending,
       subscriptionTier: "credit_based",
       isUnlimited: false,
-      message: `+${addedAmount} Kredi başarıyla yüklendi (Simülasyon Modu)`
+      packageKey,
+      packageName: packageMeta.name,
+      packagePriceText: packageMeta.priceText,
+      packageAmount: packageMeta.amount,
+      message: "Kredi / paket talebiniz alındı (Simülasyon Modu). Havale/EFT dekontu bekleniyor."
     };
   }
 
@@ -2088,8 +2112,13 @@ export async function purchaseTenantPackageInSupabase(
       success: false,
       remainingCredits: 0,
       totalCredits: 0,
+      pendingCredits: 0,
       subscriptionTier: "credit_based",
       isUnlimited: false,
+      packageKey,
+      packageName: packageMeta.name,
+      packagePriceText: packageMeta.priceText,
+      packageAmount: packageMeta.amount,
       message: "Aktif atölye oturumu bulunamadı.",
       error: new Error("No tenant id")
     };
@@ -2099,7 +2128,7 @@ export async function purchaseTenantPackageInSupabase(
     // Mevcut tenant kaydını çek
     const { data: currentTenant, error: fetchErr } = await supabase
       .from("tenants")
-      .select("id, remaining_credits, total_credits, subscription_tier, subscription_status")
+      .select("id, remaining_credits, total_credits, pending_credits, subscription_tier, subscription_status")
       .eq("id", resolvedId)
       .maybeSingle();
 
@@ -2109,71 +2138,67 @@ export async function purchaseTenantPackageInSupabase(
         success: false,
         remainingCredits: 0,
         totalCredits: 0,
+        pendingCredits: 0,
         subscriptionTier: "credit_based",
         isUnlimited: false,
+        packageKey,
+        packageName: packageMeta.name,
+        packagePriceText: packageMeta.priceText,
+        packageAmount: packageMeta.amount,
         message: "Atölye kaydına erişilemedi.",
         error: fetchErr
       };
     }
 
-    let updatePayload: Record<string, any> = {
-      updated_at: new Date().toISOString()
-    };
-    let nextRemaining = Number(currentTenant.remaining_credits ?? 0);
-    let nextTotal = Number(currentTenant.total_credits ?? 0);
-    let nextTier = currentTenant.subscription_tier || "credit_based";
-    let isUnlimited = false;
+    const currentPending = Number(currentTenant.pending_credits ?? 0);
+    let nextPending = 0;
 
     if (packageKey === "unlimited") {
-      nextTier = "unlimited";
-      isUnlimited = true;
-      updatePayload = {
-        ...updatePayload,
-        subscription_tier: "unlimited",
-        subscription_status: "active"
-      };
+      nextPending = 999999;
     } else {
-      const increment = packageKey === "credits_150" ? 150 : 50;
-      nextRemaining += increment;
-      nextTotal += increment;
-      nextTier = "credit_based";
-      isUnlimited = false;
-      updatePayload = {
-        ...updatePayload,
-        remaining_credits: nextRemaining,
-        total_credits: nextTotal,
-        subscription_tier: "credit_based",
-        subscription_status: "active"
-      };
+      const basePending = currentPending >= 999999 ? 0 : currentPending;
+      nextPending = basePending + (packageKey === "credits_150" ? 150 : 50);
     }
 
+    // Dikkat: remaining_credits KESİNLİKLE artırılmaz, sadece pending_credits güncellenir!
     const { error: updateErr } = await supabase
       .from("tenants")
-      .update(updatePayload)
+      .update({
+        pending_credits: nextPending,
+        updated_at: new Date().toISOString()
+      })
       .eq("id", resolvedId);
 
     if (updateErr) {
-      console.error("purchaseTenantPackageInSupabase güncelleme hatası:", updateErr);
+      console.error("purchaseTenantPackageInSupabase pending_credits güncelleme hatası:", updateErr);
       return {
         success: false,
         remainingCredits: Number(currentTenant.remaining_credits ?? 0),
         totalCredits: Number(currentTenant.total_credits ?? 0),
+        pendingCredits: currentPending,
         subscriptionTier: currentTenant.subscription_tier || "credit_based",
         isUnlimited: currentTenant.subscription_tier === "unlimited",
-        message: "Paket veritabanına işlenemedi.",
+        packageKey,
+        packageName: packageMeta.name,
+        packagePriceText: packageMeta.priceText,
+        packageAmount: packageMeta.amount,
+        message: "Paket talebi veritabanına işlenemedi.",
         error: updateErr
       };
     }
 
     return {
       success: true,
-      remainingCredits: nextRemaining,
-      totalCredits: nextTotal,
-      subscriptionTier: nextTier,
-      isUnlimited,
-      message: packageKey === "unlimited"
-        ? "Yıllık Sınırsız Paketiniz başarıyla aktif edildi! Sınırsız sipariş oluşturabilirsiniz."
-        : `Tebrikler! Hesabınıza +${packageKey === "credits_150" ? 150 : 50} sipariş/teklif kredisi başarıyla tanımlandı.`
+      remainingCredits: Number(currentTenant.remaining_credits ?? 0),
+      totalCredits: Number(currentTenant.total_credits ?? 0),
+      pendingCredits: nextPending,
+      subscriptionTier: currentTenant.subscription_tier || "credit_based",
+      isUnlimited: currentTenant.subscription_tier === "unlimited",
+      packageKey,
+      packageName: packageMeta.name,
+      packagePriceText: packageMeta.priceText,
+      packageAmount: packageMeta.amount,
+      message: "Kredi / paket yükseltme talebiniz pasif olarak tanımlandı. Havale/EFT dekontu bekleniyor."
     };
   } catch (err: any) {
     console.error("purchaseTenantPackageInSupabase beklenmeyen hata:", err);
@@ -2181,8 +2206,13 @@ export async function purchaseTenantPackageInSupabase(
       success: false,
       remainingCredits: 0,
       totalCredits: 0,
+      pendingCredits: 0,
       subscriptionTier: "credit_based",
       isUnlimited: false,
+      packageKey,
+      packageName: packageMeta.name,
+      packagePriceText: packageMeta.priceText,
+      packageAmount: packageMeta.amount,
       message: err?.message || "Beklenmeyen işlem hatası.",
       error: err
     };

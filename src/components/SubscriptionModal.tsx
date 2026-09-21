@@ -213,6 +213,13 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     </div>
                   </>
                 )}
+                {/* Onay Bekleyen Kredi Rozeti */}
+                {subscription.pendingCredits !== undefined && subscription.pendingCredits > 0 && (
+                  <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold animate-pulse">
+                    <Clock className="w-3 h-3 text-amber-400" />
+                    <span>Onay Bekleyen: {subscription.pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${subscription.pendingCredits} Kredi`}</span>
+                  </div>
+                )}
               </div>
             </div>
 

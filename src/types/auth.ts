@@ -26,6 +26,7 @@ export interface TenantRecord {
   primary_color?: string;
   remaining_credits?: number;
   total_credits?: number;
+  pending_credits?: number;
   subscription_tier?: string;
   subscription_status?: string;
   created_at?: string;

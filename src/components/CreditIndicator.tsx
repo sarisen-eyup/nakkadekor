@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { Coins, Infinity, Loader2, User } from "lucide-react";
+import { Coins, Infinity, Loader2, User, Clock } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { fetchTenantSubscriptionCredits, TenantCreditsResult } from "../services/supabaseService";
 import { useAuthGuard } from "../context/AuthGuardContext";
@@ -23,6 +23,7 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [remainingCredits, setRemainingCredits] = useState<number>(0);
   const [totalCredits, setTotalCredits] = useState<number>(0);
+  const [pendingCredits, setPendingCredits] = useState<number>(0);
   const [subscriptionTier, setSubscriptionTier] = useState<string>("pay_as_you_go");
   const [isUnlimited, setIsUnlimited] = useState<boolean>(false);
 
@@ -36,6 +37,7 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
   const applyCreditData = useCallback((data: TenantCreditsResult) => {
     setRemainingCredits(prev => (prev === data.remainingCredits ? prev : data.remainingCredits));
     setTotalCredits(prev => (prev === data.totalCredits ? prev : data.totalCredits));
+    setPendingCredits(prev => (prev === data.pendingCredits ? prev : data.pendingCredits));
     setSubscriptionTier(prev => (prev === data.subscriptionTier ? prev : data.subscriptionTier));
     setIsUnlimited(prev => (prev === data.isUnlimited ? prev : data.isUnlimited));
     onCreditUpdateRef.current?.(data);
@@ -87,10 +89,12 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
               const unl = tier === "unlimited" || tier.includes("unlimited") || tier === "unlimited_enterprise";
               const rem = Number(updatedRow.remaining_credits ?? 0);
               const tot = Number(updatedRow.total_credits ?? 0);
+              const pend = Number(updatedRow.pending_credits ?? 0);
 
               applyCreditData({
                 remainingCredits: rem,
                 totalCredits: tot,
+                pendingCredits: pend,
                 subscriptionTier: updatedRow.subscription_tier || "pay_as_you_go",
                 subscriptionStatus: updatedRow.subscription_status || "active",
                 isUnlimited: unl,
@@ -128,10 +132,12 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
       const unl = tier === "unlimited" || tier.includes("unlimited") || tier === "unlimited_enterprise";
       const rem = authTenant.remaining_credits !== undefined ? Number(authTenant.remaining_credits ?? 0) : 0;
       const tot = authTenant.total_credits !== undefined ? Number(authTenant.total_credits ?? 0) : 0;
+      const pend = authTenant.pending_credits !== undefined ? Number(authTenant.pending_credits ?? 0) : 0;
       const st = authTenant.subscription_tier || "pay_as_you_go";
 
       setRemainingCredits(prev => (prev === rem ? prev : rem));
       setTotalCredits(prev => (prev === tot ? prev : tot));
+      setPendingCredits(prev => (prev === pend ? prev : pend));
       setSubscriptionTier(prev => (prev === st ? prev : st));
       setIsUnlimited(prev => (prev === unl ? prev : unl));
       setLoading(false);
@@ -140,6 +146,7 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
     authTenant?.id,
     authTenant?.remaining_credits,
     authTenant?.total_credits,
+    authTenant?.pending_credits,
     authTenant?.subscription_tier
   ]);
 
@@ -162,7 +169,11 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
                 ? "bg-[#101216] border-[#C5A059]/40 text-[#C5A059]" 
                 : "bg-white border-[#B88E3A]/40 text-[#B88E3A]"
         }`}
-        title={isUnlimited ? "Sınırsız Kredi Paketi" : `Kalan Kredi: ${remainingCredits} / Toplam: ${totalCredits}`}
+        title={
+          isUnlimited 
+            ? "Sınırsız Kredi Paketi" 
+            : `Kalan Kredi: ${remainingCredits} / Toplam: ${totalCredits}${pendingCredits > 0 ? ` (Onay Bekleyen: ${pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`})` : ""}`
+        }
       >
         <User className="w-3.5 h-3.5" />
         {loading ? (
@@ -174,6 +185,16 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
         ) : (
           <span className="font-mono text-[9px] font-black">
             {remainingCredits}/{totalCredits}
+          </span>
+        )}
+
+        {/* Mobil Onay Bekleyen Rozeti */}
+        {pendingCredits > 0 && (
+          <span 
+            className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 shrink-0"
+            title={`Onay Bekleyen: ${pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`}`}
+          >
+            +{pendingCredits >= 999999 ? "∞" : pendingCredits}
           </span>
         )}
       </button>
@@ -245,6 +266,19 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
             </div>
           )}
         </div>
+
+        {/* Standalone Onay Bekleyen Kredi Rozeti */}
+        {pendingCredits > 0 && (
+          <div className="mt-3 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-between text-xs text-amber-300 font-bold">
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span>Onay Bekleyen: {pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${pendingCredits} Kredi`}</span>
+            </span>
+            <span className="text-[10px] text-amber-400/90 font-mono font-normal">
+              Havale Bekleniyor
+            </span>
+          </div>
+        )}
       </div>
     );
   }
@@ -268,7 +302,7 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
       title={
         isUnlimited 
           ? "Sınırsız Atölye Paketi: Sınırsız Sipariş & PDF İhracı" 
-          : `Atölye Kredisi: ${remainingCredits} Kalan / ${totalCredits} Toplam Kota`
+          : `Atölye Kredisi: ${remainingCredits} Kalan / ${totalCredits} Toplam Kota${pendingCredits > 0 ? ` (Onay Bekleyen: ${pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`})` : ""}`
       }
     >
       <User className="w-3.5 h-3.5" />
@@ -299,6 +333,18 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
           {remainingCredits} / {totalCredits} Kr.
         </span>
       )}
+
+      {/* Dikkat Çekici Onay Bekleyen Kredi Rozeti (pending_credits > 0 ise) */}
+      {pendingCredits > 0 && (
+        <span 
+          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/25 text-amber-300 border border-amber-500/50 shadow-sm animate-pulse"
+          title={`Onay Bekleyen Kredi: ${pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${pendingCredits} Kredi`} (Havale veya WhatsApp ile dekont iletiniz)`}
+        >
+          <Clock className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+          <span>Onay Bekleyen: {pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`}</span>
+        </span>
+      )}
     </button>
   );
 };
+

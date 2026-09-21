@@ -377,6 +377,7 @@ export interface SubscriptionData {
   planName: string;
   remainingCredits: number;
   totalCredits: number;
+  pendingCredits?: number;
   renewalDate: string;
   status: "active" | "expiring_soon" | "exhausted";
   autoRenew: boolean;
@@ -396,6 +397,7 @@ export const DEFAULT_SUBSCRIPTION: SubscriptionData = {
   planName: "Kullandıkça Öde (Kredili Hesap)",
   remainingCredits: 0,
   totalCredits: 0,
+  pendingCredits: 0,
   renewalDate: "Dönemsiz (Kredi Bakiyesi)",
   status: "active",
   autoRenew: false,

@@ -498,6 +498,7 @@ function SimulatorMain() {
       const isUnlimited = tier === "unlimited" || tier.includes("unlimited") || tier === "unlimited_enterprise";
       const remaining = Number(authGuardTenant.remaining_credits ?? 0);
       const total = Number(authGuardTenant.total_credits ?? 0);
+      const pending = Number(authGuardTenant.pending_credits ?? 0);
       const subTier = authGuardTenant.subscription_tier || "pay_as_you_go";
       const targetStatus = isUnlimited ? "active" : remaining <= 0 ? "exhausted" : remaining < 15 ? "expiring_soon" : "active";
 
@@ -505,6 +506,7 @@ function SimulatorMain() {
         if (
           prev.remainingCredits === remaining &&
           prev.totalCredits === total &&
+          prev.pendingCredits === pending &&
           prev.subscriptionTier === subTier &&
           prev.isUnlimited === isUnlimited &&
           prev.status === targetStatus
@@ -515,6 +517,7 @@ function SimulatorMain() {
           ...prev,
           remainingCredits: remaining,
           totalCredits: total,
+          pendingCredits: pending,
           subscriptionTier: subTier,
           isUnlimited,
           status: targetStatus
@@ -525,6 +528,7 @@ function SimulatorMain() {
     authGuardTenant?.id,
     authGuardTenant?.remaining_credits,
     authGuardTenant?.total_credits,
+    authGuardTenant?.pending_credits,
     authGuardTenant?.subscription_tier
   ]);
 
@@ -534,6 +538,7 @@ function SimulatorMain() {
       if (
         prev.remainingCredits === info.remainingCredits &&
         prev.totalCredits === info.totalCredits &&
+        prev.pendingCredits === info.pendingCredits &&
         prev.subscriptionTier === info.subscriptionTier &&
         prev.isUnlimited === info.isUnlimited &&
         prev.status === nextStatus
@@ -544,6 +549,7 @@ function SimulatorMain() {
         ...prev,
         remainingCredits: info.remainingCredits,
         totalCredits: info.totalCredits,
+        pendingCredits: info.pendingCredits,
         subscriptionTier: info.subscriptionTier,
         isUnlimited: info.isUnlimited,
         status: nextStatus

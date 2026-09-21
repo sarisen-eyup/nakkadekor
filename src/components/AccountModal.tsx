@@ -41,6 +41,7 @@ import {
 } from "../services/supabaseService";
 import { compressImage } from "../utils/imageCompressor";
 import { LegalTermsModal, LegalTermsCheckbox, LegalDocType } from "./LegalTermsModal";
+import { PaymentBankTransferModal } from "./PaymentBankTransferModal";
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -81,6 +82,16 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   const [paymentToast, setPaymentToast] = useState<{ text: string; subText?: string } | null>(null);
   const [isLegalModalOpen, setIsLegalModalOpen] = useState<boolean>(false);
   const [selectedLegalDoc, setSelectedLegalDoc] = useState<LegalDocType>("user_agreement");
+  const [isBankTransferModalOpen, setIsBankTransferModalOpen] = useState<boolean>(false);
+  const [pendingPaymentInfo, setPendingPaymentInfo] = useState<{
+    packageName: string;
+    packagePriceText: string;
+    amount: number;
+  }>({
+    packageName: "Atölye Başlangıç Paketi (+50 Kredi)",
+    packagePriceText: "1.500 ₺",
+    amount: 50
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -196,7 +207,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     setPurchasingPackage(packageKey);
     setPaymentToast(null);
 
-    // Kısa mock ödeme işleniyor animasyonu (1000ms)
+    // Kısa işlem yükleniyor simülasyonu (1000ms)
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     try {
@@ -204,36 +215,25 @@ export const AccountModal: React.FC<AccountModalProps> = ({
       const res = await purchaseTenantPackageInSupabase(effectiveId, packageKey);
 
       if (res.success) {
-        if (packageKey === "unlimited") {
-          onUpdateSubscription({
-            ...subscription,
-            subscriptionTier: "unlimited",
-            isUnlimited: true,
-            planId: "unlimited_enterprise",
-            planName: "Yıllık Sınırsız Paket",
-            remainingCredits: res.remainingCredits,
-            totalCredits: res.totalCredits,
-            status: "active"
-          });
-          setPaymentToast({
-            text: "Ödeme Başarılı!",
-            subText: "Yıllık Sınırsız Paket atölyeniz için aktif edildi. Limitsiz sipariş ve teklif oluşturabilirsiniz."
-          });
-        } else {
-          const added = packageKey === "credits_150" ? 150 : 50;
-          onUpdateSubscription({
-            ...subscription,
-            subscriptionTier: "credit_based",
-            isUnlimited: false,
-            remainingCredits: res.remainingCredits,
-            totalCredits: res.totalCredits,
-            status: "active"
-          });
-          setPaymentToast({
-            text: "Ödeme Başarılı!",
-            subText: `+${added} Kredi hesabınıza başarıyla tanımlandı.`
-          });
-        }
+        // Kural 2: remainingCredits (aktif kredi) KESİNLİKLE artırılmaz, sadece pendingCredits güncellenir!
+        onUpdateSubscription({
+          ...subscription,
+          pendingCredits: res.pendingCredits
+        });
+
+        setPendingPaymentInfo({
+          packageName: res.packageName,
+          packagePriceText: res.packagePriceText,
+          amount: res.packageAmount
+        });
+
+        // Kural 3: Veritabanı güncellemesi başarılı olduktan hemen sonra Havale/EFT Bilgilendirme Modalını aç
+        setIsBankTransferModalOpen(true);
+
+        setPaymentToast({
+          text: "Talep Alındı (Onay Bekleniyor)",
+          subText: "Havale/EFT dekontunuz iletildiğinde kredileriniz aktif bakiyenize tanımlanacaktır."
+        });
 
         // Güncelleme biter bitmez ekrandaki mevcut kredi göstergesini yeniden fetch et ve UI'ı anında tazele
         if (onRefreshTenant) {
@@ -252,14 +252,14 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     } catch (e: any) {
       console.error("Satın alma hatası:", e);
       setPaymentToast({
-        text: "Ödeme Başarılı!",
-        subText: "Kredi tanımlama işlemi başarıyla tamamlandı."
+        text: "İşlem Hatası",
+        subText: "Lütfen daha sonra tekrar deneyiniz."
       });
     } finally {
       setPurchasingPackage(null);
       setTimeout(() => {
         setPaymentToast(null);
-      }, 5000);
+      }, 6000);
     }
   };
 
@@ -956,6 +956,19 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                       </span>
                     </div>
 
+                    {/* Onay Bekleyen Kredi Bilgisi */}
+                    {subscription.pendingCredits !== undefined && subscription.pendingCredits > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold shadow-sm animate-pulse w-fit">
+                        <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>
+                          Onay Bekleyen: {subscription.pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${subscription.pendingCredits} Kredi`}
+                        </span>
+                        <span className="text-[10px] text-amber-400/80 font-mono font-normal ml-1">
+                          (Havale/EFT Dekontu Bekleniyor)
+                        </span>
+                      </div>
+                    )}
+
                     <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
                       Paketiniz: <strong className={`font-mono ${isDarkMode ? "text-white" : "text-slate-900"}`}>{subscription.planName}</strong>
                       {subscription.renewalDate && (
@@ -1176,6 +1189,21 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           onClose={() => setIsLegalModalOpen(false)}
           defaultDoc={selectedLegalDoc}
           isDarkMode={isDarkMode}
+        />
+
+        {/* Havale/EFT ve WhatsApp Onay Modalı */}
+        <PaymentBankTransferModal
+          isOpen={isBankTransferModalOpen}
+          onClose={() => setIsBankTransferModalOpen(false)}
+          isDarkMode={isDarkMode}
+          packageName={pendingPaymentInfo.packageName}
+          packagePriceText={pendingPaymentInfo.packagePriceText}
+          pendingCreditsAmount={pendingPaymentInfo.amount}
+          onReceiptSent={() => {
+            if (onRefreshTenant) {
+              onRefreshTenant();
+            }
+          }}
         />
       </div>
     </div>
