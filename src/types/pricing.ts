@@ -437,6 +437,7 @@ export interface OrderArchiveItem {
   outerMatColor?: string;
   customPaintingUrl?: string | null;
   customPaintingFile?: string;
+  renderedFrameDataUrl?: string;
   inclusionFlags?: MaterialInclusionFlags;
   customOverridePrice?: number | null;
   simulatorConfig?: Record<string, any>;

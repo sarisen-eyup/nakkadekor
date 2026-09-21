@@ -355,6 +355,7 @@ function SimulatorMain() {
 
   const [orderNumber, setOrderNumber] = useState<string>(() => initialDraft?.orderNumber ?? generateOrderNumber());
   const [activeOrderId, setActiveOrderId] = useState<string | null>(() => initialDraft?.activeOrderId ?? null);
+  const [activeOrderCreatedAt, setActiveOrderCreatedAt] = useState<string | null>(null);
   const { toast } = useToast();
   const setToastMessage = (msg: { text: string; type?: "success" | "info" | "error" | "warning" } | null) => {
     if (!msg) return;
@@ -1055,6 +1056,9 @@ function SimulatorMain() {
     if (order.orderNumber) {
       setOrderNumber(order.orderNumber);
     }
+    if (order.createdAt) {
+      setActiveOrderCreatedAt(order.createdAt);
+    }
 
     // Arşiv listesinde mevcut siparişin id ve numarasını senkronize et (isOrderCreated garantisi)
     setArchiveOrders(prev => {
@@ -1272,6 +1276,7 @@ function SimulatorMain() {
     const newNum = generateOrderNumber();
     setOrderNumber(newNum);
     setActiveOrderId(null);
+    setActiveOrderCreatedAt(null);
     clearWorkspaceDraft();
 
     // 9. Sekmeyi 1. Eser adımına getir
@@ -2285,6 +2290,7 @@ Durum: Onaylandi / Uretime Hazir`;
       outerMatColor: outerMatColor,
       customPaintingUrl: customPaintingUrl,
       customPaintingFile: customPaintingFile,
+      renderedFrameDataUrl: dataUrl,
       inclusionFlags: effectiveInclusionFlags,
       customOverridePrice: customOverridePrice,
       simulatorConfig: {
@@ -2396,6 +2402,16 @@ Durum: Onaylandi / Uretime Hazir`;
 
     const resolvedId = activeOrderId || existingOrder?.id || ("ord_" + Date.now());
 
+    const canvas = document.querySelector(".canvas-container canvas") as HTMLCanvasElement;
+    let currentPreviewDataUrl: string | undefined = undefined;
+    if (canvas) {
+      try {
+        currentPreviewDataUrl = canvas.toDataURL("image/png");
+      } catch (e) {
+        console.warn("Could not capture canvas preview:", e);
+      }
+    }
+
     const newArchiveItem: OrderArchiveItem = {
       id: resolvedId,
       orderNumber: currentOrderNum,
@@ -2425,6 +2441,7 @@ Durum: Onaylandi / Uretime Hazir`;
       outerMatColor: outerMatColor,
       customPaintingUrl: customPaintingUrl,
       customPaintingFile: customPaintingFile,
+      renderedFrameDataUrl: currentPreviewDataUrl || existingOrder?.renderedFrameDataUrl,
       inclusionFlags: effectiveInclusionFlags,
       customOverridePrice: customOverridePrice,
       simulatorConfig: {
@@ -3442,7 +3459,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               ? "bg-[#14171d] border-white/10 text-white shadow-lg" 
               : "bg-white border-slate-200 text-slate-800 shadow-sm"
           }`}>
-            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-start">
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                 <span className={`text-xs font-bold tracking-tight ${isDarkMode ? "text-neutral-200" : "text-slate-800"}`}>
@@ -3453,6 +3470,25 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 isDarkMode ? "bg-white/5 border-white/10 text-[#C5A059]" : "bg-slate-100 border-slate-200 text-[#8F6A1E]"
               }`}>
                 Dış Çerçeve: {Math.round(totalW)}×{Math.round(totalH)} cm
+              </div>
+
+              {/* Aktif Sipariş / Teklif Bilgileri Rozeti */}
+              <div 
+                id="active-order-summary-badge"
+                className={`flex items-center gap-2 text-[11px] font-mono px-2.5 py-0.5 rounded-md border transition-all ${
+                  isDarkMode 
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-200" 
+                    : "bg-amber-50 border-amber-300 text-amber-900"
+                }`}
+                title={`Sipariş: ${orderNumber} | Tarih: ${activeOrderCreatedAt || new Date().toLocaleDateString("tr-TR")} | Müşteri: ${customerName.trim() || "İsimsiz Müşteri"}`}
+              >
+                <span className="font-bold tracking-tight text-[#C5A059]">{orderNumber}</span>
+                <span className="opacity-40">•</span>
+                <span className="opacity-90">{activeOrderCreatedAt || new Date().toLocaleDateString("tr-TR")}</span>
+                <span className="opacity-40">•</span>
+                <span className="font-semibold truncate max-w-[140px] sm:max-w-[200px]">
+                  {customerName.trim() || "İsimsiz Müşteri"}
+                </span>
               </div>
             </div>
 

@@ -256,16 +256,44 @@ export function triggerImagePrintWindow(
   fileName: string,
   details: PrintDocumentDetails
 ) {
-  const flags = details.flags || {};
-  const isArtActive = Boolean(flags.includeArtworkPrint) && details.artworkWidth > 0 && details.artworkHeight > 0;
-  const isMatActive = Boolean(flags.includeInnerMat) && details.matWidth > 0;
-  const isFrameActive = Boolean(flags.includeInnerFrame) && details.frameWidth > 0;
-  const isMiddleMatActive = Boolean(flags.includeMiddleMat) && details.middleMatWidth > 0;
-  const isOuterFrameActive = Boolean(flags.includeOuterFrame) && details.outerFrameWidth > 0;
-  const isGlassActive = Boolean(flags.includeGlass);
-  const isBackingClothActive = Boolean(flags.includeBackingCloth);
-  const isKraftTapeActive = Boolean(flags.includeKraftTape);
-  const isBackingBoardActive = Boolean(flags.includeBackingBoard);
+  const flags = details.flags;
+  const hasExplicitFlags = Boolean(flags && Object.keys(flags).length > 0);
+
+  const isArtActive = hasExplicitFlags && flags?.includeArtworkPrint !== undefined
+    ? Boolean(flags.includeArtworkPrint) && details.artworkWidth > 0 && details.artworkHeight > 0
+    : (details.artworkWidth > 0 && details.artworkHeight > 0 && Boolean(details.customPaintingFile && details.customPaintingFile !== 'Yok' && details.customPaintingFile !== 'Özel Sanat Eseri Baskısı Yok'));
+
+  const isMatActive = hasExplicitFlags && flags?.includeInnerMat !== undefined
+    ? Boolean(flags.includeInnerMat) && details.matWidth > 0
+    : (details.matWidth > 0);
+
+  const isFrameActive = hasExplicitFlags && flags?.includeInnerFrame !== undefined
+    ? Boolean(flags.includeInnerFrame) && details.frameWidth > 0
+    : (details.frameWidth > 0 && Boolean(details.customFrameFile && details.customFrameFile !== 'Yok' && details.customFrameFile !== 'Çerçevesiz Profil'));
+
+  const isMiddleMatActive = hasExplicitFlags && flags?.includeMiddleMat !== undefined
+    ? Boolean(flags.includeMiddleMat) && details.middleMatWidth > 0
+    : (details.middleMatWidth > 0);
+
+  const isOuterFrameActive = hasExplicitFlags && flags?.includeOuterFrame !== undefined
+    ? Boolean(flags.includeOuterFrame) && details.outerFrameWidth > 0
+    : (details.outerFrameWidth > 0 && Boolean(details.customOuterFrameFile && details.customOuterFrameFile !== 'Yok' && details.customOuterFrameFile !== 'Dış Kasa Çerçevesiz'));
+
+  const isGlassActive = hasExplicitFlags && flags?.includeGlass !== undefined
+    ? Boolean(flags.includeGlass)
+    : (isFrameActive || details.frameWidth > 0);
+
+  const isBackingClothActive = hasExplicitFlags && flags?.includeBackingCloth !== undefined
+    ? Boolean(flags.includeBackingCloth)
+    : (isFrameActive || details.frameWidth > 0);
+
+  const isKraftTapeActive = hasExplicitFlags && flags?.includeKraftTape !== undefined
+    ? Boolean(flags.includeKraftTape)
+    : (isFrameActive || details.frameWidth > 0);
+
+  const isBackingBoardActive = hasExplicitFlags && flags?.includeBackingBoard !== undefined
+    ? Boolean(flags.includeBackingBoard)
+    : (isFrameActive || details.frameWidth > 0);
 
   const fullHtml = `
     <!DOCTYPE html>

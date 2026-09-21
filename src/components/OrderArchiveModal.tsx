@@ -124,8 +124,9 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
     const totalW = order.artworkWidthCm + 2 * (frameW + matW + middleMatW + outerFrameW);
     const totalH = order.artworkHeightCm + 2 * (frameW + matW + middleMatW + outerFrameW);
 
-    // Siparişin gerçek tasarım görseli (varsa yüklenen görsel, yoksa kurumsal zarif sanat alanı taslağı)
-    const artworkImage = order.customPaintingUrl || 
+    // Siparişin gerçek tasarım görseli (varsa kaydedilmiş tam çerçeveli render çıktısı, yoksa yüklenen görsel, yoksa kurumsal zarif sanat alanı taslağı)
+    const artworkImage = order.renderedFrameDataUrl ||
+      order.customPaintingUrl || 
       order.simulatorConfig?.customPaintingUrl || 
       "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`
         <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
@@ -136,6 +137,21 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
           <text x="400" y="340" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#94a3b8">Profil: ${order.innerFrameTitle || 'Standart Profil'} • Bitmiş Ebat: ${totalW.toFixed(1)} × ${totalH.toFixed(1)} cm</text>
         </svg>
       `);
+
+    // Siparişin tüm bileşen bayraklarını (flags) eksiksiz ve güvenli şekilde çöz
+    const rawFlags = order.inclusionFlags || order.simulatorConfig?.inclusionFlags || (order.simulatorConfig as any)?.flags || {};
+    const effectiveFlags = {
+      includeArtworkPrint: rawFlags.includeArtworkPrint ?? Boolean(order.customPaintingFile && order.customPaintingFile !== "Özel Sanat Eseri Baskısı Yok" && order.artworkWidthCm > 0),
+      includeInnerMat: rawFlags.includeInnerMat ?? Boolean(matW > 0 || (order.matInfo && order.matInfo !== "Paspartusuz")),
+      includeInnerFrame: rawFlags.includeInnerFrame ?? Boolean(frameW > 0 && order.innerFrameTitle !== "Yok" && order.innerFrameTitle !== "Çerçeve Seçilmedi"),
+      includeMiddleMat: rawFlags.includeMiddleMat ?? Boolean(middleMatW > 0),
+      includeOuterFrame: rawFlags.includeOuterFrame ?? Boolean(outerFrameW > 0 && order.outerFrameTitle && order.outerFrameTitle !== "Yok" && order.outerFrameTitle !== "Çerçeve Seçilmedi"),
+      includeGlass: rawFlags.includeGlass ?? true,
+      includeBackingBoard: rawFlags.includeBackingBoard ?? true,
+      includeBackingCloth: rawFlags.includeBackingCloth ?? true,
+      includeKraftTape: rawFlags.includeKraftTape ?? true,
+      includeLaborCost: rawFlags.includeLaborCost ?? true,
+    };
 
     triggerImagePrintWindow(
       docTitle,
@@ -163,6 +179,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
         deliveryMethod: order.deliveryMethod,
         shippingCost: order.deliveryMethod === "shipping" ? 150 : 0,
         qrDataUrl,
+        flags: effectiveFlags,
         companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
         authorUser: order.authorUser
       }
@@ -179,6 +196,20 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
     const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm ?? 0;
     const outerFrameW = order.outerFrameWidthCm ?? order.simulatorConfig?.outerFrameWidthCm ?? 0;
 
+    const rawFlags = order.inclusionFlags || order.simulatorConfig?.inclusionFlags || (order.simulatorConfig as any)?.flags || {};
+    const flags = {
+      includeArtworkPrint: rawFlags.includeArtworkPrint ?? Boolean(order.customPaintingFile && order.customPaintingFile !== "Özel Sanat Eseri Baskısı Yok" && order.artworkWidthCm > 0),
+      includeInnerMat: rawFlags.includeInnerMat ?? Boolean(matW > 0 || (order.matInfo && order.matInfo !== "Paspartusuz")),
+      includeInnerFrame: rawFlags.includeInnerFrame ?? Boolean(frameW > 0 && order.innerFrameTitle !== "Yok" && order.innerFrameTitle !== "Çerçeve Seçilmedi"),
+      includeMiddleMat: rawFlags.includeMiddleMat ?? Boolean(middleMatW > 0),
+      includeOuterFrame: rawFlags.includeOuterFrame ?? Boolean(outerFrameW > 0 && order.outerFrameTitle && order.outerFrameTitle !== "Yok" && order.outerFrameTitle !== "Çerçeve Seçilmedi"),
+      includeGlass: rawFlags.includeGlass ?? true,
+      includeBackingBoard: rawFlags.includeBackingBoard ?? true,
+      includeBackingCloth: rawFlags.includeBackingCloth ?? true,
+      includeKraftTape: rawFlags.includeKraftTape ?? true,
+      includeLaborCost: rawFlags.includeLaborCost ?? true,
+    };
+
     const cutList = generateCutList({
       artworkWidthCm: order.artworkWidthCm,
       artworkHeightCm: order.artworkHeightCm,
@@ -190,18 +221,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
       outerFrameCode: order.outerFrameTitle,
       innerMatColor: order.innerMatColor || order.simulatorConfig?.innerMatColor || "#FAF9F5",
       outerMatColor: order.outerMatColor || order.simulatorConfig?.outerMatColor || "#FAF9F5",
-      flags: order.inclusionFlags || order.simulatorConfig?.flags || {
-        includeArtworkPrint: false,
-        includeInnerMat: order.matInfo !== "Paspartusuz",
-        includeInnerFrame: true,
-        includeMiddleMat: false,
-        includeOuterFrame: Boolean(order.outerFrameTitle && order.outerFrameTitle !== "Yok"),
-        includeGlass: true,
-        includeBackingBoard: true,
-        includeBackingCloth: true,
-        includeKraftTape: true,
-        includeLaborCost: true
-      },
+      flags,
       orderNumber: order.orderNumber
     });
 
@@ -269,17 +289,18 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
     const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm ?? 0;
     const outerFrameW = order.outerFrameWidthCm ?? order.simulatorConfig?.outerFrameWidthCm ?? 0;
 
-    const flags = order.inclusionFlags || order.simulatorConfig?.flags || {
-      includeArtworkPrint: false,
-      includeInnerMat: order.matInfo !== "Paspartusuz",
-      includeInnerFrame: true,
-      includeMiddleMat: false,
-      includeOuterFrame: Boolean(order.outerFrameTitle && order.outerFrameTitle !== "Yok"),
-      includeGlass: true,
-      includeBackingBoard: true,
-      includeBackingCloth: true,
-      includeKraftTape: true,
-      includeLaborCost: true
+    const rawFlags = order.inclusionFlags || order.simulatorConfig?.inclusionFlags || (order.simulatorConfig as any)?.flags || {};
+    const flags = {
+      includeArtworkPrint: rawFlags.includeArtworkPrint ?? Boolean(order.customPaintingFile && order.customPaintingFile !== "Özel Sanat Eseri Baskısı Yok" && order.artworkWidthCm > 0),
+      includeInnerMat: rawFlags.includeInnerMat ?? Boolean(matW > 0 || (order.matInfo && order.matInfo !== "Paspartusuz")),
+      includeInnerFrame: rawFlags.includeInnerFrame ?? Boolean(frameW > 0 && order.innerFrameTitle !== "Yok" && order.innerFrameTitle !== "Çerçeve Seçilmedi"),
+      includeMiddleMat: rawFlags.includeMiddleMat ?? Boolean(middleMatW > 0),
+      includeOuterFrame: rawFlags.includeOuterFrame ?? Boolean(outerFrameW > 0 && order.outerFrameTitle && order.outerFrameTitle !== "Yok" && order.outerFrameTitle !== "Çerçeve Seçilmedi"),
+      includeGlass: rawFlags.includeGlass ?? true,
+      includeBackingBoard: rawFlags.includeBackingBoard ?? true,
+      includeBackingCloth: rawFlags.includeBackingCloth ?? true,
+      includeKraftTape: rawFlags.includeKraftTape ?? true,
+      includeLaborCost: rawFlags.includeLaborCost ?? true,
     };
 
     const breakdown = calculateCostsAndPricing({
