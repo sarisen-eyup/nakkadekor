@@ -62,7 +62,7 @@ export function LegalTermsModal({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono uppercase tracking-widest font-black text-[#C5A059]">
-                  Nakka Decor Hukuk &amp; Mevzuat
+                  Nakka Dekor Hukuk &amp; Mevzuat
                 </span>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
                   isDarkMode ? "bg-white/10 text-neutral-300" : "bg-slate-200 text-slate-700"
@@ -170,7 +170,7 @@ export function LegalTermsModal({
                 isDarkMode ? "bg-white/[0.02] border-white/10 text-neutral-300" : "bg-slate-50 border-slate-200 text-slate-700"
               }`}>
                 <p className="font-semibold text-xs leading-normal">
-                  İşbu Kullanıcı ve Lisans Sözleşmesi (&ldquo;Sözleşme&rdquo;); <strong>Nakka Decor Sanat ve Çerçeve Teknolojileri</strong> (&ldquo;Nakka Decor&rdquo; veya &ldquo;Hizmet Sağlayıcı&rdquo;) ile sistemi kullanan, üyelik oluşturan veya simülatör üzerinden işlem gerçekleştiren B2B Çerçeve Atölyesi, tüzel veya gerçek kişi kullanıcı (&ldquo;Kullanıcı&rdquo; / &ldquo;Abone&rdquo;) arasında elektronik ortamda akdedilmiştir.
+                  İşbu Kullanıcı ve Lisans Sözleşmesi (&ldquo;Sözleşme&rdquo;); <strong>Nakka Dekor Sanat ve Çerçeve Teknolojileri</strong> (&ldquo;Nakka Dekor&rdquo; veya &ldquo;Hizmet Sağlayıcı&rdquo;) ile sistemi kullanan, üyelik oluşturan veya simülatör üzerinden işlem gerçekleştiren B2B Çerçeve Atölyesi, tüzel veya gerçek kişi kullanıcı (&ldquo;Kullanıcı&rdquo; / &ldquo;Abone&rdquo;) arasında elektronik ortamda akdedilmiştir.
                 </p>
               </div>
 
@@ -180,7 +180,7 @@ export function LegalTermsModal({
                     Madde 1 &mdash; Sözleşmenin Amacı ve Konusu
                   </h3>
                   <p className={isDarkMode ? "text-neutral-300" : "text-slate-600"}>
-                    İşbu sözleşmenin konusu; Nakka Decor tarafından sağlanan bulut tabanlı Sanatsal Çerçeve Simülatörü, gönye kesim optimizasyonu, dinamik paspartu hesaplayıcısı, fire payı formülasyonu, kurumsal PDF teklif ve üretim emri oluşturma yazılımının B2B atölye kullanım şartlarının, tarafların hak ve yükümlülüklerinin belirlenmesidir.
+                    İşbu sözleşmenin konusu; Nakka Dekor tarafından sağlanan bulut tabanlı Sanatsal Çerçeve Simülatörü, gönye kesim optimizasyonu, dinamik paspartu hesaplayıcısı, fire payı formülasyonu, kurumsal PDF teklif ve üretim emri oluşturma yazılımının B2B atölye kullanım şartlarının, tarafların hak ve yükümlülüklerinin belirlenmesidir.
                   </p>
                 </section>
 
@@ -200,7 +200,7 @@ export function LegalTermsModal({
                     Madde 3 &mdash; Maliyet Hesaplama ve Üretim Sorumluluğu
                   </h3>
                   <p className={isDarkMode ? "text-neutral-300" : "text-slate-600"}>
-                    Simülatör tarafından hesaplanan profil metreleri, paspartu alanları, cam ölçüleri, fire yüzdeleri ve işçilik maliyetleri; atölyenin sisteme girdiği birim fiyatlar ve katsayılar doğrultusunda matematiksel olarak türetilmektedir. Atölye, fiziksel kesim ve montaj öncesinde ölçülerin doğruluğunu kontrol etmekle yükümlüdür. Fiziksel atölye üretimindeki operatör hatalarından kaynaklı fire ve uyuşmazlıklardan Nakka Decor sorumlu tutulamaz.
+                    Simülatör tarafından hesaplanan profil metreleri, paspartu alanları, cam ölçüleri, fire yüzdeleri ve işçilik maliyetleri; atölyenin sisteme girdiği birim fiyatlar ve katsayılar doğrultusunda matematiksel olarak türetilmektedir. Atölye, fiziksel kesim ve montaj öncesinde ölçülerin doğruluğunu kontrol etmekle yükümlüdür. Fiziksel atölye üretimindeki operatör hatalarından kaynaklı fire ve uyuşmazlıklardan Nakka Dekor sorumlu tutulamaz.
                   </p>
                 </section>
 
@@ -209,7 +209,7 @@ export function LegalTermsModal({
                     Madde 4 &mdash; Fikri ve Sınai Mülkiyet Hakları
                   </h3>
                   <p className={isDarkMode ? "text-neutral-300" : "text-slate-600"}>
-                    Nakka Decor markası, logosu, simülasyon arayüzü, 3D/2D çerçeve render modelleri, kod tabanı ve veri tabanı mimarisi 5846 sayılı Fikir ve Sanat Eserleri Kanunu ile 6769 sayılı Sınai Mülkiyet Kanunu kapsamında koruma altındadır. İhlal halinde yasal ve cezai takip hakkı saklıdır.
+                    Nakka Dekor markası, logosu, simülasyon arayüzü, 3D/2D çerçeve render modelleri, kod tabanı ve veri tabanı mimarisi 5846 sayılı Fikir ve Sanat Eserleri Kanunu ile 6769 sayılı Sınai Mülkiyet Kanunu kapsamında koruma altındadır. İhlal halinde yasal ve cezai takip hakkı saklıdır.
                   </p>
                 </section>
 
@@ -232,7 +232,7 @@ export function LegalTermsModal({
                 isDarkMode ? "bg-white/[0.02] border-white/10 text-neutral-300" : "bg-slate-50 border-slate-200 text-slate-700"
               }`}>
                 <p className="font-semibold text-xs leading-normal">
-                  Nakka Decor B2B yazılım lisansları, kredi paketleri ve atölye abonelikleri kapsamında düzenlenen mali fatura ve ticari işlemler, 213 sayılı Vergi Usul Kanunu (VUK) ve 6102 sayılı Türk Ticaret Kanunu (TTK) hükümlerine tabidir.
+                  Nakka Dekor B2B yazılım lisansları, kredi paketleri ve atölye abonelikleri kapsamında düzenlenen mali fatura ve ticari işlemler, 213 sayılı Vergi Usul Kanunu (VUK) ve 6102 sayılı Türk Ticaret Kanunu (TTK) hükümlerine tabidir.
                 </p>
               </div>
 
@@ -294,7 +294,7 @@ export function LegalTermsModal({
                 isDarkMode ? "bg-white/[0.02] border-white/10 text-neutral-300" : "bg-slate-50 border-slate-200 text-slate-700"
               }`}>
                 <p className="font-semibold text-xs leading-normal">
-                  6698 sayılı Kişisel Verilerin Korunması Kanunu (&ldquo;KVKK&rdquo;) uyarınca, Veri Sorumlusu sıfatıyla <strong>Nakka Decor</strong> olarak; atölye yetkilileri, çalışanları ve sisteme veri giren kullanıcılarımızın kişisel verilerini aşağıda açıklanan çerçevede işlemekteyiz.
+                  6698 sayılı Kişisel Verilerin Korunması Kanunu (&ldquo;KVKK&rdquo;) uyarınca, Veri Sorumlusu sıfatıyla <strong>Nakka Dekor</strong> olarak; atölye yetkilileri, çalışanları ve sisteme veri giren kullanıcılarımızın kişisel verilerini aşağıda açıklanan çerçevede işlemekteyiz.
                 </p>
               </div>
 
@@ -304,7 +304,7 @@ export function LegalTermsModal({
                     1. Veri Sorumlusu Sıfatı
                   </h3>
                   <p className={isDarkMode ? "text-neutral-300" : "text-slate-600"}>
-                    Kişisel verileriniz, 6698 sayılı KVKK kapsamında veri sorumlusu sıfatıyla Nakka Decor Sanat ve Çerçeve Teknolojileri tarafından işlenmektedir.
+                    Kişisel verileriniz, 6698 sayılı KVKK kapsamında veri sorumlusu sıfatıyla Nakka Dekor Sanat ve Çerçeve Teknolojileri tarafından işlenmektedir.
                   </p>
                 </section>
 
@@ -343,7 +343,7 @@ export function LegalTermsModal({
                     5. KVKK Madde 11 Uyarınca Haklarınız
                   </h3>
                   <p className={isDarkMode ? "text-neutral-300" : "text-slate-600"}>
-                    Kanun uyarınca; verilerinizin işlenip işlenmediğini öğrenme, işlenmişse bilgi talep etme, amaca uygun kullanılıp kullanılmadığını öğrenme, eksik/yanlış işlenmişse düzeltilmesini isteme ve silinmesini talep etme haklarına sahipsiniz. Taleplerinizi <strong className="text-[#C5A059]">kvkk@nakkadecor.com</strong> adresine veya sistem iletişim kanallarımıza iletebilirsiniz.
+                    Kanun uyarınca; verilerinizin işlenip işlenmediğini öğrenme, işlenmişse bilgi talep etme, amaca uygun kullanılıp kullanılmadığını öğrenme, eksik/yanlış işlenmişse düzeltilmesini isteme ve silinmesini talep etme haklarına sahipsiniz. Taleplerinizi <strong className="text-[#C5A059]">kvkk@nakkadekor.com</strong> adresine veya sistem iletişim kanallarımıza iletebilirsiniz.
                   </p>
                 </section>
               </div>

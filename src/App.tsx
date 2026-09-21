@@ -150,7 +150,7 @@ import {
 const NakkaLogo = ({ size = 36 }: { size?: number }) => (
   <img 
     src="/favicon.png" 
-    alt="Nakka Decor Logo" 
+    alt="Nakka Dekor Logo" 
     width={size} 
     height={size} 
     style={{ width: size, height: size }}
@@ -1685,7 +1685,7 @@ function SimulatorMain() {
         customerName: customerName || "Değerli Müşterimiz",
         customerPhone: customerPhone || "",
         orderNumber: orderNumber || "",
-        companyName: companyProfile.companyName || "Nakkaş Çerçeve Atölyesi",
+        companyName: companyProfile.companyName || "Nakka Dekor",
         activeProfileName: activeInnerProfile?.name || activeInnerProfile?.code || "Klasik Profil",
         outerProfileName: activeOuterProfile?.name || activeOuterProfile?.code || "",
         totalPrice: costBreakdown.effectiveFinalPriceWithVat,
@@ -2101,7 +2101,7 @@ function SimulatorMain() {
       : 'Belirtilmedi';
 
     // Generate functional QR Code (Karakod) for the A4 document
-    const qrText = `NAKKA DECOR | IS EMRI
+    const qrText = `NAKKA DEKOR | IS EMRI
 Siparis No: ${orderNumber}
 Tarih: ${new Date().toLocaleDateString('tr-TR')}
 Musteri: ${customerName || 'Belirtilmedi'}
@@ -2419,7 +2419,7 @@ MÜŞTERİ: ${customerName || 'Belirtilmedi'}
 ESER: ${artworkWidth}x${artworkHeight} cm
 DIŞ EBAT: ${totalW.toFixed(1)}x${totalH.toFixed(1)} cm
 TARİH: ${new Date().toLocaleDateString('tr-TR')}
-ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
+ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
 
       qrDataUrl = await QRCode.toDataURL(qrText, {
         margin: 1,
@@ -2773,7 +2773,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
               <h1 className={`text-base md:text-lg font-black tracking-widest uppercase ${
                 isDarkMode ? "text-white" : "text-slate-900"
               }`}>
-                NAKKA <span className={isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}>DECOR</span>
+                NAKKA <span className={isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}>DEKOR</span>
               </h1>
               <p className={`text-[9px] md:text-[10px] uppercase tracking-[0.18em] font-bold -mt-0.5 hidden sm:block ${
                 isDarkMode ? "text-[#C5A059]/80" : "text-[#B88E3A]"
@@ -3650,7 +3650,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
         orderNumber={orderNumber}
         customerName={customerName}
         customerPhone={customerPhone}
-        companyName={companyProfile.companyName || "Nakkaş Çerçeve Atölyesi"}
+        companyName={companyProfile.companyName || "Nakka Dekor"}
         companyPhone={companyProfile.phone || ""}
         isDarkMode={isDarkMode}
         renderFrameElement={(scale) => renderFrameLayers(scale)}

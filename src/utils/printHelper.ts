@@ -202,7 +202,7 @@ export function triggerPrintWindow(title: string, bodyHtml: string) {
       <body>
         <div class="no-print-bar">
           <div style="display:flex; align-items:center; gap: 8px;">
-            <span style="color:#C5A059; font-weight:bold;">NAKKA ART STUDIO</span>
+            <span style="color:#C5A059; font-weight:bold;">NAKKA DEKOR</span>
             <span>• ${title}</span>
           </div>
           <button class="print-btn" onclick="window.print()">🖨️ YAZDIR / PDF OLARAK KAYDET</button>
@@ -561,7 +561,7 @@ export function triggerImagePrintWindow(
       <body>
         <div class="no-print-bar">
           <div style="display:flex; align-items:center; gap: 10px;">
-            <span style="color:#C5A059; font-weight:bold; font-size: 14px;">NAKKA DECOR</span>
+            <span style="color:#C5A059; font-weight:bold; font-size: 14px;">NAKKA DEKOR</span>
             <span style="color:#a1a1aa;">•</span>
             <span style="font-weight:500;">Sipariş Formu</span>
           </div>
@@ -585,7 +585,7 @@ export function triggerImagePrintWindow(
                   />
                 ` : ''}
                 <div>
-                  <div class="brand-title">${details.companyProfile?.companyName || 'NAKKA DECOR'}</div>
+                  <div class="brand-title">${details.companyProfile?.companyName || 'NAKKA DEKOR'}</div>
                   <div class="brand-subtitle">${details.companyProfile?.tradeTitle || 'SİPARİŞ FORMU & İŞ EMRİ'}</div>
                   ${(details.companyProfile?.phone || details.companyProfile?.email) ? `
                     <div style="font-size: 9.5px; color: #555; margin-top: 2px;">
@@ -806,8 +806,8 @@ export function triggerImagePrintWindow(
           </div>
 
           <div style="border-top: 1px solid #eee; padding-top: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-size: 9px; color: #888;">
-            <span>${details.companyProfile?.tradeTitle || details.companyProfile?.companyName || 'Nakka Decor Atölye Otomasyon Sistemi'} ${details.companyProfile?.address ? `• ${details.companyProfile.address}` : ''}</span>
-            <span>${details.companyProfile?.website || 'https://nakka.decor'}</span>
+            <span>${details.companyProfile?.tradeTitle || details.companyProfile?.companyName || 'Nakka Dekor Atölye Otomasyon Sistemi'} ${details.companyProfile?.address ? `• ${details.companyProfile.address}` : ''}</span>
+            <span>${details.companyProfile?.website || 'https://nakkadekor.com'}</span>
           </div>
         </div>
       </body>
@@ -882,7 +882,7 @@ export interface BackLabelDetails {
 
 export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
   const barcodeSvg = generateBarcodeSvg(details.orderNumber, 26);
-  const companyName = details.companyProfile?.companyName || "NAKKA DECOR";
+  const companyName = details.companyProfile?.companyName || "NAKKA DEKOR";
   const hasProLogo = Boolean(details.isPro && details.companyProfile?.logoUrl);
   const currentDate = new Date().toLocaleDateString("tr-TR");
 
@@ -1273,7 +1273,7 @@ export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
       <body>
         <div class="no-print-bar">
           <div class="bar-left">
-            <span class="bar-brand">NAKKA ART STUDIO</span>
+            <span class="bar-brand">NAKKA DEKOR</span>
             <span class="bar-sub">• 4x4 cm Tablo Arka Barkod Etiketi</span>
           </div>
           <button class="print-btn" onclick="window.print()">
@@ -1368,7 +1368,7 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #111; padding-bottom:12px; margin-bottom:16px;">
       <div>
         <div style="font-size:20px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">
-          ${companyProfile?.companyName || 'NAKKA ART STUDIO'} - ATÖLYE İŞ EMRİ & KESİM FİŞİ
+          ${companyProfile?.companyName || 'NAKKA DEKOR'} - ATÖLYE İŞ EMRİ & KESİM FİŞİ
         </div>
         <div style="font-size:11px; color:#555;">MARANGOZ / ÇERÇEVE USTA ÖLÇÜ BİLDİRİM FORMU</div>
       </div>
@@ -1460,7 +1460,7 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #111; padding-bottom:12px; margin-bottom:16px;">
       <div>
         <div style="font-size:20px; font-weight:bold; text-transform:uppercase;">
-          ${companyProfile?.companyName || 'NAKKA DECOR & ART STUDIO'}
+          ${companyProfile?.companyName || 'NAKKA DEKOR'}
         </div>
         <div style="font-size:12px; color:#555;">SİPARİŞ MALİYET ANALİZİ & FİNANSAL DÖKÜM BELGESİ</div>
       </div>

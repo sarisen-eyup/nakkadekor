@@ -198,7 +198,7 @@ MÜŞTERİ: ${order.customerName}
 ESER: ${order.artworkWidthCm}x${order.artworkHeightCm} cm
 DIŞ EBAT: ${(order.artworkWidthCm + 18).toFixed(1)}x${(order.artworkHeightCm + 18).toFixed(1)} cm
 TARİH: ${order.createdAt}
-ATÖLYE: ${companyProfile?.companyName || 'Nakka Decor'}`;
+ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
 
       qrDataUrl = await QRCode.toDataURL(qrText, {
         width: 180,

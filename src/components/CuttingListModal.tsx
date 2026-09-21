@@ -109,7 +109,7 @@ export function CuttingListModal({
           <div className="hidden print:block border-b-2 border-black pb-3 mb-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-bold font-mono uppercase">NAKKA ART STUDIO - ATÖLYE KESİM FİŞİ</h1>
+                <h1 className="text-xl font-bold font-mono uppercase">NAKKA DEKOR - ATÖLYE KESİM FİŞİ</h1>
                 <p className="text-xs text-gray-600">Tarih: {new Date().toLocaleDateString('tr-TR')}</p>
               </div>
               <div className="text-right text-xs font-mono">

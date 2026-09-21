@@ -1,5 +1,5 @@
 -- ============================================================================
--- NAKKA DECOR / B2B ÇERÇEVE SİMÜLATÖRÜ - EKSİKSİZ VERİTABANI & RLS ONARIM SCRIPTI
+-- NAKKA DEKOR / B2B ÇERÇEVE SİMÜLATÖRÜ - EKSİKSİZ VERİTABANI & RLS ONARIM SCRIPTI
 -- ============================================================================
 -- Bu scripti Supabase Dashboard > SQL Editor içerisine yapıştırıp "RUN" butonuna basınız.
 -- 1. Eksik sütunları (in_stock, status, delivery_method vb.) otomatik ekler.
@@ -459,9 +459,9 @@ INSERT INTO public.tenants (
   id, name, slug, trade_title, subscription_tier, subscription_status, status, remaining_credits, total_credits
 ) VALUES (
   '11111111-1111-1111-1111-111111111111',
-  'Nakka Decor Demo Atölyesi',
+  'Nakka Dekor Demo Atölyesi',
   'nakka-demo',
-  'Nakka Decor B2B Çerçeve San. Tic. Ltd. Şti.',
+  'Nakka Dekor B2B Çerçeve San. Tic. Ltd. Şti.',
   'pro_monthly',
   'active',
   'active',
@@ -475,5 +475,5 @@ ON CONFLICT (tenant_id) DO NOTHING;
 
 -- BAŞARI BİLDİRİMİ
 DO $$ BEGIN
-  RAISE NOTICE 'Nakka Decor Veritabanı ve RLS Onarımı Başarıyla Tamamlandı!';
+  RAISE NOTICE 'Nakka Dekor Veritabanı ve RLS Onarımı Başarıyla Tamamlandı!';
 END $$;

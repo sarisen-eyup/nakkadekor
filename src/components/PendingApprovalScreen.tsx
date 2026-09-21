@@ -83,12 +83,12 @@ export const PendingApprovalScreen: React.FC = () => {
         <div className="flex items-center gap-3">
           <img 
             src="/favicon.png" 
-            alt="Nakka Studio Logo" 
+            alt="Nakka Dekor Logo" 
             className="w-8 h-8 rounded-full object-contain shadow-sm shrink-0" 
           />
           <div>
             <span className="text-sm font-black tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-[#FAE2B3] via-[#E5C17B] to-[#C5A059]">
-              NAKKA STUDIO
+              NAKKA DEKOR
             </span>
             <span className={`text-[10px] block font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
               B2B ÇERÇEVE ATÖLYE SİSTEMİ

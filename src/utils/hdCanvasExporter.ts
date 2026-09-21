@@ -309,7 +309,7 @@ export async function exportAndDownloadHD(opts: HDCanvasExportOptions): Promise<
 
     customerName = "Değerli Müşterimiz",
     orderNumber = "",
-    companyName = "Nakkaş Çerçeve Atölyesi",
+    companyName = "Nakka Dekor",
     activeProfileName = "Özel Profil",
     outerProfileName = "Dış Profil",
     totalPrice = 0,

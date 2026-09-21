@@ -170,7 +170,7 @@ export function CostBreakdownModal({
           <div className="hidden print:block border-b-2 border-black pb-4 mb-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold font-mono uppercase tracking-wider">NAKKA DECOR & ART STUDIO</h1>
+                <h1 className="text-2xl font-bold font-mono uppercase tracking-wider">NAKKA DEKOR</h1>
                 <p className="text-xs font-mono text-gray-600">KURUMSAL SİPARİŞ MALİYET VE TEKLİF DÖKÜMÜ</p>
               </div>
               <div className="text-right font-mono text-xs">
@@ -840,7 +840,7 @@ export function CostBreakdownModal({
               <p className="mt-8 border-b border-dashed border-gray-400 w-48"></p>
             </div>
             <div className="text-right">
-              <p className="font-bold">NAKKA ART STUDIO YETKİLİSİ:</p>
+              <p className="font-bold">NAKKA DEKOR YETKİLİSİ:</p>
               <p className="mt-8 border-b border-dashed border-gray-400 w-48 ml-auto"></p>
             </div>
           </div>

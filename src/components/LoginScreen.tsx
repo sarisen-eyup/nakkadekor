@@ -198,12 +198,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <div className="flex items-center gap-3">
               <img 
                 src="/favicon.png" 
-                alt="Nakka Decor Logo" 
+                alt="Nakka Dekor Logo" 
                 className="w-12 h-12 rounded-2xl object-contain shadow-lg shadow-[#C5A059]/20 shrink-0" 
               />
               <div>
                 <h1 className="text-xl font-black tracking-widest uppercase text-white">
-                  NAKKA <span className="text-[#C5A059]">DECOR</span>
+                  NAKKA <span className="text-[#C5A059]">DEKOR</span>
                 </h1>
                 <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#C5A059]/90">
                   B2B Sanat & Çerçeve Atölye Portalı
@@ -247,7 +247,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <span>256-Bit SSL Şifreli Güvenli Giriş</span>
             </div>
-            <span className="font-mono text-[10px] text-neutral-500">© 2026 Nakka Studio</span>
+            <span className="font-mono text-[10px] text-neutral-500">© 2026 Nakka Dekor</span>
           </div>
         </div>
 
@@ -454,7 +454,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   Kurumsal Lisans &amp; Bilgi Hattı
                 </h3>
                 <p className="text-xs text-neutral-400">
-                  Nakka Decor B2B Atölye Sistemi
+                  Nakka Dekor B2B Atölye Sistemi
                 </p>
               </div>
             </div>

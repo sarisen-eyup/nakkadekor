@@ -1,5 +1,5 @@
 -- ============================================================================
--- NAKKA DECOR - 5 ALTIN KURAL UYUMLU KAPSAMLI SUPABASE SCHEMA & RLS GÜNCELLEMESİ
+-- NAKKA DEKOR - 5 ALTIN KURAL UYUMLU KAPSAMLI SUPABASE SCHEMA & RLS GÜNCELLEMESİ
 -- Dosya: src/db/schema_update.sql
 -- 
 -- Bu dosya Supabase Dashboard -> SQL Editor sekmesine yapıştırılıp "RUN" edilerek
