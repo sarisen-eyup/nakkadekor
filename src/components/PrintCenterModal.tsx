@@ -380,7 +380,7 @@ export function PrintCenterModal({
               </div>
             </div>
 
-            {/* 4. ÇERÇEVE ARKA ETİKETİ (4x4 CM) */}
+            {/* 4. ÇERÇEVE ARKA ETİKETİ (60x30 MM TERMAL) */}
             <div className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
               !isOrderCreated
                 ? (isDarkMode ? "bg-[#181b22]/60 border-white/5 opacity-75" : "bg-slate-100/70 border-slate-200 opacity-75")
@@ -397,13 +397,13 @@ export function PrintCenterModal({
                   </div>
                   <div>
                     <h3 className="text-sm font-bold flex items-center gap-1.5">
-                      <span>Çerçeve Arka Etiketi (4×4 cm)</span>
+                      <span>Çerçeve Arka Etiketi (60×30 mm)</span>
                       {!isOrderCreated && (
                         <span className="text-[9px] uppercase px-1.5 py-0.2 rounded font-mono bg-amber-500/20 text-amber-400 font-bold">Kilitli</span>
                       )}
                     </h3>
                     <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                      Karekodlu yapışkanlı ürün etiketi
+                      Termal etiket yazıcı uyumlu karekodlu ürün etiketi
                     </p>
                   </div>
                 </div>

@@ -1,3 +1,4 @@
+import QRCode from "qrcode";
 import { getPaspartuColorName } from "./pricing";
 import { 
   CompanyProfile, 
@@ -887,7 +888,7 @@ export function generateBarcodeSvg(text: string, height: number = 30): string {
 }
 
 // ==========================================
-// 4x4 CM TABLO ARKA ETİKETİ (BARKOD & QR)
+// 60x30 MM TERMAL TABLO ARKA ETİKETİ (QR & SİPARİŞ KARTI)
 // ==========================================
 export interface BackLabelDetails {
   orderNumber: string;
@@ -895,83 +896,116 @@ export interface BackLabelDetails {
   customerPhone?: string;
   deliveryDate?: string;
   createdAt?: string;
-  artworkWidthCm: number;
-  artworkHeightCm: number;
-  finalOuterWidthCm: number;
-  finalOuterHeightCm: number;
+  artworkWidthCm?: number;
+  artworkWidth?: number;
+  artworkHeightCm?: number;
+  artworkHeight?: number;
+  finalOuterWidthCm?: number;
+  totalW?: number;
+  finalOuterHeightCm?: number;
+  totalH?: number;
   frameProfileName?: string;
+  innerFrameTitle?: string;
+  outerFrameTitle?: string;
   matInfo?: string;
+  effectivePrice?: number;
   companyProfile?: CompanyProfile;
   qrDataUrl?: string;
   isPro?: boolean;
+  authorUser?: string;
 }
 
-export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
-  const barcodeSvg = generateBarcodeSvg(details.orderNumber, 26);
+export async function triggerBackLabelPrintWindow(details: BackLabelDetails) {
   const companyName = details.companyProfile?.companyName || "NAKKA DEKOR";
   const hasProLogo = Boolean(details.isPro && details.companyProfile?.logoUrl);
   const currentDate = new Date().toLocaleDateString("tr-TR");
+  const displayDate = details.deliveryDate || details.createdAt || currentDate;
 
+  const safeArtW = details.artworkWidthCm ?? details.artworkWidth ?? 0;
+  const safeArtH = details.artworkHeightCm ?? details.artworkHeight ?? 0;
+  const safeOuterW = details.finalOuterWidthCm ?? details.totalW ?? safeArtW;
+  const safeOuterH = details.finalOuterHeightCm ?? details.totalH ?? safeArtH;
+  const frameName = details.frameProfileName || details.innerFrameTitle || "Standart Profil";
+
+  // QR Kod üretimi (Verilmediyse anında yüksek çözünürlüklü üretilir)
+  let qrImgSrc = details.qrDataUrl || "";
+  if (!qrImgSrc) {
+    try {
+      const qrText = `SİPARİŞ NO: ${details.orderNumber}
+MÜŞTERİ: ${details.customerName || 'Belirtilmedi'}
+ESER: ${safeArtW}x${safeArtH} cm
+DIŞ EBAT: ${safeOuterW.toFixed(1)}x${safeOuterH.toFixed(1)} cm
+PROFİL: ${frameName}
+TARİH: ${displayDate}
+FİRMA: ${companyName}`;
+
+      qrImgSrc = await QRCode.toDataURL(qrText, {
+        margin: 0,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF"
+        },
+        width: 280
+      });
+    } catch (err) {
+      console.error("QR üretimi hatası:", err);
+    }
+  }
+
+  // 60x30 mm Tekli Termal Etiket HTML Tasarımı
   const singleLabelHtml = `
-    <div class="sticker-4x4">
+    <div class="sticker-60x30">
       <div class="sticker-inner">
-        <!-- Logo / Atölye Başlığı -->
-        <div class="sticker-header">
-          ${hasProLogo ? `
+        ${hasProLogo ? `
+          <div class="sticker-logo-bar">
             <img src="${details.companyProfile?.logoUrl}" alt="Logo" class="sticker-logo" />
-          ` : `
-            <div class="sticker-company-title">${companyName}</div>
-            <div class="sticker-company-sub">ÖZEL ATÖLYE ÇERÇEVECİLİK</div>
-          `}
-        </div>
+          </div>
+        ` : ''}
 
-        <!-- Sipariş No Rozeti -->
+        <!-- 1. Siyah Zeminli Sipariş No Rozeti -->
         <div class="sticker-ord-badge">
           <span class="ord-label">SİPARİŞ NO:</span>
           <span class="ord-val">${details.orderNumber}</span>
         </div>
 
-        <!-- Barkod & QR Kod Bölümü -->
-        <div class="sticker-code-section">
-          ${details.qrDataUrl ? `
-            <div class="qr-col">
-              <img src="${details.qrDataUrl}" alt="QR" class="sticker-qr" />
+        <!-- 2. Karekod ve Yanında Bilgi Kartı -->
+        <div class="sticker-main-row">
+          <!-- Karekod (Sol Kolon) -->
+          <div class="qr-col">
+            ${qrImgSrc ? `
+              <img src="${qrImgSrc}" alt="QR Kod" class="sticker-qr" />
+            ` : `
+              <div class="qr-placeholder">QR</div>
+            `}
+          </div>
+
+          <!-- Bilgi Kartı (Sağ Kolon - Müşteri, Ölçüler, Eser, Tarih) -->
+          <div class="info-col">
+            <div class="info-row">
+              <span class="info-lbl">Müşteri:</span>
+              <span class="info-val strong truncate">${details.customerName || "Belirtilmedi"}</span>
             </div>
-          ` : ''}
-          <div class="barcode-col ${!details.qrDataUrl ? 'full' : ''}">
-            <div class="barcode-wrapper">${barcodeSvg}</div>
-            <div class="barcode-text">${details.orderNumber}</div>
+            <div class="info-row">
+              <span class="info-lbl">Ölçüler:</span>
+              <span class="info-val font-mono">Dış: ${safeOuterW.toFixed(1)}×${safeOuterH.toFixed(1)} cm</span>
+            </div>
+            <div class="info-row">
+              <span class="info-lbl">Eser:</span>
+              <span class="info-val font-mono truncate">${safeArtW}×${safeArtH} cm ${frameName ? `(${frameName})` : ''}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-lbl">Tarih:</span>
+              <span class="info-val font-mono">${displayDate}</span>
+            </div>
           </div>
-        </div>
-
-        <!-- Müşteri & Ebat Bilgileri -->
-        <div class="sticker-info-block">
-          <div class="info-row">
-            <span class="info-lbl">Müşteri:</span>
-            <span class="info-val strong truncate">${details.customerName || "—"}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-lbl">Ölçüler:</span>
-            <span class="info-val font-mono">Dış: ${details.finalOuterWidthCm.toFixed(1)}×${details.finalOuterHeightCm.toFixed(1)} cm</span>
-          </div>
-          <div class="info-row">
-            <span class="info-lbl">Eser:</span>
-            <span class="info-val font-mono">${details.artworkWidthCm}×${details.artworkHeightCm} cm ${details.frameProfileName ? `(${details.frameProfileName})` : ''}</span>
-          </div>
-        </div>
-
-        <!-- Garanti & Kalite Onay Altbilgisi -->
-        <div class="sticker-footer">
-          <span>✔ Usta Montajı Tamamlandı</span>
-          <span>${currentDate}</span>
         </div>
       </div>
     </div>
   `;
 
-  // Sayfada 12'li etiket basımı için
+  // A4 Sayfada Çoklu Basım İçin (3 Sütun x 8 Satır = 24 Etiket)
   let multiGridHtml = "";
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 24; i++) {
     multiGridHtml += singleLabelHtml;
   }
 
@@ -980,15 +1014,15 @@ export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
     <html lang="tr">
       <head>
         <meta charset="utf-8" />
-        <title>Arka Etiket 4x4 cm - ${details.orderNumber}</title>
+        <title>Termal Etiket 60x30mm - ${details.orderNumber}</title>
         <style>
           * { box-sizing: border-box; margin: 0; padding: 0; }
           
           body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #202227;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #18191c;
             color: #111;
-            padding: 24px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -997,18 +1031,17 @@ export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
           /* Üst Kontrol Çubuğu (Yazdırmada Gizlenir) */
           .no-print-bar {
             width: 100%;
-            max-width: 580px;
-            background: #121415;
+            max-width: 620px;
+            background: #111315;
             color: #fff;
-            padding: 14px 20px;
-            margin-bottom: 20px;
+            padding: 12px 18px;
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-family: monospace;
             border-bottom: 2px solid #C5A059;
             border-radius: 8px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
           }
           .bar-left {
             display: flex;
@@ -1017,11 +1050,12 @@ export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
           }
           .bar-brand {
             color: #C5A059;
-            font-weight: bold;
+            font-weight: 800;
             font-size: 13px;
+            letter-spacing: 0.5px;
           }
           .bar-sub {
-            color: #a1a1aa;
+            color: #9ca3af;
             font-size: 11px;
           }
           .print-btn {
@@ -1033,32 +1067,32 @@ export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
             border-radius: 6px;
             cursor: pointer;
             font-size: 12px;
-            font-family: monospace;
+            font-family: inherit;
             transition: all 0.15s ease;
           }
           .print-btn:hover {
-            background: #b08c48;
+            background: #d4af66;
             transform: translateY(-1px);
           }
           .print-mode-tabs {
             display: flex;
-            gap: 6px;
+            gap: 8px;
             margin-bottom: 16px;
           }
           .mode-btn {
-            background: #2a2e38;
+            background: #252830;
             color: #d1d5db;
-            border: 1px solid #404654;
-            padding: 6px 12px;
+            border: 1px solid #373b45;
+            padding: 6px 14px;
             border-radius: 6px;
             font-size: 11px;
             cursor: pointer;
-            font-family: monospace;
+            font-weight: 600;
           }
           .mode-btn.active {
             background: #C5A059;
             color: #000;
-            font-weight: bold;
+            font-weight: 800;
             border-color: #C5A059;
           }
 
@@ -1067,32 +1101,38 @@ export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
           }
           .preview-label-tag {
             font-size: 11px;
-            font-family: monospace;
             color: #9ca3af;
             text-align: center;
           }
 
-          /* 40x40 mm Kesin Etiket Standartları */
-          .sticker-4x4 {
-            width: 40mm;
-            height: 40mm;
-            min-width: 40mm;
-            min-height: 40mm;
+          /* ==========================================
+             60x30 mm Kesin Termal Etiket Standartları
+             ========================================== */
+          .sticker-60x30 {
+            width: 60mm;
+            height: 30mm;
+            min-width: 60mm;
+            max-width: 60mm;
+            min-height: 30mm;
+            max-height: 30mm;
             background: #ffffff;
             color: #000000;
-            padding: 1.8mm;
-            border: 1px dashed #999;
-            border-radius: 2mm;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            padding: 1.4mm 1.6mm;
+            border: 1px dashed #777;
+            border-radius: 1.5mm;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.3);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
             overflow: hidden;
             position: relative;
+            page-break-inside: avoid;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
 
           .sticker-inner {
@@ -1101,143 +1141,144 @@ export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            line-height: 1.15;
+            overflow: hidden;
           }
 
-          .sticker-header {
+          .sticker-logo-bar {
             text-align: center;
-            margin-bottom: 1mm;
+            margin-bottom: 0.5mm;
           }
           .sticker-logo {
-            max-height: 6.5mm;
-            max-width: 32mm;
+            max-height: 3.5mm;
+            max-width: 35mm;
             object-fit: contain;
             display: block;
             margin: 0 auto;
           }
-          .sticker-company-title {
-            font-size: 7pt;
-            font-weight: 900;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            color: #000;
-          }
-          .sticker-company-sub {
-            font-size: 4.5pt;
-            letter-spacing: 0.8px;
-            color: #555;
-            text-transform: uppercase;
-          }
 
+          /* Siyah Zeminli Sipariş No Rozeti (Kullanıcının İstediği Tasarım) */
           .sticker-ord-badge {
-            background: #000;
-            color: #fff;
-            padding: 0.8mm 1.5mm;
+            background: #000000;
+            color: #ffffff;
+            padding: 0.9mm 1.8mm;
             border-radius: 1mm;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-family: monospace;
-            font-size: 6.5pt;
-            font-weight: 800;
-            margin-bottom: 1mm;
+            flex-shrink: 0;
           }
           .ord-label {
-            font-size: 5pt;
-            color: #ccc;
-          }
-          .ord-val {
+            font-size: 6.2pt;
+            font-weight: 700;
+            color: #e4e4e7;
             letter-spacing: 0.4px;
           }
+          .ord-val {
+            font-size: 7.8pt;
+            font-weight: 900;
+            letter-spacing: 0.6px;
+            color: #ffffff;
+            font-family: monospace, -apple-system, sans-serif;
+          }
 
-          .sticker-code-section {
+          /* Ana Gövde: Sol Karekod + Sağ Bilgi Kartı */
+          .sticker-main-row {
+            display: flex;
+            align-items: stretch;
+            gap: 1.5mm;
+            flex: 1;
+            margin-top: 1mm;
+            min-height: 0;
+            overflow: hidden;
+          }
+
+          /* Karekod Kolonu */
+          .qr-col {
+            width: 20.5mm;
+            min-width: 20.5mm;
+            height: 100%;
             display: flex;
             align-items: center;
-            gap: 1.5mm;
-            margin-bottom: 1mm;
-          }
-          .qr-col {
+            justify-content: center;
+            background: #ffffff;
             flex-shrink: 0;
           }
           .sticker-qr {
-            width: 11mm;
-            height: 11mm;
+            width: 100%;
+            height: 100%;
+            max-height: 20.5mm;
+            object-fit: contain;
             display: block;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
           }
-          .barcode-col {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-          }
-          .barcode-col.full {
+          .qr-placeholder {
             width: 100%;
-          }
-          .barcode-wrapper {
-            width: 100%;
-            height: 6.5mm;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-          }
-          .barcode-text {
-            font-size: 4.5pt;
-            font-family: monospace;
-            letter-spacing: 0.5px;
-            margin-top: 0.3mm;
-            color: #333;
+            font-size: 7pt;
+            font-weight: bold;
+            border: 1px solid #000;
           }
 
-          .sticker-info-block {
-            font-size: 5.5pt;
-            background: #f7f7f8;
-            border: 0.5px solid #e2e2e4;
+          /* Bilgi Kartı Kolonu */
+          .info-col {
+            flex: 1;
+            min-width: 0;
+            background: #f4f4f5;
+            border: 0.5px solid #d4d4d8;
             border-radius: 1mm;
-            padding: 0.8mm 1.2mm;
-            margin-bottom: 0.8mm;
+            padding: 0.8mm 1.4mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            overflow: hidden;
           }
           .info-row {
             display: flex;
             justify-content: space-between;
+            align-items: baseline;
             gap: 1mm;
             white-space: nowrap;
             overflow: hidden;
+            line-height: 1.25;
           }
           .info-lbl {
-            color: #666;
-            font-size: 5pt;
+            color: #52525b;
+            font-size: 5.4pt;
+            font-weight: 500;
+            flex-shrink: 0;
           }
           .info-val {
-            color: #000;
+            color: #09090b;
+            font-size: 5.6pt;
             font-weight: 600;
             text-overflow: ellipsis;
             overflow: hidden;
+            text-align: right;
           }
           .info-val.strong {
-            font-weight: 700;
+            font-weight: 800;
+            font-size: 6pt;
+            color: #000000;
+          }
+          .font-mono {
+            font-family: monospace, -apple-system, sans-serif;
           }
 
-          .sticker-footer {
-            display: flex;
-            justify-content: space-between;
-            font-size: 4.2pt;
-            color: #555;
-            border-top: 0.5px solid #ddd;
-            padding-top: 0.6mm;
-            font-family: monospace;
-          }
-
-          /* A4 Çoklu Izgara Görünümü */
+          /* A4 Çoklu Izgara Görünümü (3 Sütun x 8 Satır = 24 Etiket) */
           .multi-grid-container {
             display: none;
-            grid-template-columns: repeat(3, 40mm);
-            gap: 8mm;
+            grid-template-columns: repeat(3, 60mm);
+            gap: 3mm 4mm;
             background: #fff;
-            padding: 15mm;
+            padding: 10mm;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             border-radius: 4px;
+            justify-content: center;
           }
           body.show-multi .multi-grid-container {
             display: grid;
@@ -1246,15 +1287,15 @@ export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
             display: none;
           }
 
-          /* Yazıcı & Termal Etiket Çıktısı */
+          /* Yazıcı & Termal Etiket Çıktısı (Tam 60x30 mm) */
           @page {
-            size: 40mm 40mm;
+            size: 60mm 30mm;
             margin: 0;
           }
 
           @media print {
             body {
-              background: #fff !important;
+              background: #ffffff !important;
               padding: 0 !important;
               margin: 0 !important;
             }
@@ -1265,20 +1306,22 @@ export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
               padding: 0 !important;
               margin: 0 !important;
             }
-            .sticker-4x4 {
+            .sticker-60x30 {
               border: none !important;
               box-shadow: none !important;
-              page-break-inside: avoid;
+              margin: 0 !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
             }
             body.show-multi .multi-grid-container {
               display: grid !important;
-              padding: 5mm !important;
+              padding: 8mm 6mm !important;
               box-shadow: none !important;
-              gap: 4mm !important;
+              gap: 2.5mm 3.5mm !important;
             }
             body.show-multi @page {
-              size: A4;
-              margin: 10mm;
+              size: A4 portrait;
+              margin: 8mm;
             }
           }
         </style>
@@ -1300,25 +1343,25 @@ export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
         <div class="no-print-bar">
           <div class="bar-left">
             <span class="bar-brand">NAKKA DEKOR</span>
-            <span class="bar-sub">• 4x4 cm Tablo Arka Barkod Etiketi</span>
+            <span class="bar-sub">• 60x30 mm Tablo Arka Termal Etiketi</span>
           </div>
           <button class="print-btn" onclick="window.print()">
-            🖨️ ETİKETİ YAZDIR (PDF)
+            🖨️ ETİKETİ YAZDIR (PDF / TERMAL)
           </button>
         </div>
 
         <div class="print-mode-tabs">
           <button id="btn-single" class="mode-btn active" onclick="toggleMode('single')">
-            40x40 mm Tekli Termal Etiket
+            60x30 mm Tekli Termal Etiket
           </button>
           <button id="btn-multi" class="mode-btn" onclick="toggleMode('multi')">
-            A4 Sayfada Çoklu Basım (12'li Izgara)
+            A4 Sayfada Çoklu Basım (24'lü Izgara)
           </button>
         </div>
 
         <div class="preview-stage">
           <div class="preview-label-tag">
-            Usta çerçeveyi çaktıktan sonra tablonun arkasındaki kraft kağıda / MDF panele yapıştırır.
+            30mm × 60mm rulo termal etiket veya standart kağıt için hazır format.
           </div>
 
           <!-- Tekli Görünüm -->
@@ -1335,7 +1378,7 @@ export function triggerBackLabelPrintWindow(details: BackLabelDetails) {
     </html>
   `;
 
-  renderPrintHtml(`Etiket_${details.orderNumber}`, fullHtml);
+  renderPrintHtml(`Etiket_60x30_${details.orderNumber}`, fullHtml);
 }
 
 // ==========================================

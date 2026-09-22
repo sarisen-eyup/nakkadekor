@@ -3154,7 +3154,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                   ? "bg-[#C5A059] text-black border-[#d6b169] hover:bg-[#b5924d]"
                   : "bg-[#B88E3A] text-white border-[#a67e2f] hover:bg-[#a67e2f]"
               }`}
-              title="Belge Yazdır: Sipariş Formu, Üretim Emri, Maliyet Tablosu, 4x4 Arka Etiket"
+              title="Belge Yazdır: Sipariş Formu, Üretim Emri, Maliyet Tablosu, 60x30 Termal Arka Etiket"
             >
               <Printer className="w-3.5 h-3.5" />
               <span className="hidden xs:inline sm:inline">YAZDIR</span>
