@@ -21,6 +21,7 @@ import {
   FileText,
   Receipt,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Trash2,
   Infinity,
@@ -95,6 +96,18 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     packagePriceText: "1.500 ₺",
     amount: 50
   });
+  const [confirmHighCreditPurchase, setConfirmHighCreditPurchase] = useState<{
+    packageKey: "credits_50" | "credits_150" | "unlimited";
+    packageName: string;
+    packagePrice: string;
+  } | null>(null);
+
+  const isAccountUnlimited = Boolean(
+    subscription?.isUnlimited ||
+    subscription?.subscriptionTier === "unlimited" ||
+    subscription?.planId === "unlimited_enterprise" ||
+    (subscription?.remainingCredits !== undefined && subscription.remainingCredits >= 999999)
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -209,8 +222,8 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     }
   };
 
-  // Kredi İşlemleri
-  const handlePurchasePackage = async (packageKey: "credits_50" | "credits_150" | "unlimited") => {
+  // Kredi İşlemleri - Asıl Satın Alma / Havale Talebi Gönderimi
+  const executePurchasePackage = async (packageKey: "credits_50" | "credits_150" | "unlimited") => {
     if (purchasingPackage) return;
     setPurchasingPackage(packageKey);
     setPaymentToast(null);
@@ -276,6 +289,45 @@ export const AccountModal: React.FC<AccountModalProps> = ({
       }, 6000);
     }
   };
+
+  // Kredi Satın Alma Başlatma ve Güvenlik / Limit Doğrulama
+  const handleInitiatePurchase = (packageKey: "credits_50" | "credits_150" | "unlimited") => {
+    // Kural 1: Eğer kullanıcının hesap tipi sınırsızsa ve herhangi bir kredi yüklemeye çalışırsa;
+    // "zaten hesabınız sınırsız pakette" diyerek bir işlem yaptırmayalım.
+    if (isAccountUnlimited) {
+      toast.info("Zaten hesabınız sınırsız pakette bulunmaktadır. Ekstra kredi yüklemenize gerek yoktur.");
+      setPaymentToast({
+        text: "Zaten Sınırsız Pakettesiniz",
+        subText: "Mevcut hesabınızda kota ve kredi sınırlaması bulunmamaktadır. Ekstra kredi veya paket yüklemenize gerek yoktur."
+      });
+      return;
+    }
+
+    const packageMeta: Record<"credits_50" | "credits_150" | "unlimited", { name: string; price: string }> = {
+      credits_50: { name: "Atölye Başlangıç Paketi (+50 Kredi)", price: "1.500 ₺" },
+      credits_150: { name: "Büyük Atölye Paketi (+150 Kredi)", price: "3.750 ₺" },
+      unlimited: { name: "Yıllık Sınırsız Paket", price: "37.500 ₺ / Yıl" }
+    };
+
+    const meta = packageMeta[packageKey];
+
+    // Kural 2: Eğer hesap kredili paketlerden birindeyse ve hesabında 15'ten fazla kredi varsa ve
+    // kredi yüklemek ya da sınırsız pakete geçmek isterse ekstra bir uyarı yaparak onay alalım.
+    if (subscription.remainingCredits > 15) {
+      setConfirmHighCreditPurchase({
+        packageKey,
+        packageName: meta.name,
+        packagePrice: meta.price
+      });
+      return;
+    }
+
+    // 15 veya daha az kredisi varsa doğrudan satın alma akışını çalıştır
+    executePurchasePackage(packageKey);
+  };
+
+  // handlePurchasePackage doğrudan handleInitiatePurchase'a yönlendirilir
+  const handlePurchasePackage = handleInitiatePurchase;
 
   const handleAddCredits = (amount: number) => {
     const updated: SubscriptionData = {
@@ -1119,6 +1171,20 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                   <span className="text-[11px] text-[#C5A059] font-mono">Kredilerin son kullanma tarihi yoktur</span>
                 </div>
 
+                {/* Sınırsız Paketteki Kullanıcılar İçin Bilgilendirme Banner'ı */}
+                {isAccountUnlimited && (
+                  <div className={`mb-4 p-3.5 rounded-xl border flex items-center gap-3 ${
+                    isDarkMode 
+                      ? "bg-emerald-950/30 border-emerald-500/40 text-emerald-300" 
+                      : "bg-emerald-50 border-emerald-300 text-emerald-900"
+                  }`}>
+                    <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <div className="text-xs">
+                      <span className="font-bold">Hesabınız Yıllık Sınırsız Pakettedir:</span> Kota veya kredi limitiniz bulunmamaktadır; zaten sınırsız pakette olduğunuz için yeni kredi yüklemenize gerek yoktur.
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   
                   {/* Kart 1: Atölye Başlangıç Paketi */}
@@ -1138,13 +1204,22 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                       disabled={purchasingPackage !== null}
                       onClick={() => handlePurchasePackage("credits_50")}
                       className={`w-full py-2.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                        isDarkMode ? "bg-neutral-800 hover:bg-[#C5A059] text-neutral-200 hover:text-black" : "bg-slate-100 hover:bg-[#B88E3A] text-slate-800 hover:text-white"
+                        isAccountUnlimited
+                          ? "bg-neutral-800/80 text-neutral-400 hover:text-neutral-200 border border-neutral-700/50"
+                          : isDarkMode 
+                          ? "bg-neutral-800 hover:bg-[#C5A059] text-neutral-200 hover:text-black" 
+                          : "bg-slate-100 hover:bg-[#B88E3A] text-slate-800 hover:text-white"
                       } ${purchasingPackage === "credits_50" ? "opacity-80 cursor-wait" : ""}`}
                     >
                       {purchasingPackage === "credits_50" ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           <span>İşleniyor...</span>
+                        </>
+                      ) : isAccountUnlimited ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Zaten Sınırsız Pakettesiniz</span>
                         </>
                       ) : (
                         <>
@@ -1174,14 +1249,21 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                       type="button"
                       disabled={purchasingPackage !== null}
                       onClick={() => handlePurchasePackage("credits_150")}
-                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-[#C5A059] hover:bg-[#b08c48] text-black shadow-md ${
-                        purchasingPackage === "credits_150" ? "opacity-80 cursor-wait" : ""
-                      }`}
+                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        isAccountUnlimited
+                          ? "bg-neutral-800/80 text-neutral-400 hover:text-neutral-200 border border-neutral-700/50"
+                          : "bg-[#C5A059] hover:bg-[#b08c48] text-black shadow-md"
+                      } ${purchasingPackage === "credits_150" ? "opacity-80 cursor-wait" : ""}`}
                     >
                       {purchasingPackage === "credits_150" ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           <span>İşleniyor...</span>
+                        </>
+                      ) : isAccountUnlimited ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Zaten Sınırsız Pakettesiniz</span>
                         </>
                       ) : (
                         <>
@@ -1207,22 +1289,29 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                       </div>
                       <div className={`text-2xl font-mono font-black mb-1 flex items-center gap-1.5 ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                         <Infinity className="w-6 h-6 text-emerald-400" />
-                        <span>LİMİTSİZ</span>
+                        <span>SINIRSIZ</span>
                       </div>
-                      <div className={`text-xs font-mono mb-4 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Limitsiz Sipariş &amp; Teklif</div>
+                      <div className={`text-xs font-mono mb-4 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Sınırsız Sipariş &amp; Teklif</div>
                     </div>
                     <button
                       type="button"
                       disabled={purchasingPackage !== null}
                       onClick={() => handlePurchasePackage("unlimited")}
-                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-black shadow-md ${
-                        purchasingPackage === "unlimited" ? "opacity-80 cursor-wait" : ""
-                      }`}
+                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        isAccountUnlimited
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30"
+                          : "bg-emerald-500 hover:bg-emerald-400 text-black shadow-md"
+                      } ${purchasingPackage === "unlimited" ? "opacity-80 cursor-wait" : ""}`}
                     >
                       {purchasingPackage === "unlimited" ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           <span>İşleniyor...</span>
+                        </>
+                      ) : isAccountUnlimited ? (
+                        <>
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Mevcut Aktif Paketiniz</span>
                         </>
                       ) : (
                         <>
@@ -1299,6 +1388,69 @@ export const AccountModal: React.FC<AccountModalProps> = ({
             }
           }}
         />
+
+        {/* 15'ten Fazla Kredisi Olan Kullanıcı İçin Onay Modalı */}
+        {confirmHighCreditPurchase && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in font-sans">
+            <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-5 sm:p-6 flex flex-col gap-4 ${
+              isDarkMode ? "bg-[#161920] border-amber-500/40 text-white" : "bg-white border-slate-200 text-slate-900"
+            }`}>
+              <div className="flex items-start gap-3.5">
+                <div className="p-3 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0 mt-0.5">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black tracking-wide">
+                    Paket Talebi Onayı
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                    Hesabınızda halen <strong className="text-[#C5A059] font-mono text-sm">{subscription.remainingCredits} adet</strong> kullanılabilir krediniz bulunmaktadır.
+                  </p>
+                </div>
+              </div>
+
+              <div className={`p-3.5 rounded-xl border text-xs leading-relaxed ${
+                isDarkMode ? "bg-black/40 border-white/10 text-neutral-300" : "bg-amber-50 border-amber-200 text-amber-950"
+              }`}>
+                <p className="font-bold text-[#C5A059] mb-1">
+                  Seçilen Paket: {confirmHighCreditPurchase.packageName} ({confirmHighCreditPurchase.packagePrice})
+                </p>
+                <p className="text-[11px] opacity-90">
+                  Mevcut kredilerinizin kullanım süresi sınırı yoktur. Yanlışlıkla yeni bir kredi veya sınırsız paket talebi oluşturulmasını önlemek için onayınız istenmektedir. Devam etmek istiyor musunuz?
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setConfirmHighCreditPurchase(null)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                    isDarkMode ? "border-white/10 hover:bg-white/10 text-neutral-300" : "border-slate-300 hover:bg-slate-100 text-slate-700"
+                  }`}
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const key = confirmHighCreditPurchase.packageKey;
+                    setConfirmHighCreditPurchase(null);
+                    executePurchasePackage(key);
+                  }}
+                  className={`px-5 py-2 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 ${
+                    confirmHighCreditPurchase.packageKey === "unlimited"
+                      ? "bg-emerald-500 hover:bg-emerald-400 text-black font-black"
+                      : isDarkMode
+                      ? "bg-[#C5A059] hover:bg-[#b08c48] text-black"
+                      : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+                  }`}
+                >
+                  Evet, Talebi Başlat
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

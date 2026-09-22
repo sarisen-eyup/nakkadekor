@@ -42,7 +42,27 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const usedCredits = Math.max(0, subscription.totalCredits - subscription.remainingCredits);
   const percentageLeft = Math.round((subscription.remainingCredits / Math.max(1, subscription.totalCredits)) * 100);
 
+  const isAccountUnlimited = Boolean(
+    subscription.isUnlimited || 
+    subscription.subscriptionTier === "unlimited" || 
+    subscription.planId === "unlimited_enterprise" || 
+    subscription.remainingCredits >= 999999
+  );
+
   const handleAddCredits = (amount: number, label: string) => {
+    if (isAccountUnlimited) {
+      setSuccessNotice("Zaten hesabınız sınırsız pakette bulunmaktadır. Ekstra kredi yüklemenize gerek yoktur.");
+      setTimeout(() => setSuccessNotice(null), 4000);
+      return;
+    }
+
+    if (subscription.remainingCredits > 15) {
+      const confirmMsg = `Hesabınızda halen ${subscription.remainingCredits} adet kullanılabilir krediniz bulunmaktadır. Yeni ${label} yüklemek istediğinize emin misiniz?`;
+      if (!window.confirm(confirmMsg)) {
+        return;
+      }
+    }
+
     const updated: SubscriptionData = {
       ...subscription,
       remainingCredits: subscription.remainingCredits + amount,
