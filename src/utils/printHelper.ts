@@ -224,6 +224,8 @@ export interface PrintDocumentDetails {
   outerMatColor?: string;
   frameWidth: number;
   outerFrameWidth: number;
+  innerRabbetDepthMm?: number;
+  outerRabbetDepthMm?: number;
   totalW: number;
   totalH: number;
   customPaintingFile: string;
@@ -661,7 +663,7 @@ export function triggerImagePrintWindow(
                 <!-- 03. Ana Çerçeve -->
                 <tr class="${isFrameActive ? 'row-active' : 'row-inactive'}">
                   <td><strong>03. Ana Çerçeve (Inner Frame)</strong></td>
-                  <td>${isFrameActive ? `${details.frameWidth} cm` : '0 cm'}</td>
+                  <td>${isFrameActive ? `${details.frameWidth} cm${details.innerRabbetDepthMm ? ` (Bini: ${details.innerRabbetDepthMm} mm)` : ''}` : '0 cm'}</td>
                   <td>${isFrameActive ? (details.customFrameFile || 'Standart Profil') : 'Çerçevesiz Profil'}</td>
                   <td><span class="${isFrameActive ? 'badge-active' : 'badge-inactive'}">${isFrameActive ? 'VAR' : 'YOK'}</span></td>
                 </tr>
@@ -677,7 +679,7 @@ export function triggerImagePrintWindow(
                 <!-- 05. Dış Çerçeve -->
                 <tr class="${isOuterFrameActive ? 'row-active' : 'row-inactive'}">
                   <td><strong>05. Dış Çerçeve (Outer Frame)</strong></td>
-                  <td>${isOuterFrameActive ? `${details.outerFrameWidth} cm` : '0 cm'}</td>
+                  <td>${isOuterFrameActive ? `${details.outerFrameWidth} cm${details.outerRabbetDepthMm ? ` (Bini: ${details.outerRabbetDepthMm} mm)` : ''}` : '0 cm'}</td>
                   <td>${isOuterFrameActive ? details.customOuterFrameFile : 'Dış Kasa Çerçevesiz'}</td>
                   <td><span class="${isOuterFrameActive ? 'badge-active' : 'badge-inactive'}">${isOuterFrameActive ? 'VAR' : 'YOK'}</span></td>
                 </tr>

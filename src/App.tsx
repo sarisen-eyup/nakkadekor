@@ -948,6 +948,9 @@ function SimulatorMain() {
     includeInnerFrame: frameWidth > 0 && inclusionFlags.includeInnerFrame,
   };
 
+  const activeInnerRabbetMm = activeInnerProfile?.rabbetDepthMm ?? activeInnerProfile?.rabbet_depth ?? 6;
+  const activeOuterRabbetMm = activeOuterProfile?.rabbetDepthMm ?? activeOuterProfile?.rabbet_depth ?? 6;
+
   // Compute live Cost Breakdown
   const costBreakdown: CostCalculationBreakdown = calculateCostsAndPricing({
     artworkWidthCm: artworkWidth,
@@ -960,6 +963,8 @@ function SimulatorMain() {
     outerMatColor: outerMatColor,
     selectedInnerProfileMeterPrice: activeInnerProfile?.unitPricePerMeter,
     selectedOuterProfileMeterPrice: activeOuterProfile?.unitPricePerMeter,
+    innerRabbetDepthMm: activeInnerRabbetMm,
+    outerRabbetDepthMm: activeOuterRabbetMm,
     customOverridePrice: customOverridePrice,
     deliveryMethod: deliveryMethod,
     settings: unitPricesSettings,
@@ -974,6 +979,8 @@ function SimulatorMain() {
     frameWidthCm: frameWidth,
     middleMatWidthCm: middleMatWidth,
     outerFrameWidthCm: outerFrameWidth,
+    innerRabbetDepthMm: activeInnerRabbetMm,
+    outerRabbetDepthMm: activeOuterRabbetMm,
     innerFrameCode: activeInnerProfile ? `${activeInnerProfile.code} (${activeInnerProfile.name})` : customFrameFile,
     outerFrameCode: activeOuterProfile ? `${activeOuterProfile.code} (${activeOuterProfile.name})` : customOuterFrameFile,
     innerMatColor: innerMatColor,
@@ -1653,10 +1660,17 @@ function SimulatorMain() {
     }
   };
 
-  // Milimetrik piksel dönüştürücü oranlama sistemi (Eser boyutu ile çerçeve boyutu arası orantısızlığı tamamen çözer)
-  // Toplam fiziksel cm ölçüleri
-  const totalW = artworkWidth + 2 * (outerFrameWidth + middleMatWidth + frameWidth + matWidth);
-  const totalH = artworkHeight + 2 * (outerFrameWidth + middleMatWidth + frameWidth + matWidth);
+  // Milimetrik hesaplama motoru (Bini Payı Formülü: Kesim Uzunluğu = Girilen Müşteri Ölçüsü + (2 * Profil Genişliği) - (2 * Bini Payı))
+  const innerRabbetCm = activeInnerRabbetMm / 10;
+  const outerRabbetCm = activeOuterRabbetMm / 10;
+  const innerMatW = artworkWidth + 2 * matWidth;
+  const innerMatH = artworkHeight + 2 * matWidth;
+  const innerFrameW = frameWidth > 0 ? innerMatW + (2 * frameWidth) - (2 * innerRabbetCm) : innerMatW;
+  const innerFrameH = frameWidth > 0 ? innerMatH + (2 * frameWidth) - (2 * innerRabbetCm) : innerMatH;
+  const midMatW = innerFrameW + 2 * middleMatWidth;
+  const midMatH = innerFrameH + 2 * middleMatWidth;
+  const totalW = outerFrameWidth > 0 ? midMatW + (2 * outerFrameWidth) - (2 * outerRabbetCm) : (frameWidth > 0 ? innerFrameW : innerMatW);
+  const totalH = outerFrameWidth > 0 ? midMatH + (2 * outerFrameWidth) - (2 * outerRabbetCm) : (frameWidth > 0 ? innerFrameH : innerMatH);
   const finalOuterWidthCm = totalW;
   const finalOuterHeightCm = totalH;
   const totalAspect = totalW / totalH;
@@ -2274,6 +2288,8 @@ Durum: Onaylandi / Uretime Hazir`;
         middleMatWidth,
         frameWidth,
         outerFrameWidth,
+        innerRabbetDepthMm: activeInnerRabbetMm,
+        outerRabbetDepthMm: activeOuterRabbetMm,
         totalW,
         totalH,
         customPaintingFile,
@@ -2385,22 +2401,12 @@ Durum: Onaylandi / Uretime Hazir`;
         downloadCompositedImage();
       } else if (action === "cutting_list") {
         triggerCuttingListPrintWindow({
-          orderNumber,
+          cutList,
           customerName,
-          artworkWidth,
-          artworkHeight,
-          matWidth,
-          middleMatWidth,
-          innerMatColor,
-          frameWidth,
-          outerFrameWidth,
-          innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : customFrameFile,
-          outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
-          totalW,
-          totalH,
-          companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
-          authorUser: activeUser?.fullName,
-          cutList: costBreakdown.cutList
+          deliveryDate,
+          artworkWidthCm: artworkWidth,
+          artworkHeightCm: artworkHeight,
+          companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined
         });
       } else if (action === "label") {
         triggerBackLabelPrintWindow({
@@ -2573,6 +2579,8 @@ Durum: Onaylandi / Uretime Hazir`;
       // Simülatör anlık yapılandırma görüntüsü
       innerProfileId: selectedInnerProfileId,
       outerProfileId: selectedOuterProfileId,
+      innerRabbetDepthMm: activeInnerRabbetMm,
+      outerRabbetDepthMm: activeOuterRabbetMm,
       matWidthCm: matWidth,
       frameWidthCm: frameWidth,
       middleMatWidthCm: middleMatWidth,
@@ -2587,6 +2595,8 @@ Durum: Onaylandi / Uretime Hazir`;
       simulatorConfig: {
         innerProfileId: selectedInnerProfileId,
         outerProfileId: selectedOuterProfileId,
+        innerRabbetDepthMm: activeInnerRabbetMm,
+        outerRabbetDepthMm: activeOuterRabbetMm,
         matWidthCm: matWidth,
         frameWidthCm: frameWidth,
         middleMatWidthCm: middleMatWidth,

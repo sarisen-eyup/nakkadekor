@@ -446,6 +446,8 @@ export async function seedDefaultFrameProfiles(tenantId: string): Promise<FrameP
       name: prof.name,
       material_type: prof.materialType || "wood",
       width_cm: Number(prof.widthCm || 4),
+      rabbet_depth: prof.rabbetDepthMm ?? prof.rabbet_depth ?? 6,
+      rabbet_depth_cm: (prof.rabbetDepthMm ?? prof.rabbet_depth ?? 6) / 10,
       unit_price_per_meter: Number(prof.unitPricePerMeter || 120),
       unit_cost_per_meter: 60,
       image_url: prof.imageUrl || "",
@@ -471,6 +473,8 @@ export async function seedDefaultFrameProfiles(tenantId: string): Promise<FrameP
         name: row.name,
         materialType: (row.material_type as any) || "wood",
         widthCm: Number(row.width_cm || 4),
+        rabbetDepthMm: row.rabbet_depth != null ? Number(row.rabbet_depth) : (row.rabbet_depth_cm != null ? Number(row.rabbet_depth_cm) * 10 : 6),
+        rabbet_depth: row.rabbet_depth != null ? Number(row.rabbet_depth) : (row.rabbet_depth_cm != null ? Number(row.rabbet_depth_cm) * 10 : 6),
         unitPricePerMeter: Number(row.unit_price_per_meter || 120),
         imageUrl: row.image_url || "",
         textureUrl: row.texture_url || row.image_url || "",
@@ -573,6 +577,8 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{
       name: row.name,
       materialType: (row.material_type as any) || "wood",
       widthCm: Number(row.width_cm || 4),
+      rabbetDepthMm: row.rabbet_depth != null ? Number(row.rabbet_depth) : (row.rabbet_depth_cm != null ? Number(row.rabbet_depth_cm) * 10 : 6),
+      rabbet_depth: row.rabbet_depth != null ? Number(row.rabbet_depth) : (row.rabbet_depth_cm != null ? Number(row.rabbet_depth_cm) * 10 : 6),
       unitPricePerMeter: Number(row.unit_price_per_meter || 120),
       imageUrl: row.image_url || "",
       textureUrl: row.texture_url || row.image_url || "",
@@ -605,6 +611,8 @@ export async function createFrameProfileInSupabase(
     name: profile.name || "Yeni Profil",
     material_type: profile.materialType || "wood",
     width_cm: Number(profile.widthCm || 4),
+    rabbet_depth: profile.rabbetDepthMm != null ? Number(profile.rabbetDepthMm) : (profile.rabbet_depth != null ? Number(profile.rabbet_depth) : 6),
+    rabbet_depth_cm: (profile.rabbetDepthMm != null ? Number(profile.rabbetDepthMm) : (profile.rabbet_depth != null ? Number(profile.rabbet_depth) : 6)) / 10,
     unit_price_per_meter: Number(profile.unitPricePerMeter || 120),
     unit_cost_per_meter: (profile as any).unitCostPerMeter || 0,
     image_url: profile.imageUrl || "",
@@ -646,6 +654,8 @@ export async function createFrameProfileInSupabase(
         name: insertPayload.name,
         material_type: insertPayload.material_type,
         width_cm: insertPayload.width_cm,
+        rabbet_depth: insertPayload.rabbet_depth,
+        rabbet_depth_cm: insertPayload.rabbet_depth_cm,
         unit_price_per_meter: insertPayload.unit_price_per_meter,
         image_url: insertPayload.image_url,
         texture_url: insertPayload.texture_url,
@@ -671,6 +681,8 @@ export async function createFrameProfileInSupabase(
       name: data.name,
       materialType: data.material_type || "wood",
       widthCm: Number(data.width_cm || 4),
+      rabbetDepthMm: data.rabbet_depth != null ? Number(data.rabbet_depth) : (data.rabbet_depth_cm != null ? Number(data.rabbet_depth_cm) * 10 : (insertPayload.rabbet_depth || 6)),
+      rabbet_depth: data.rabbet_depth != null ? Number(data.rabbet_depth) : (data.rabbet_depth_cm != null ? Number(data.rabbet_depth_cm) * 10 : (insertPayload.rabbet_depth || 6)),
       unitPricePerMeter: Number(data.unit_price_per_meter || 120),
       imageUrl: data.image_url || "",
       textureUrl: data.texture_url || data.image_url || "",
@@ -705,6 +717,13 @@ export async function updateFrameProfileInSupabase(
   if (updates.code !== undefined) payload.code = updates.code.toUpperCase();
   if (updates.materialType !== undefined) payload.material_type = updates.materialType;
   if (updates.widthCm !== undefined) payload.width_cm = updates.widthCm;
+  if (updates.rabbetDepthMm !== undefined) {
+    payload.rabbet_depth = Number(updates.rabbetDepthMm);
+    payload.rabbet_depth_cm = Number(updates.rabbetDepthMm) / 10;
+  } else if (updates.rabbet_depth !== undefined) {
+    payload.rabbet_depth = Number(updates.rabbet_depth);
+    payload.rabbet_depth_cm = Number(updates.rabbet_depth) / 10;
+  }
   if (updates.unitPricePerMeter !== undefined) payload.unit_price_per_meter = updates.unitPricePerMeter;
   if (updates.imageUrl !== undefined) {
     if (updates.imageUrl && (updates.imageUrl.startsWith("data:") || updates.imageUrl.startsWith("blob:"))) {

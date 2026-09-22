@@ -159,6 +159,8 @@ export function SettingsModal({
     code: "",
     imageUrl: "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=300&auto=format&fit=crop",
     widthCm: 5.0,
+    rabbetDepthMm: 6.0,
+    rabbet_depth: 6.0,
     unitPricePerMeter: 150,
     materialType: "wood",
     category: "both",
@@ -297,6 +299,8 @@ export function SettingsModal({
         code: newProfile.code.toUpperCase(),
         imageUrl: newProfile.imageUrl || "",
         widthCm: newProfile.widthCm || 4.0,
+        rabbetDepthMm: newProfile.rabbetDepthMm != null ? Number(newProfile.rabbetDepthMm) : (newProfile.rabbet_depth != null ? Number(newProfile.rabbet_depth) : 6.0),
+        rabbet_depth: newProfile.rabbetDepthMm != null ? Number(newProfile.rabbetDepthMm) : (newProfile.rabbet_depth != null ? Number(newProfile.rabbet_depth) : 6.0),
         unitPricePerMeter: newProfile.unitPricePerMeter || 120,
         materialType: (newProfile.materialType as any) || "wood",
         category: (newProfile.category as any) || "both",
@@ -321,6 +325,8 @@ export function SettingsModal({
         code: "",
         imageUrl: "",
         widthCm: 5.0,
+        rabbetDepthMm: 6.0,
+        rabbet_depth: 6.0,
         unitPricePerMeter: 150,
         materialType: "wood",
         category: "both",
@@ -364,6 +370,13 @@ export function SettingsModal({
   const handleProfileWidthChange = (id: string, width: number) => {
     setLocalProfiles((prev) =>
       prev.map((p) => (p.id === id ? { ...p, widthCm: isNaN(width) || width <= 0 ? 0.1 : width } : p))
+    );
+  };
+
+  const handleProfileRabbetChange = (id: string, rabbetMm: number) => {
+    const val = isNaN(rabbetMm) || rabbetMm < 0 ? 0 : rabbetMm;
+    setLocalProfiles((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, rabbetDepthMm: val, rabbet_depth: val } : p))
     );
   };
 
@@ -479,6 +492,14 @@ export function SettingsModal({
 
       // 4. Firma profilini de kaydet
       await saveCompanyProfileToSupabase(localCompany);
+
+      // 5. Profiller düzenlendiyse Supabase'e kaydet
+      if (isSupabaseConfigured() && localProfiles.length > 0) {
+        for (const prof of localProfiles) {
+          updateFrameProfileInSupabase(prof.id, prof).catch(() => {});
+        }
+      }
+
       setSavedSuccess(true);
 
       if (activeTab === "profiles") {
@@ -975,7 +996,7 @@ export function SettingsModal({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
                   <div>
                     <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Profil Adı</label>
                     <input
@@ -1026,7 +1047,7 @@ export function SettingsModal({
                   </div>
 
                   <div>
-                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Çıta Genişliği</label>
+                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Profil Genişliği</label>
                     <div className="relative">
                       <input
                         type="number"
@@ -1042,6 +1063,29 @@ export function SettingsModal({
                       <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
                         isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
                       }`}>cm</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Bini Payı (mm)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        placeholder="6"
+                        value={newProfile.rabbetDepthMm ?? newProfile.rabbet_depth ?? 6}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setNewProfile({ ...newProfile, rabbetDepthMm: val, rabbet_depth: val });
+                        }}
+                        className={`w-full border rounded-lg pl-3 pr-10 py-2 text-xs font-mono focus:outline-none transition-colors ${
+                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                        }`}
+                      />
+                      <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                        isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                      }`}>mm</span>
                     </div>
                   </div>
                 </div>
@@ -1282,44 +1326,64 @@ export function SettingsModal({
                           </div>
                         </div>
 
-                        {/* Orta Satır: Ölçü ve Fiyat Kutuları */}
-                        <div className="grid grid-cols-2 gap-2">
+                        {/* Orta Satır: Ölçü, Bini ve Fiyat Kutuları */}
+                        <div className="grid grid-cols-3 gap-1.5">
                           {/* Genişlik */}
-                          <div className={`flex items-center justify-between border rounded-xl px-2.5 py-1 text-xs transition-colors ${
+                          <div className={`flex items-center justify-between border rounded-xl px-2 py-1 text-xs transition-colors ${
                             isDarkMode ? "bg-neutral-900/60 border-neutral-800" : "bg-slate-50 border-slate-200"
                           }`}>
-                            <span className={`text-[11px] font-medium ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Genişlik</span>
-                            <div className="flex items-center gap-1">
+                            <span className={`text-[10px] font-medium ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Genişlik</span>
+                            <div className="flex items-center gap-0.5">
                               <input
                                 type="number"
                                 min="0.1"
                                 step="0.01"
                                 value={prof.widthCm}
                                 onChange={(e) => handleProfileWidthChange(prof.id, parseFloat(e.target.value))}
-                                className={`w-12 text-right font-mono font-bold bg-transparent focus:outline-none ${
+                                className={`w-10 text-right font-mono font-bold bg-transparent focus:outline-none ${
                                   isDarkMode ? "text-white" : "text-slate-900"
                                 }`}
                               />
-                              <span className={`text-[10px] font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>cm</span>
+                              <span className={`text-[9px] font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>cm</span>
+                            </div>
+                          </div>
+
+                          {/* Bini Payı */}
+                          <div className={`flex items-center justify-between border rounded-xl px-2 py-1 text-xs transition-colors ${
+                            isDarkMode ? "bg-neutral-900/60 border-neutral-800" : "bg-slate-50 border-slate-200"
+                          }`}>
+                            <span className={`text-[10px] font-medium ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Bini</span>
+                            <div className="flex items-center gap-0.5">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                value={prof.rabbetDepthMm ?? prof.rabbet_depth ?? 6}
+                                onChange={(e) => handleProfileRabbetChange(prof.id, parseFloat(e.target.value))}
+                                className={`w-10 text-right font-mono font-bold bg-transparent focus:outline-none ${
+                                  isDarkMode ? "text-white" : "text-slate-900"
+                                }`}
+                              />
+                              <span className={`text-[9px] font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>mm</span>
                             </div>
                           </div>
 
                           {/* Metre Fiyatı */}
-                          <div className={`flex items-center justify-between border rounded-xl px-2.5 py-1 text-xs transition-colors ${
+                          <div className={`flex items-center justify-between border rounded-xl px-2 py-1 text-xs transition-colors ${
                             isDarkMode ? "bg-neutral-900/60 border-neutral-800" : "bg-slate-50 border-slate-200"
                           }`}>
-                            <span className={`text-[11px] font-medium ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Fiyat</span>
-                            <div className="flex items-center gap-1">
+                            <span className={`text-[10px] font-medium ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Fiyat</span>
+                            <div className="flex items-center gap-0.5">
                               <input
                                 type="number"
                                 min="0"
                                 value={prof.unitPricePerMeter}
                                 onChange={(e) => handleProfilePriceChange(prof.id, parseFloat(e.target.value))}
-                                className={`w-14 text-right font-mono font-bold bg-transparent focus:outline-none ${
+                                className={`w-11 text-right font-mono font-bold bg-transparent focus:outline-none ${
                                   isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
                                 }`}
                               />
-                              <span className={`text-[10px] font-mono font-semibold ${
+                              <span className={`text-[9px] font-mono font-semibold ${
                                 isDarkMode ? "text-[#C5A059]/70" : "text-[#B88E3A]/70"
                               }`}>₺/m</span>
                             </div>

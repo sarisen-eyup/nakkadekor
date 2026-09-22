@@ -173,6 +173,7 @@ export interface FrameProfile {
   width_cm: number; // Çıta Görünür Genişliği cm (örn: 5.0)
   depth_cm: number; // Çıta Dış Derinliği cm (örn: 3.5)
   rabbet_depth_cm: number; // Lamba / Yuva derinliği cm (örn: 1.2)
+  rabbet_depth?: number | null; // Bini Payı mm (numeric) - Supabase frame_profiles.rabbet_depth
   unit_cost_per_meter: number; // Alış Maliyeti (₺ / metre)
   unit_price_per_meter: number; // Satış Birim Fiyatı (₺ / metre)
   material_type: FrameMaterialType;

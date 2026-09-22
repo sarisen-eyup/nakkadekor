@@ -10,6 +10,8 @@ export interface FrameProfileItem {
   category: "inner" | "outer" | "both";
   isRepeatingPattern?: boolean; // Tekrarlayan Desen kaplaması mı (true = Repeat Pattern, false = Miter-Stretch)
   layoutMode?: "miter-stretch" | "repeat"; // Köşe birleşim modu
+  rabbetDepthMm?: number; // Bini Payı (Lamba/Yuva Derinliği) mm cinsinden (örn: 6)
+  rabbet_depth?: number; // Supabase veritabanı sütun eşleşmesi (mm)
 }
 
 export interface UnitPricesSettings {
@@ -145,6 +147,8 @@ export const DEFAULT_FRAME_PROFILES: FrameProfileItem[] = [
     code: "AV-501",
     name: "Altın Varak Klasik Oymalı",
     widthCm: 5.0,
+    rabbetDepthMm: 6.0,
+    rabbet_depth: 6.0,
     unitPricePerMeter: 150.0,
     materialType: "wood",
     category: "both",
@@ -158,6 +162,8 @@ export const DEFAULT_FRAME_PROFILES: FrameProfileItem[] = [
     code: "SM-302",
     name: "Siyah Mat Minimalist Galeri",
     widthCm: 3.0,
+    rabbetDepthMm: 6.0,
+    rabbet_depth: 6.0,
     unitPricePerMeter: 95.0,
     materialType: "polystyrene",
     category: "both",
@@ -171,6 +177,8 @@ export const DEFAULT_FRAME_PROFILES: FrameProfileItem[] = [
     code: "CR-405",
     name: "Doğal Masif Meşe",
     widthCm: 4.0,
+    rabbetDepthMm: 6.0,
+    rabbet_depth: 6.0,
     unitPricePerMeter: 180.0,
     materialType: "wood",
     category: "both",
@@ -184,6 +192,8 @@ export const DEFAULT_FRAME_PROFILES: FrameProfileItem[] = [
     code: "BL-201",
     name: "Fırçalanmış İnce Alüminyum",
     widthCm: 2.0,
+    rabbetDepthMm: 6.0,
+    rabbet_depth: 6.0,
     unitPricePerMeter: 120.0,
     materialType: "aluminum",
     category: "inner",
@@ -197,6 +207,8 @@ export const DEFAULT_FRAME_PROFILES: FrameProfileItem[] = [
     code: "GV-602",
     name: "Gümüş Varak Barok Kasa",
     widthCm: 6.0,
+    rabbetDepthMm: 6.0,
+    rabbet_depth: 6.0,
     unitPricePerMeter: 220.0,
     materialType: "composite",
     category: "outer",
@@ -429,6 +441,8 @@ export interface OrderArchiveItem {
   // Genişletilmiş Simülatör Konfigürasyonu (Düzenleme ve Simülatöre Aktarma için)
   innerProfileId?: string;
   outerProfileId?: string;
+  innerRabbetDepthMm?: number;
+  outerRabbetDepthMm?: number;
   matWidthCm?: number;
   frameWidthCm?: number;
   middleMatWidthCm?: number;

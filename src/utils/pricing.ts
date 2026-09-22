@@ -335,7 +335,7 @@ export function clearAuthSession(): void {
 }
 
 
-interface CalculateCostParams {
+export interface CalculateCostParams {
   artworkWidthCm: number;
   artworkHeightCm: number;
   matWidthCm: number;
@@ -346,6 +346,8 @@ interface CalculateCostParams {
   outerMatColor?: string;
   selectedInnerProfileMeterPrice?: number;
   selectedOuterProfileMeterPrice?: number;
+  innerRabbetDepthMm?: number;
+  outerRabbetDepthMm?: number;
   customOverridePrice?: number | null;
   flags?: MaterialInclusionFlags;
   deliveryMethod?: "store" | "shipping";
@@ -353,7 +355,7 @@ interface CalculateCostParams {
   settings: UnitPricesSettings;
 }
 
-export const REBATE_PER_SIDE_CM = 0.6; // 6 mm (0.6 cm) çerçeve bini payı per edge
+export const REBATE_PER_SIDE_CM = 0.6; // 6 mm (0.6 cm) çerçeve varsayılan bini payı per edge
 
 export function calculateCostsAndPricing(params: CalculateCostParams): CostCalculationBreakdown {
   const {
@@ -367,6 +369,8 @@ export function calculateCostsAndPricing(params: CalculateCostParams): CostCalcu
     outerMatColor,
     selectedInnerProfileMeterPrice,
     selectedOuterProfileMeterPrice,
+    innerRabbetDepthMm,
+    outerRabbetDepthMm,
     customOverridePrice,
     flags = DEFAULT_MATERIAL_INCLUSION,
     settings
@@ -388,6 +392,10 @@ export function calculateCostsAndPricing(params: CalculateCostParams): CostCalcu
   const safeMiddleMatWidth = safeNum(middleMatWidthCm, 0);
   const safeOuterFrameWidth = safeNum(outerFrameWidthCm, 0);
 
+  // Bini Payı (cm): Kesim Uzunluğu = Girilen Müşteri Ölçüsü + (2 * Profil Genişliği) - (2 * Bini Payı)
+  const innerRabbetCm = (innerRabbetDepthMm != null ? Number(innerRabbetDepthMm) : (REBATE_PER_SIDE_CM * 10)) / 10;
+  const outerRabbetCm = (outerRabbetDepthMm != null ? Number(outerRabbetDepthMm) : (REBATE_PER_SIDE_CM * 10)) / 10;
+
   // Check transparent/glass mat selections
   const isInnerMatTransparent = innerMatColor === "transparent" || innerMatColor === "glass";
   const innerMatUnitPrice = isInnerMatTransparent
@@ -399,7 +407,7 @@ export function calculateCostsAndPricing(params: CalculateCostParams): CostCalcu
     ? (safeSettings.transparentMatBoardPricePerSqm || 520)
     : safeSettings.middleMatBoardPricePerSqm;
 
-  // 1. Dimensions calculations (with 6 mm = 0.6 cm frame rebate)
+  // 1. Dimensions calculations
   // Artwork area in m²
   const artworkSqm = (safeArtworkWidth * safeArtworkHeight) / 10000;
 
@@ -412,9 +420,9 @@ export function calculateCostsAndPricing(params: CalculateCostParams): CostCalcu
     : 0;
 
   // Inner Frame outer miter dimensions & linear meter
-  // Note: Frame rebate is 0.6 cm on each side, so miter outer width = innerMatOuterW - 2*0.6 + 2*frameWidthCm
-  const innerFrameMiterW = safeFrameWidth > 0 ? innerMatOuterW - 2 * REBATE_PER_SIDE_CM + 2 * safeFrameWidth : innerMatOuterW;
-  const innerFrameMiterH = safeFrameWidth > 0 ? innerMatOuterH - 2 * REBATE_PER_SIDE_CM + 2 * safeFrameWidth : innerMatOuterH;
+  // Matematiksel Formül: Kesim Uzunluğu = Girilen Müşteri Ölçüsü + (2 * Profil Genişliği) - (2 * Bini Payı)
+  const innerFrameMiterW = safeFrameWidth > 0 ? innerMatOuterW + (2 * safeFrameWidth) - (2 * innerRabbetCm) : innerMatOuterW;
+  const innerFrameMiterH = safeFrameWidth > 0 ? innerMatOuterH + (2 * safeFrameWidth) - (2 * innerRabbetCm) : innerMatOuterH;
   const innerFrameMeter = safeFrameWidth > 0 ? (2 * (innerFrameMiterW + innerFrameMiterH)) / 100 : 0;
 
   // Middle Mat outer dimensions
@@ -425,11 +433,11 @@ export function calculateCostsAndPricing(params: CalculateCostParams): CostCalcu
     ? (middleMatOuterW * middleMatOuterH) / 10000
     : 0;
 
-  // Outer Frame outer miter dimensions & linear meter (with 0.6 cm rebate)
+  // Outer Frame outer miter dimensions & linear meter
   const innerRebateW = middleMatOuterW;
   const innerRebateH = middleMatOuterH;
-  const outerFrameMiterW = safeOuterFrameWidth > 0 ? innerRebateW - 2 * REBATE_PER_SIDE_CM + 2 * safeOuterFrameWidth : innerRebateW;
-  const outerFrameMiterH = safeOuterFrameWidth > 0 ? innerRebateH - 2 * REBATE_PER_SIDE_CM + 2 * safeOuterFrameWidth : innerRebateH;
+  const outerFrameMiterW = safeOuterFrameWidth > 0 ? innerRebateW + (2 * safeOuterFrameWidth) - (2 * outerRabbetCm) : innerRebateW;
+  const outerFrameMiterH = safeOuterFrameWidth > 0 ? innerRebateH + (2 * safeOuterFrameWidth) - (2 * outerRabbetCm) : innerRebateH;
   const outerFrameMeter = safeOuterFrameWidth > 0 
     ? (2 * (outerFrameMiterW + outerFrameMiterH)) / 100
     : 0;
@@ -587,6 +595,8 @@ export function generateCutList(params: {
   frameWidthCm: number;
   middleMatWidthCm: number;
   outerFrameWidthCm: number;
+  innerRabbetDepthMm?: number;
+  outerRabbetDepthMm?: number;
   innerFrameCode?: string;
   outerFrameCode?: string;
   innerMatColor?: string;
@@ -601,12 +611,20 @@ export function generateCutList(params: {
     frameWidthCm,
     middleMatWidthCm,
     outerFrameWidthCm,
+    innerRabbetDepthMm,
+    outerRabbetDepthMm,
     innerFrameCode,
     outerFrameCode,
     innerMatColor,
     outerMatColor,
     flags = DEFAULT_MATERIAL_INCLUSION
   } = params;
+
+  // Bini Payı hesaplamaları (mm -> cm)
+  const innerRabbetDepth = innerRabbetDepthMm != null ? Number(innerRabbetDepthMm) : (REBATE_PER_SIDE_CM * 10);
+  const outerRabbetDepth = outerRabbetDepthMm != null ? Number(outerRabbetDepthMm) : (REBATE_PER_SIDE_CM * 10);
+  const innerRabbetCm = innerRabbetDepth / 10;
+  const outerRabbetCm = outerRabbetDepth / 10;
 
   const items: CutListItem[] = [];
 
@@ -654,15 +672,15 @@ export function generateCutList(params: {
   // 3. İç Çerçeve (Ana Profil)
   const innerMatOuterW = artworkWidthCm + 2 * matWidthCm;
   const innerMatOuterH = artworkHeightCm + 2 * matWidthCm;
-  // Bini payı: Her kenarda 0.6 cm (6 mm) binme var
-  const innerFrameMiterW = frameWidthCm > 0 ? innerMatOuterW - 2 * REBATE_PER_SIDE_CM + 2 * frameWidthCm : innerMatOuterW;
-  const innerFrameMiterH = frameWidthCm > 0 ? innerMatOuterH - 2 * REBATE_PER_SIDE_CM + 2 * frameWidthCm : innerMatOuterH;
+  // Matematiksel Formül: Kesim Uzunluğu = Girilen Müşteri Ölçüsü + (2 * Profil Genişliği) - (2 * Bini Payı)
+  const innerFrameMiterW = frameWidthCm > 0 ? innerMatOuterW + (2 * frameWidthCm) - (2 * innerRabbetCm) : innerMatOuterW;
+  const innerFrameMiterH = frameWidthCm > 0 ? innerMatOuterH + (2 * frameWidthCm) - (2 * innerRabbetCm) : innerMatOuterH;
   const innerTotalMeter = frameWidthCm > 0 ? (2 * (innerFrameMiterW + innerFrameMiterH)) / 100 : 0;
 
   items.push({
     layerName: "03. İç Çerçeve Profil Kesimi",
     profileCode: innerFrameCode || "Ana Profil",
-    materialInfo: `Genişlik: ${frameWidthCm.toFixed(1)} cm Profil (6 mm Bini Paylı)`,
+    materialInfo: `Genişlik: ${frameWidthCm.toFixed(1)} cm Profil (${innerRabbetDepth} mm Bini Paylı)`,
     cutAngle: "45° Çift Taraflı Gönye Kesim",
     pieceWidthCm: Number(innerFrameMiterW.toFixed(1)),
     pieceHeightCm: Number(innerFrameMiterH.toFixed(1)),
@@ -670,7 +688,7 @@ export function generateCutList(params: {
     quantityHeightPieces: 2,
     totalMeterNeeded: Number((innerTotalMeter * 1.15).toFixed(2)),
     unit: "mt",
-    notes: `Bini İç Oturma Ölçüsü: ${innerMatOuterW.toFixed(1)} x ${innerMatOuterH.toFixed(1)} cm (Kenar Bini: 6 mm). Dış Gönye Ölçüsü: 2x ${innerFrameMiterW.toFixed(1)} cm, 2x ${innerFrameMiterH.toFixed(1)} cm.`,
+    notes: `Bini İç Oturma Ölçüsü: ${innerMatOuterW.toFixed(1)} x ${innerMatOuterH.toFixed(1)} cm. Bini Payı: ${innerRabbetDepth} mm. Dış Gönye Kesim Ölçüsü: 2x ${innerFrameMiterW.toFixed(1)} cm, 2x ${innerFrameMiterH.toFixed(1)} cm.`,
     included: flags.includeInnerFrame
   });
 
@@ -702,14 +720,15 @@ export function generateCutList(params: {
   if (outerFrameWidthCm > 0) {
     const innerRebateW = innerFrameMiterW + 2 * middleMatWidthCm;
     const innerRebateH = innerFrameMiterH + 2 * middleMatWidthCm;
-    const outerFrameMiterW = innerRebateW - 2 * REBATE_PER_SIDE_CM + 2 * outerFrameWidthCm;
-    const outerFrameMiterH = innerRebateH - 2 * REBATE_PER_SIDE_CM + 2 * outerFrameWidthCm;
+    // Matematiksel Formül: Kesim Uzunluğu = Girilen Müşteri Ölçüsü + (2 * Profil Genişliği) - (2 * Bini Payı)
+    const outerFrameMiterW = innerRebateW + (2 * outerFrameWidthCm) - (2 * outerRabbetCm);
+    const outerFrameMiterH = innerRebateH + (2 * outerFrameWidthCm) - (2 * outerRabbetCm);
     const outerTotalMeter = (2 * (outerFrameMiterW + outerFrameMiterH)) / 100;
 
     items.push({
       layerName: "05. Dış Çerçeve Profil Kesimi",
       profileCode: outerFrameCode || "Dış Profil",
-      materialInfo: `Genişlik: ${outerFrameWidthCm.toFixed(1)} cm Dış Profil (6 mm Bini Paylı)`,
+      materialInfo: `Genişlik: ${outerFrameWidthCm.toFixed(1)} cm Dış Profil (${outerRabbetDepth} mm Bini Paylı)`,
       cutAngle: "45° Çift Taraflı Gönye Kesim",
       pieceWidthCm: Number(outerFrameMiterW.toFixed(1)),
       pieceHeightCm: Number(outerFrameMiterH.toFixed(1)),
@@ -717,7 +736,7 @@ export function generateCutList(params: {
       quantityHeightPieces: 2,
       totalMeterNeeded: Number((outerTotalMeter * 1.15).toFixed(2)),
       unit: "mt",
-      notes: `Bini İç Oturma Ölçüsü: ${innerRebateW.toFixed(1)} x ${innerRebateH.toFixed(1)} cm (Kenar Bini: 6 mm). Dış Gönye Ölçüsü: 2x ${outerFrameMiterW.toFixed(1)} cm, 2x ${outerFrameMiterH.toFixed(1)} cm.`,
+      notes: `Bini İç Oturma Ölçüsü: ${innerRebateW.toFixed(1)} x ${innerRebateH.toFixed(1)} cm. Bini Payı: ${outerRabbetDepth} mm. Dış Gönye Kesim Ölçüsü: 2x ${outerFrameMiterW.toFixed(1)} cm, 2x ${outerFrameMiterH.toFixed(1)} cm.`,
       included: flags.includeOuterFrame
     });
   }
@@ -785,8 +804,13 @@ export function generateCutList(params: {
   });
 
   // Calculate final absolute outer dimensions
-  const finalOuterW = innerFrameMiterW + 2 * middleMatWidthCm + 2 * outerFrameWidthCm;
-  const finalOuterH = innerFrameMiterH + 2 * middleMatWidthCm + 2 * outerFrameWidthCm;
+  // Matematiksel Formül: Kesim Uzunluğu = Girilen Müşteri Ölçüsü + (2 * Profil Genişliği) - (2 * Bini Payı)
+  const finalOuterW = outerFrameWidthCm > 0 
+    ? (innerFrameMiterW + 2 * middleMatWidthCm + 2 * outerFrameWidthCm - 2 * outerRabbetCm)
+    : (frameWidthCm > 0 ? innerFrameMiterW : (matWidthCm > 0 ? innerMatOuterW : artworkWidthCm));
+  const finalOuterH = outerFrameWidthCm > 0 
+    ? (innerFrameMiterH + 2 * middleMatWidthCm + 2 * outerFrameWidthCm - 2 * outerRabbetCm)
+    : (frameWidthCm > 0 ? innerFrameMiterH : (matWidthCm > 0 ? innerMatOuterH : artworkHeightCm));
 
   return {
     orderNumber,
