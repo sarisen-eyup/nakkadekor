@@ -190,9 +190,18 @@ export function triggerPrintWindow(title: string, bodyHtml: string) {
             height: 35px;
             margin-top: 10px;
           }
+          @page {
+            size: A4 portrait;
+            margin: 8mm 10mm;
+          }
           @media print {
             .no-print-bar, .no-print-close-btn { display: none !important; }
-            body { padding: 0; }
+            body { 
+              padding: 0 !important; 
+              margin: 0 !important; 
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
           }
         </style>
       </head>
@@ -363,88 +372,91 @@ export function triggerImagePrintWindow(
             width: 210mm;
             min-height: 297mm;
             background: #ffffff;
-            padding: 12mm 14mm;
+            padding: 8mm 10mm;
             border-radius: 4px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.12);
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
           }
           .doc-header {
-            border-bottom: 2px solid #C5A059;
-            padding-bottom: 8px;
-            margin-bottom: 10px;
+            border-bottom: 1.5px solid #C5A059;
+            padding-bottom: 5px;
+            margin-bottom: 6px;
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
           }
           .brand-title {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 800;
             color: #121415;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
+            line-height: 1.2;
           }
           .brand-subtitle {
-            font-size: 10px;
+            font-size: 9px;
             color: #C5A059;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 2px;
+            letter-spacing: 0.8px;
+            margin-top: 1px;
           }
           .doc-badge {
             font-family: monospace;
-            font-size: 11px;
+            font-size: 10px;
             text-align: right;
+            line-height: 1.2;
           }
           .doc-badge-no {
             font-weight: bold;
             color: #121415;
-            font-size: 12px;
+            font-size: 11.5px;
           }
           .doc-badge-date {
             color: #666;
-            font-size: 10px;
+            font-size: 9px;
           }
           
-          /* Büyütülmüş Görsel Konteynırı (%50 oranında büyütüldü) */
+          /* Kompakt Görsel Konteynırı (Tek Sayfa A4 Uyumlu) */
           .img-preview-container {
             width: 100%;
             display: flex;
             justify-content: center;
             align-items: center;
-            margin: 8px 0 12px 0;
+            margin: 4px 0 6px 0;
           }
           .img-preview-container img {
-            max-width: 78%; /* Tablonun görseli büyütüldü */
-            max-height: 380px;
+            max-width: 65%;
+            max-height: 200px;
             height: auto;
             object-fit: contain;
             border: 1px solid #e4e4e7;
             border-radius: 4px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
           }
 
           .specs-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 12px;
-            font-size: 11px;
+            margin-bottom: 6px;
+            font-size: 9.5px;
           }
           .specs-table th {
             background-color: #121415;
             color: #C5A059;
-            padding: 6px 10px;
+            padding: 3px 6px;
             text-align: left;
-            font-size: 10px;
+            font-size: 8.5px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
             border: 1px solid #121415;
           }
           .specs-table td {
             border: 1px solid #e4e4e7;
-            padding: 5px 8px;
-            font-size: 10.5px;
+            padding: 2.5px 5px;
+            font-size: 9px;
+            line-height: 1.15;
           }
           
           /* Active vs Inactive component styles */
@@ -460,17 +472,17 @@ export function triggerImagePrintWindow(
             background: #fef3c7;
             color: #b45309;
             font-weight: bold;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 9.5px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 8px;
             display: inline-block;
           }
           .badge-inactive {
             background: #e4e4e7;
             color: #71717a;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 9.5px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-size: 8px;
             display: inline-block;
           }
           .highlight-cell {
@@ -483,60 +495,61 @@ export function triggerImagePrintWindow(
           .grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 8px;
+            gap: 6px;
+            margin-bottom: 5px;
           }
 
           .info-card {
             border: 1px solid #e4e4e7;
             background: #fafafa;
-            padding: 8px 10px;
-            border-radius: 4px;
-            font-size: 10.5px;
+            padding: 5px 8px;
+            border-radius: 3px;
+            font-size: 9px;
           }
           .info-card-title {
-            font-size: 10px;
+            font-size: 8.5px;
             font-weight: 700;
             color: #121415;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
             border-bottom: 1px solid #e4e4e7;
-            padding-bottom: 4px;
-            margin-bottom: 6px;
+            padding-bottom: 2px;
+            margin-bottom: 4px;
           }
 
-          /* 2X Büyütülmüş QR Karekod Alanı */
+          /* Kompakt ve Net QR Karekod Alanı */
           .qr-section {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 4px;
+            gap: 2px;
           }
           .qr-img {
-            width: 160px; /* 2X büyütüldü */
-            height: 160px;
+            width: 85px;
+            height: 85px;
             border: 1px solid #121415;
-            border-radius: 4px;
-            padding: 4px;
+            border-radius: 3px;
+            padding: 2px;
             background: #ffffff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
           }
 
           .checkbox-item {
             display: flex;
             align-items: flex-start;
-            gap: 8px;
-            font-size: 10px;
+            gap: 5px;
+            font-size: 8.5px;
             color: #121415;
-            margin-bottom: 6px;
+            margin-bottom: 3px;
+            line-height: 1.15;
           }
           
           /* Kalem ile işaretlemek için boş onay kutucukları */
           .empty-checkbox {
-            width: 14px;
-            height: 14px;
-            border: 1.5px solid #121415;
+            width: 11px;
+            height: 11px;
+            border: 1px solid #121415;
             border-radius: 2px;
             display: inline-block;
             flex-shrink: 0;
@@ -546,27 +559,29 @@ export function triggerImagePrintWindow(
 
           .signature-area {
             border-top: 1px dashed #aaa;
-            margin-top: 20px;
-            padding-top: 6px;
+            margin-top: 10px;
+            padding-top: 4px;
             text-align: center;
-            font-size: 10px;
+            font-size: 8.5px;
             color: #555;
           }
           .signature-line {
-            width: 180px;
-            border-bottom: 1.5px solid #121415;
-            margin: 30px auto 4px auto;
+            width: 130px;
+            border-bottom: 1px solid #121415;
+            margin: 14px auto 3px auto;
           }
 
           @media print {
             @page {
               size: A4 portrait;
-              margin: 6mm;
+              margin: 6mm 8mm;
             }
             html, body {
               background: #ffffff !important;
               padding: 0 !important;
               margin: 0 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
             .no-print-bar { display: none !important; }
             .a4-page {
@@ -574,12 +589,15 @@ export function triggerImagePrintWindow(
               border: none !important;
               width: 100% !important;
               min-height: auto !important;
+              max-height: 284mm !important;
               padding: 0 !important;
               margin: 0 !important;
+              overflow: hidden !important;
+              page-break-inside: avoid !important;
             }
             .img-preview-container img {
-              max-width: 75%;
-              max-height: 360px;
+              max-width: 65%;
+              max-height: 200px;
               box-shadow: none;
             }
           }
@@ -603,19 +621,19 @@ export function triggerImagePrintWindow(
           <div>
             <!-- Header -->
             <div class="doc-header">
-              <div style="display: flex; align-items: center; gap: 14px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
                 ${details.companyProfile?.logoUrl ? `
                   <img 
                     src="${details.companyProfile.logoUrl}" 
                     alt="Logo" 
-                    style="max-height: 52px; max-width: 130px; object-fit: contain; border-radius: 4px;" 
+                    style="max-height: 40px; max-width: 105px; object-fit: contain; border-radius: 3px;" 
                   />
                 ` : ''}
                 <div>
                   <div class="brand-title">${details.companyProfile?.companyName || 'NAKKA DEKOR'}</div>
                   <div class="brand-subtitle">${details.companyProfile?.tradeTitle || 'SİPARİŞ FORMU & İŞ EMRİ'}</div>
                   ${(details.companyProfile?.phone || details.companyProfile?.email) ? `
-                    <div style="font-size: 9.5px; color: #555; margin-top: 2px;">
+                    <div style="font-size: 8.5px; color: #555; margin-top: 1px;">
                       ${details.companyProfile.phone ? `Tel: ${details.companyProfile.phone}` : ''} 
                       ${details.companyProfile.email ? ` | E-posta: ${details.companyProfile.email}` : ''}
                       ${details.authorUser ? ` | Satış Danışmanı: ${details.authorUser}` : ''}
@@ -629,7 +647,7 @@ export function triggerImagePrintWindow(
               </div>
             </div>
 
-            <!-- Büyütülmüş Çerçeve Tasarım Görseli -->
+            <!-- Büyütülmüş Çerçeve Tasarım Görseli (Kompakt ve Net) -->
             <div class="img-preview-container">
               <img src="${dataUrl}" alt="${title}" />
             </div>
@@ -745,25 +763,25 @@ export function triggerImagePrintWindow(
             <div class="grid-2">
               <div class="info-card">
                 <div class="info-card-title">Müşteri & Teslimat Bilgileri</div>
-                <div style="margin-bottom: 6px;">
+                <div style="margin-bottom: 3px;">
                   <span style="color:#666;">Müşteri Adı:</span>
                   <strong style="color:#121415; margin-left: 4px;">
                     ${details.customerName.trim() ? details.customerName.toUpperCase() : '..........................................................'}
                   </strong>
                 </div>
-                <div style="margin-bottom: 6px;">
+                <div style="margin-bottom: 3px;">
                   <span style="color:#666;">İletişim / Tel:</span>
                   <strong style="color:#121415; margin-left: 4px;">
                     ${details.customerPhone && details.customerPhone.trim() ? details.customerPhone : '..........................................................'}
                   </strong>
                 </div>
-                <div style="margin-bottom: 6px;">
+                <div style="margin-bottom: 3px;">
                   <span style="color:#666;">Teslimat Yöntemi:</span>
                   <strong style="color:#121415; margin-left: 4px;">
-                    ${details.deliveryMethod === 'shipping' ? `🚚 Kargo ile Gönderim (Kargo Maliyeti: ₺${details.shippingCost || 0})` : '🏪 Mağazada Teslim'}
+                    ${details.deliveryMethod === 'shipping' ? `🚚 Kargo ile Gönderim (Kargo: ₺${details.shippingCost || 0})` : '🏪 Mağazada Teslim'}
                   </strong>
                 </div>
-                <div style="margin-bottom: 6px;">
+                <div style="margin-bottom: 3px;">
                   <span style="color:#666;">Tahmini Teslim Tarihi:</span>
                   <strong style="color:#121415; margin-left: 4px;">
                     ${
@@ -782,17 +800,17 @@ export function triggerImagePrintWindow(
               </div>
 
               <!-- Üretim Durumu & Karekod -->
-              <div class="info-card" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+              <div class="info-card" style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                 <div>
                   <div class="info-card-title">Üretim Durumu</div>
-                  <div style="color: #16a34a; font-weight: bold; font-size: 11px;">✓ DOKÜMAN HAZIRLANDI</div>
-                  <div style="color: #666; font-size: 10px; margin-top: 4px;">Atölye hassas kesim onayına sunulmuştur.</div>
+                  <div style="color: #16a34a; font-weight: bold; font-size: 10px;">✓ DOKÜMAN HAZIRLANDI</div>
+                  <div style="color: #666; font-size: 8.5px; margin-top: 2px;">Atölye hassas kesim onayına sunulmuştur.</div>
                 </div>
                 ${
                   details.qrDataUrl
                     ? `<div class="qr-section">
                         <img class="qr-img" src="${details.qrDataUrl}" alt="Karekod" />
-                        <span style="font-size: 8.5px; font-family: monospace; font-weight: bold; color: #121415;">
+                        <span style="font-size: 7.5px; font-family: monospace; font-weight: bold; color: #121415;">
                           KAREKODU OKUTUN
                         </span>
                        </div>`
@@ -802,7 +820,7 @@ export function triggerImagePrintWindow(
             </div>
 
             <!-- Onay Kutucukları (Kalem ile işaretlemek için BOŞ kutucuklar) & Islak İmza -->
-            <div class="grid-2" style="margin-top: 6px;">
+            <div class="grid-2" style="margin-top: 4px;">
               <div class="info-card">
                 <div class="info-card-title">Sipariş Onay Kutucukları (Kalem İle İşaretleyin)</div>
                 <div class="checkbox-item">
@@ -822,17 +840,18 @@ export function triggerImagePrintWindow(
               <div class="info-card" style="text-align: center;">
                 <div class="info-card-title">Müşteri Islak İmza / Onay</div>
                 <div class="signature-line"></div>
-                <div style="font-size: 10px; color: #666;">İmza & Kaşe</div>
+                <div style="font-size: 9px; color: #666;">İmza & Kaşe</div>
               </div>
+            </div>
             ${details.companyProfile?.iban ? `
-              <div style="margin-top: 8px; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 9.5px; font-family: monospace; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+              <div style="margin-top: 4px; padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 3px; font-size: 8.5px; font-family: monospace; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
                 <span><strong>Banka / IBAN:</strong> ${details.companyProfile.iban}</span>
                 ${details.companyProfile.taxOffice ? `<span><strong>V.D.:</strong> ${details.companyProfile.taxOffice} (${details.companyProfile.taxNumber || '-'})</span>` : ''}
               </div>
             ` : ''}
           </div>
 
-          <div style="border-top: 1px solid #eee; padding-top: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-size: 9px; color: #888;">
+          <div style="border-top: 1px solid #eee; padding-top: 4px; margin-top: 5px; display: flex; justify-content: space-between; font-size: 8.5px; color: #888;">
             <span>${details.companyProfile?.tradeTitle || details.companyProfile?.companyName || 'Nakka Dekor B2B Sanat & Çerçeve Atölye Portalı'} ${details.companyProfile?.address ? `• ${details.companyProfile.address}` : ''}</span>
             <span>${details.companyProfile?.website || 'https://nakkadekor.com'}</span>
           </div>
@@ -1452,22 +1471,24 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
     .map(
       (item) => `
       <tr style="${!item.included ? 'opacity:0.35; font-style:italic; background:#fbfbfb;' : ''}">
-        <td style="border:1px solid #ccc; padding:7px 10px;">
-          <div style="font-weight:bold; color:#111;">${item.layerName}</div>
-          <div style="font-size:10px; color:#555;">${item.materialInfo}</div>
-          ${item.profileCode ? `<div style="font-size:10px; font-weight:bold; color:#000;">Profil Kodu: ${item.profileCode}</div>` : ''}
-          <div style="font-size:10px; color:#777; margin-top:2px;">${item.notes}</div>
+        <td style="border:1px solid #ccc; padding:3px 6px; vertical-align:middle;">
+          <div style="font-weight:bold; color:#111; font-size:10.5px; line-height:1.2;">${item.layerName}</div>
+          <div style="font-size:8.5px; color:#555; line-height:1.15;">
+            ${item.materialInfo}
+            ${item.profileCode ? ` • <strong style="color:#000;">Profil: ${item.profileCode}</strong>` : ''}
+          </div>
+          ${item.notes ? `<div style="font-size:8px; color:#777; line-height:1.1; margin-top:1px;">${item.notes}</div>` : ''}
         </td>
-        <td style="border:1px solid #ccc; padding:7px 10px; text-align:center; font-weight:bold;">
+        <td style="border:1px solid #ccc; padding:3px 6px; text-align:center; font-weight:bold; font-size:9.5px; vertical-align:middle;">
           ${item.cutAngle}
         </td>
-        <td style="border:1px solid #ccc; padding:7px 10px; text-align:center; font-weight:bold; font-size:13px; font-family:monospace;">
-          ${item.pieceWidthCm.toFixed(2)} cm <span style="font-size:10px; font-weight:normal;">(${item.quantityWidthPieces > 1 ? `${item.quantityWidthPieces} Adet` : '1 Plaka'})</span>
+        <td style="border:1px solid #ccc; padding:3px 6px; text-align:center; font-weight:bold; font-size:11px; font-family:monospace; vertical-align:middle;">
+          ${item.pieceWidthCm.toFixed(2)} cm <span style="font-size:8px; font-weight:normal; color:#444;">(${item.quantityWidthPieces > 1 ? `${item.quantityWidthPieces} Adet` : '1 Plaka'})</span>
         </td>
-        <td style="border:1px solid #ccc; padding:7px 10px; text-align:center; font-weight:bold; font-size:13px; font-family:monospace;">
-          ${item.pieceHeightCm.toFixed(2)} cm <span style="font-size:10px; font-weight:normal;">(${item.quantityHeightPieces > 1 ? `${item.quantityHeightPieces} Adet` : '1 Plaka'})</span>
+        <td style="border:1px solid #ccc; padding:3px 6px; text-align:center; font-weight:bold; font-size:11px; font-family:monospace; vertical-align:middle;">
+          ${item.pieceHeightCm.toFixed(2)} cm <span style="font-size:8px; font-weight:normal; color:#444;">(${item.quantityHeightPieces > 1 ? `${item.quantityHeightPieces} Adet` : '1 Plaka'})</span>
         </td>
-        <td style="border:1px solid #ccc; padding:7px 10px; text-align:right; font-weight:bold; font-family:monospace;">
+        <td style="border:1px solid #ccc; padding:3px 6px; text-align:right; font-weight:bold; font-family:monospace; font-size:10px; vertical-align:middle;">
           ${item.totalMeterNeeded.toFixed(2)} ${item.unit || 'm²'}
         </td>
       </tr>
@@ -1478,7 +1499,7 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
   const assemblyRows = cutList.assemblyInstructions
     .map(
       (step) => `
-      <div style="background:#f9f9f9; border:1px solid #e0e0e0; padding:8px 10px; border-radius:4px; font-size:11px;">
+      <div style="background:#fafafa; border:1px solid #e0e0e0; padding:3.5px 7px; border-radius:3px; font-size:9px; line-height:1.2;">
         <strong>${step}</strong>
       </div>
     `
@@ -1486,72 +1507,79 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
     .join("");
 
   const contentHtml = `
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #111; padding-bottom:12px; margin-bottom:16px;">
-      <div>
-        <div style="font-size:20px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px;">
-          ${companyProfile?.companyName || 'NAKKA DEKOR'} - ATÖLYE İŞ EMRİ & KESİM FİŞİ
+    <div style="max-width:100%; page-break-inside:avoid; font-family:system-ui, -apple-system, sans-serif;">
+      <!-- 1. Üst Başlık Çubuğu -->
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #111; padding-bottom:5px; margin-bottom:6px;">
+        <div>
+          <div style="font-size:15px; font-weight:bold; text-transform:uppercase; letter-spacing:0.3px; line-height:1.15;">
+            ${companyProfile?.companyName || 'NAKKA DEKOR'} - ATÖLYE İŞ EMRİ & KESİM FİŞİ
+          </div>
+          <div style="font-size:9px; color:#555; margin-top:1px;">MARANGOZ / ÇERÇEVE USTA ÖLÇÜ BİLDİRİM FORMU</div>
         </div>
-        <div style="font-size:11px; color:#555;">MARANGOZ / ÇERÇEVE USTA ÖLÇÜ BİLDİRİM FORMU</div>
+        <div style="text-align:right; font-family:monospace; line-height:1.2;">
+          <div style="font-weight:bold; font-size:12px; color:#000;">SİPARİŞ NO: ${cutList.orderNumber}</div>
+          <div style="font-size:9px; color:#666;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
+        </div>
       </div>
-      <div style="text-align:right; font-family:monospace;">
-        <div style="font-weight:bold; font-size:15px; color:#000;">SİPARİŞ NO: ${cutList.orderNumber}</div>
-        <div style="font-size:11px; color:#666;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
-      </div>
-    </div>
 
-    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; background:#f5f5f5; border:1px solid #ddd; padding:12px; border-radius:4px; font-family:monospace; font-size:12px; margin-bottom:20px;">
-      <div>
-        <div style="font-size:10px; color:#666; text-transform:uppercase;">SANAT GÖRSELİ</div>
-        <div style="font-weight:bold; font-size:13px;">${artworkWidthCm} × ${artworkHeightCm} cm</div>
+      <!-- 2. Özet Bilgi Kartı (4 Kolon) -->
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; background:#f7f7f7; border:1px solid #ddd; padding:5px 8px; border-radius:3px; font-family:monospace; margin-bottom:6px;">
+        <div>
+          <div style="font-size:8px; color:#666; text-transform:uppercase; line-height:1;">SANAT GÖRSELİ</div>
+          <div style="font-weight:bold; font-size:11px; margin-top:2px;">${artworkWidthCm} × ${artworkHeightCm} cm</div>
+        </div>
+        <div>
+          <div style="font-size:8px; color:#666; text-transform:uppercase; line-height:1;">BİTMİŞ DIŞ ÖLÇÜ</div>
+          <div style="font-weight:bold; font-size:11px; color:#b45309; margin-top:2px;">${cutList.totalOuterDimensions}</div>
+        </div>
+        <div>
+          <div style="font-size:8px; color:#666; text-transform:uppercase; line-height:1;">MÜŞTERİ ADI</div>
+          <div style="font-weight:bold; font-size:11px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; margin-top:2px;">${customerName || "—"}</div>
+        </div>
+        <div>
+          <div style="font-size:8px; color:#666; text-transform:uppercase; line-height:1;">TESLİM TARİHİ</div>
+          <div style="font-weight:bold; font-size:11px; margin-top:2px;">${deliveryDate || "—"}</div>
+        </div>
       </div>
-      <div>
-        <div style="font-size:10px; color:#666; text-transform:uppercase;">BİTMİŞ DIŞ ÖLÇÜ</div>
-        <div style="font-weight:bold; font-size:13px; color:#b45309;">${cutList.totalOuterDimensions}</div>
-      </div>
-      <div>
-        <div style="font-size:10px; color:#666; text-transform:uppercase;">MÜŞTERİ ADI</div>
-        <div style="font-weight:bold;">${customerName || "—"}</div>
-      </div>
-      <div>
-        <div style="font-size:10px; color:#666; text-transform:uppercase;">TESLİM TARİHİ</div>
-        <div style="font-weight:bold;">${deliveryDate || "—"}</div>
-      </div>
-    </div>
 
-    <h3 style="font-size:13px; font-family:monospace; margin-bottom:10px; text-transform:uppercase; border-left:3px solid #C5A059; padding-left:8px;">
-      Katman Katman Kesim Ölçüleri Tablosu
-    </h3>
-    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-family:monospace; font-size:12px;">
-      <thead>
-        <tr style="background:#e8e8e8;">
-          <th style="border:1px solid #ccc; padding:8px; text-align:left;">KATMAN / PARÇA</th>
-          <th style="border:1px solid #ccc; padding:8px; text-align:center;">KESİM AÇISI</th>
-          <th style="border:1px solid #ccc; padding:8px; text-align:center;">EN BOYU (2x)</th>
-          <th style="border:1px solid #ccc; padding:8px; text-align:center;">BOY BOYU (2x)</th>
-          <th style="border:1px solid #ccc; padding:8px; text-align:right;">SARFİYAT</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${itemsRows}
-      </tbody>
-    </table>
+      <!-- 3. Katman Katman Kesim Ölçüleri Tablosu -->
+      <h3 style="font-size:10px; font-family:monospace; margin-bottom:3px; text-transform:uppercase; border-left:3px solid #C5A059; padding-left:6px; line-height:1.2;">
+        Katman Katman Kesim Ölçüleri Tablosu
+      </h3>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:6px; font-family:monospace; font-size:9.5px;">
+        <thead>
+          <tr style="background:#e8e8e8;">
+            <th style="border:1px solid #ccc; padding:3px 5px; text-align:left; font-size:8.5px;">KATMAN / PARÇA</th>
+            <th style="border:1px solid #ccc; padding:3px 5px; text-align:center; font-size:8.5px;">KESİM AÇISI</th>
+            <th style="border:1px solid #ccc; padding:3px 5px; text-align:center; font-size:8.5px;">EN BOYU (2x)</th>
+            <th style="border:1px solid #ccc; padding:3px 5px; text-align:center; font-size:8.5px;">BOY BOYU (2x)</th>
+            <th style="border:1px solid #ccc; padding:3px 5px; text-align:right; font-size:8.5px;">SARFİYAT</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsRows}
+        </tbody>
+      </table>
 
-    <h3 style="font-size:13px; font-family:monospace; margin-bottom:10px; text-transform:uppercase; border-left:3px solid #C5A059; padding-left:8px;">
-      Atölye Montaj Sıralaması
-    </h3>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:25px; font-family:sans-serif;">
-      ${assemblyRows}
-    </div>
+      <!-- 4. Atölye Montaj Sıralaması -->
+      <h3 style="font-size:10px; font-family:monospace; margin-bottom:3px; text-transform:uppercase; border-left:3px solid #C5A059; padding-left:6px; line-height:1.2;">
+        Atölye Montaj Sıralaması
+      </h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:3.5px; margin-bottom:8px; font-family:sans-serif;">
+        ${assemblyRows}
+      </div>
 
-    <div style="margin-top:30px; border-top:1px dashed #666; padding-top:15px; display:flex; justify-content:space-between; font-size:11px; font-family:monospace;">
-      <div>
-        <span>Kesim Yapan Usta: ________________________</span>
-      </div>
-      <div>
-        <span>Montaj & Kontrol: ________________________</span>
-      </div>
-      <div>
-        <span>Tarih: ${new Date().toLocaleDateString('tr-TR')}</span>
+      <!-- 5. İmza & Onay Satırı -->
+      <div style="border-top:1px dashed #777; padding-top:5px; display:flex; justify-content:space-between; font-size:9px; font-family:monospace; line-height:1.2;">
+        <div>
+          <span>Kesim Yapan Usta: ________________________</span>
+        </div>
+        <div>
+          <span>Montaj & Kontrol: ________________________</span>
+        </div>
+        <div>
+          <span>Tarih: ${new Date().toLocaleDateString('tr-TR')}</span>
+        </div>
       </div>
     </div>
   `;
