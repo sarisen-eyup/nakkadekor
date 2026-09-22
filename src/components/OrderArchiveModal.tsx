@@ -3,32 +3,15 @@ import {
   X, 
   Archive, 
   Search, 
-  Printer, 
-  Download, 
   Trash2, 
-  ExternalLink, 
-  CheckCircle2, 
-  Clock, 
-  Package, 
   FileText, 
   Filter,
   Calendar,
   User,
   ArrowUpDown,
-  RotateCcw,
-  Scissors,
-  Calculator,
-  Tag
+  RotateCcw
 } from "lucide-react";
-import QRCode from "qrcode";
-import { OrderArchiveItem, OrderStatus, CompanyProfile, DEFAULT_UNIT_PRICES, FrameProfileItem } from "../types/pricing";
-import { 
-  triggerImagePrintWindow, 
-  triggerCuttingListPrintWindow, 
-  triggerBackLabelPrintWindow, 
-  triggerCostBreakdownPrintWindow 
-} from "../utils/printHelper";
-import { generateCutList, calculateCostsAndPricing } from "../utils/pricing";
+import { OrderArchiveItem, OrderStatus, CompanyProfile, FrameProfileItem } from "../types/pricing";
 
 interface OrderArchiveModalProps {
   isOpen: boolean;
@@ -37,7 +20,7 @@ interface OrderArchiveModalProps {
   orders: OrderArchiveItem[];
   profiles?: FrameProfileItem[];
   onDeleteOrder: (orderId: string) => void;
-  onLoadOrderToWorkspace: (order: OrderArchiveItem, options?: { autoPrint?: "order_form" | "cutting_list" | "label" | "cost" }) => void;
+  onLoadOrderToWorkspace: (order: OrderArchiveItem) => void;
   companyProfile: CompanyProfile;
   onUpdateStatus?: (orderId: string, status: OrderStatus) => void;
 }
@@ -56,7 +39,6 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [copiedNotice, setCopiedNotice] = useState<string | null>(null);
-  const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<OrderArchiveItem | null>(null);
 
   if (!isOpen) return null;
 
@@ -100,156 +82,6 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
       default:
         return null;
     }
-  };
-
-  // 1. Sipariş Formu Yazdır (Simülatör Canlı Motoru Üzerinden Eksiksiz Baskı)
-  const handlePrintOrderForm = (order: OrderArchiveItem) => {
-    setSelectedOrderForPrint(null);
-    onLoadOrderToWorkspace(order, { autoPrint: "order_form" });
-  };
-
-  // 2. Üretim Emri & Kesim Listesi Yazdır
-  const handlePrintCuttingList = (order: OrderArchiveItem) => {
-    const matW = order.matWidthCm ?? order.simulatorConfig?.matWidthCm ?? (order.matInfo && order.matInfo !== "Paspartusuz" ? 5 : 0);
-    const frameW = order.frameWidthCm ?? order.simulatorConfig?.frameWidthCm ?? 4;
-    const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm ?? 0;
-    const outerFrameW = order.outerFrameWidthCm ?? order.simulatorConfig?.outerFrameWidthCm ?? 0;
-
-    const rawFlags = order.inclusionFlags || order.simulatorConfig?.inclusionFlags || (order.simulatorConfig as any)?.flags || {};
-    const flags = {
-      includeArtworkPrint: rawFlags.includeArtworkPrint ?? Boolean(order.customPaintingFile && order.customPaintingFile !== "Özel Sanat Eseri Baskısı Yok" && order.artworkWidthCm > 0),
-      includeInnerMat: rawFlags.includeInnerMat ?? Boolean(matW > 0 || (order.matInfo && order.matInfo !== "Paspartusuz")),
-      includeInnerFrame: rawFlags.includeInnerFrame ?? Boolean(frameW > 0 && order.innerFrameTitle !== "Yok" && order.innerFrameTitle !== "Çerçeve Seçilmedi"),
-      includeMiddleMat: rawFlags.includeMiddleMat ?? Boolean(middleMatW > 0),
-      includeOuterFrame: rawFlags.includeOuterFrame ?? Boolean(outerFrameW > 0 && order.outerFrameTitle && order.outerFrameTitle !== "Yok" && order.outerFrameTitle !== "Çerçeve Seçilmedi"),
-      includeGlass: rawFlags.includeGlass ?? true,
-      includeBackingBoard: rawFlags.includeBackingBoard ?? true,
-      includeBackingCloth: rawFlags.includeBackingCloth ?? true,
-      includeKraftTape: rawFlags.includeKraftTape ?? true,
-      includeLaborCost: rawFlags.includeLaborCost ?? true,
-    };
-
-    const cutList = generateCutList({
-      artworkWidthCm: order.artworkWidthCm,
-      artworkHeightCm: order.artworkHeightCm,
-      matWidthCm: matW,
-      frameWidthCm: frameW,
-      middleMatWidthCm: middleMatW,
-      outerFrameWidthCm: outerFrameW,
-      innerFrameCode: order.innerFrameTitle,
-      outerFrameCode: order.outerFrameTitle,
-      innerMatColor: order.innerMatColor || order.simulatorConfig?.innerMatColor || "#FAF9F5",
-      outerMatColor: order.outerMatColor || order.simulatorConfig?.outerMatColor || "#FAF9F5",
-      flags,
-      orderNumber: order.orderNumber
-    });
-
-    triggerCuttingListPrintWindow({
-      cutList,
-      customerName: order.customerName,
-      deliveryDate: order.deliveryDate || "Normal Teslim",
-      artworkWidthCm: order.artworkWidthCm,
-      artworkHeightCm: order.artworkHeightCm,
-      companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined
-    });
-
-    setCopiedNotice(`${order.orderNumber} Üretim Emri & Kesim Listesi açıldı.`);
-    setTimeout(() => setCopiedNotice(null), 3000);
-  };
-
-  // 3. 4x4 cm Tablo Arka Etiketi Yazdır
-  const handlePrintBackLabel = async (order: OrderArchiveItem) => {
-    const matW = order.matWidthCm ?? order.simulatorConfig?.matWidthCm ?? (order.matInfo && order.matInfo !== "Paspartusuz" ? 5 : 0);
-    const frameW = order.frameWidthCm ?? order.simulatorConfig?.frameWidthCm ?? 4;
-    const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm ?? 0;
-    const outerFrameW = order.outerFrameWidthCm ?? order.simulatorConfig?.outerFrameWidthCm ?? 0;
-    const totalW = order.artworkWidthCm + 2 * (frameW + matW + middleMatW + outerFrameW);
-    const totalH = order.artworkHeightCm + 2 * (frameW + matW + middleMatW + outerFrameW);
-
-    let qrDataUrl = "";
-    try {
-      const qrText = `SİPARİŞ NO: ${order.orderNumber}
-MÜŞTERİ: ${order.customerName}
-ESER: ${order.artworkWidthCm}x${order.artworkHeightCm} cm
-DIŞ EBAT: ${totalW.toFixed(1)}x${totalH.toFixed(1)} cm
-TARİH: ${order.createdAt}
-ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
-
-      qrDataUrl = await QRCode.toDataURL(qrText, {
-        width: 180,
-        margin: 1,
-        color: { dark: '#000000', light: '#ffffff' }
-      });
-    } catch (e) {
-      console.warn("QR creation error:", e);
-    }
-
-    triggerBackLabelPrintWindow({
-      orderNumber: order.orderNumber,
-      customerName: order.customerName,
-      artworkWidthCm: order.artworkWidthCm,
-      artworkHeightCm: order.artworkHeightCm,
-      finalOuterWidthCm: Math.round(totalW * 10) / 10,
-      finalOuterHeightCm: Math.round(totalH * 10) / 10,
-      frameProfileName: order.innerFrameTitle,
-      createdAt: order.createdAt,
-      companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
-      qrDataUrl
-    });
-
-    setCopiedNotice(`${order.orderNumber} 4x4 cm Tablo Arka Etiketi açıldı.`);
-    setTimeout(() => setCopiedNotice(null), 3000);
-  };
-
-  // 4. Maliyet Tablosu Yazdır
-  const handlePrintCostBreakdown = (order: OrderArchiveItem) => {
-    const matW = order.matWidthCm ?? order.simulatorConfig?.matWidthCm ?? (order.matInfo && order.matInfo !== "Paspartusuz" ? 5 : 0);
-    const frameW = order.frameWidthCm ?? order.simulatorConfig?.frameWidthCm ?? 4;
-    const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm ?? 0;
-    const outerFrameW = order.outerFrameWidthCm ?? order.simulatorConfig?.outerFrameWidthCm ?? 0;
-
-    const rawFlags = order.inclusionFlags || order.simulatorConfig?.inclusionFlags || (order.simulatorConfig as any)?.flags || {};
-    const flags = {
-      includeArtworkPrint: rawFlags.includeArtworkPrint ?? Boolean(order.customPaintingFile && order.customPaintingFile !== "Özel Sanat Eseri Baskısı Yok" && order.artworkWidthCm > 0),
-      includeInnerMat: rawFlags.includeInnerMat ?? Boolean(matW > 0 || (order.matInfo && order.matInfo !== "Paspartusuz")),
-      includeInnerFrame: rawFlags.includeInnerFrame ?? Boolean(frameW > 0 && order.innerFrameTitle !== "Yok" && order.innerFrameTitle !== "Çerçeve Seçilmedi"),
-      includeMiddleMat: rawFlags.includeMiddleMat ?? Boolean(middleMatW > 0),
-      includeOuterFrame: rawFlags.includeOuterFrame ?? Boolean(outerFrameW > 0 && order.outerFrameTitle && order.outerFrameTitle !== "Yok" && order.outerFrameTitle !== "Çerçeve Seçilmedi"),
-      includeGlass: rawFlags.includeGlass ?? true,
-      includeBackingBoard: rawFlags.includeBackingBoard ?? true,
-      includeBackingCloth: rawFlags.includeBackingCloth ?? true,
-      includeKraftTape: rawFlags.includeKraftTape ?? true,
-      includeLaborCost: rawFlags.includeLaborCost ?? true,
-    };
-
-    const breakdown = calculateCostsAndPricing({
-      artworkWidthCm: order.artworkWidthCm,
-      artworkHeightCm: order.artworkHeightCm,
-      matWidthCm: matW,
-      frameWidthCm: frameW,
-      middleMatWidthCm: middleMatW,
-      outerFrameWidthCm: outerFrameW,
-      deliveryMethod: order.deliveryMethod,
-      customShippingCost: order.deliveryMethod === "shipping" ? 150 : 0,
-      customOverridePrice: order.totalAmount,
-      flags,
-      settings: DEFAULT_UNIT_PRICES
-    });
-
-    triggerCostBreakdownPrintWindow({
-      breakdown,
-      settings: DEFAULT_UNIT_PRICES,
-      artworkWidthCm: order.artworkWidthCm,
-      artworkHeightCm: order.artworkHeightCm,
-      orderNumber: order.orderNumber,
-      customerName: order.customerName,
-      deliveryDate: order.deliveryDate || "Normal Teslim",
-      flags,
-      companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined
-    });
-
-    setCopiedNotice(`${order.orderNumber} Maliyet Analiz Tablosu açıldı.`);
-    setTimeout(() => setCopiedNotice(null), 3000);
   };
 
   return (
@@ -435,42 +267,27 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                       </div>
                     </div>
 
-                    {/* Alt İşlem Butonları (Mobilde Parmak Dostu 4'lü Bar) */}
-                    <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-white/10 dark:border-white/10 border-slate-100">
-                      {/* 1. YAZDIR */}
-                      <button
-                        type="button"
-                        onClick={() => setSelectedOrderForPrint(order)}
-                        className={`col-span-2 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer border ${
-                          isDarkMode 
-                            ? "bg-[#C5A059] text-black border-[#d4ae61] hover:bg-[#b8944c]" 
-                            : "bg-[#B88E3A] text-white border-[#a88031] hover:bg-[#a17a2b]"
-                        }`}
-                        title="Yazdır"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        <span>YAZDIR</span>
-                      </button>
-
-                      {/* 2. SİMÜLATÖRE AKTAR */}
+                    {/* Alt İşlem Butonları (Mobilde: Simülatöre Ekle & Sil) */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-white/10 dark:border-white/10 border-slate-100">
+                      {/* SİMÜLATÖRE EKLE */}
                       <button
                         type="button"
                         onClick={() => {
                           onLoadOrderToWorkspace(order);
                           onClose();
                         }}
-                        title="Simülatöre Aktar"
-                        className={`flex items-center justify-center gap-1 py-2 px-2 rounded-xl border text-[11px] font-bold transition-all active:scale-95 cursor-pointer ${
+                        title="Bu Siparişi Simülatöre Ekle & Düzenle"
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer border ${
                           isDarkMode 
-                            ? "bg-blue-500/15 border-blue-500/30 text-blue-400 hover:bg-blue-500/25" 
-                            : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                            ? "bg-[#C5A059] text-black border-[#d4ae61] hover:bg-[#b8944c]" 
+                            : "bg-[#B88E3A] text-white border-[#a88031] hover:bg-[#a17a2b]"
                         }`}
                       >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>Yükle</span>
+                        <RotateCcw className="w-4 h-4 shrink-0" />
+                        <span>Simülatöre Ekle</span>
                       </button>
 
-                      {/* 3. SİL */}
+                      {/* SİL */}
                       <button
                         type="button"
                         onClick={() => {
@@ -478,10 +295,10 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                             onDeleteOrder(order.id);
                           }
                         }}
-                        title="Sil"
-                        className="flex items-center justify-center py-2 px-2 rounded-xl border border-rose-500/30 text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 transition-colors cursor-pointer active:scale-95"
+                        title="Siparişi Sil"
+                        className="flex items-center justify-center py-2.5 px-3.5 rounded-xl border border-rose-500/30 text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 transition-colors cursor-pointer active:scale-95"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -578,12 +395,12 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                             onChange={(e) => onUpdateStatus(order.id, e.target.value as OrderStatus)}
                             className={`text-[10px] font-bold uppercase font-mono px-2 py-1 rounded border cursor-pointer focus:outline-none transition-colors ${
                               order.status === "approved"
-                                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
                                 : order.status === "production"
-                                ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                                ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
                                 : order.status === "delivered"
-                                ? "bg-purple-500/15 text-purple-400 border-purple-500/30"
-                                : "bg-blue-500/15 text-blue-400 border-blue-500/30"
+                                ? "bg-purple-500/20 text-purple-400 border-purple-500/40"
+                                : "bg-blue-500/20 text-blue-400 border-blue-500/40"
                             }`}
                             title="Sipariş durumunu değiştirmek için seçiniz"
                           >
@@ -599,55 +416,26 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
 
                       {/* Islemler */}
                       <td className="py-3.5 px-4 align-top text-right">
-                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                          {/* YAZDIR BUTONU (Öne Çıkan) */}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedOrderForPrint(order)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-extrabold text-[11px] uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer border ${
-                              isDarkMode 
-                                ? "bg-[#C5A059] text-black border-[#d4ae61] hover:bg-[#b8944c]" 
-                                : "bg-[#B88E3A] text-white border-[#a88031] hover:bg-[#a17a2b]"
-                            }`}
-                            title="Bu Siparişin Belgelerini Yazdır (Sipariş Formu, Üretim Emri, 4x4 Etiket, Maliyet)"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                            <span>YAZDIR</span>
-                          </button>
-
-                          {/* Quick 4x4 cm Label Button */}
-                          <button
-                            type="button"
-                            onClick={() => handlePrintBackLabel(order)}
-                            title="Hızlı 4x4 cm Tablo Arka Etiketi Yazdır"
-                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                              isDarkMode 
-                                ? "bg-white/5 border-white/10 hover:border-[#C5A059] text-[#C5A059] hover:bg-[#C5A059]/10" 
-                                : "bg-slate-100 border-slate-200 hover:border-[#B88E3A] text-[#B88E3A] hover:bg-amber-50"
-                            }`}
-                          >
-                            <Tag className="w-3.5 h-3.5" />
-                          </button>
-
-                          {/* Simulatore Yukle */}
+                        <div className="flex items-center justify-end gap-2">
+                          {/* SİMÜLATÖRE EKLE */}
                           <button
                             type="button"
                             onClick={() => {
                               onLoadOrderToWorkspace(order);
                               onClose();
                             }}
-                            title="Bu Siparişi Simülatöre Aktar & Düzenle"
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold tracking-tight transition-all active:scale-95 cursor-pointer ${
+                            title="Bu Siparişi Simülatöre Ekle & Düzenle"
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer border ${
                               isDarkMode 
-                                ? "bg-blue-500/15 border-blue-500/30 text-blue-400 hover:bg-blue-500/25 hover:border-blue-400" 
-                                : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 hover:border-blue-300"
+                                ? "bg-[#C5A059] text-black border-[#d4ae61] hover:bg-[#b8944c]" 
+                                : "bg-[#B88E3A] text-white border-[#a88031] hover:bg-[#a17a2b]"
                             }`}
                           >
                             <RotateCcw className="w-3.5 h-3.5 shrink-0" />
-                            <span>Simülatöre Aktar</span>
+                            <span>Simülatöre Ekle</span>
                           </button>
 
-                          {/* Sil */}
+                          {/* SİL */}
                           <button
                             type="button"
                             onClick={() => {
@@ -688,212 +476,6 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
           </button>
         </div>
       </div>
-
-      {/* ARŞİV SİPARİŞ YAZDIRMA POPUP'I (4 BELGE SEÇENEĞİ) */}
-      {selectedOrderForPrint && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className={`relative w-full max-w-2xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${
-            isDarkMode ? "bg-[#14171d] border-[#C5A059]/40 text-white" : "bg-white border-slate-200 text-slate-900"
-          }`}>
-            {/* Sub-Modal Header */}
-            <div className={`p-5 border-b flex items-center justify-between shrink-0 ${
-              isDarkMode ? "bg-[#101217] border-white/10" : "bg-slate-50 border-slate-200"
-            }`}>
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${
-                  isDarkMode ? "bg-[#C5A059]/20 text-[#C5A059]" : "bg-[#B88E3A]/20 text-[#B88E3A]"
-                }`}>
-                  <Printer className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wide flex items-center gap-2">
-                    <span>YAZDIRMA SEÇENEKLERİ</span>
-                    <span className="text-[#C5A059] font-mono">#{selectedOrderForPrint.orderNumber}</span>
-                  </h3>
-                  <p className={`text-xs ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                    Müşteri: {selectedOrderForPrint.customerName} • Ebat: {selectedOrderForPrint.artworkWidthCm}×{selectedOrderForPrint.artworkHeightCm} cm
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setSelectedOrderForPrint(null)}
-                className={`p-1.5 rounded-xl transition-colors cursor-pointer ${
-                  isDarkMode ? "hover:bg-white/10 text-neutral-400 hover:text-white" : "hover:bg-slate-200 text-slate-600"
-                }`}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* 4 Document Options List */}
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-3">
-              
-              {/* 1. Siparis Formu */}
-              <div className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 ${
-                isDarkMode ? "bg-[#181b22] border-white/10 hover:border-blue-500/50" : "bg-slate-50 border-slate-200 hover:border-blue-500/50"
-              }`}>
-                <div className="flex items-start gap-3">
-                  <div className="p-2 sm:p-2.5 rounded-xl bg-blue-500/10 text-blue-400 shrink-0 mt-0.5">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-blue-400">1. Sipariş Formu (A4 PDF)</h4>
-                    <p className={`text-[11px] mt-0.5 leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                      Müşteri onay formu, firma logosu, teslim tarihi, milimetrik ölçü listesi, QR kodu ve imza alanı.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (selectedOrderForPrint) {
-                      handlePrintOrderForm(selectedOrderForPrint);
-                    }
-                  }}
-                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-white font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 transition-all bg-blue-600 hover:bg-blue-500"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Yazdır</span>
-                </button>
-              </div>
-
-              {/* Hızlı Seçenek: Simülatörde Aç ve İncele */}
-              <div className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${
-                isDarkMode ? "bg-white/5 border-white/5" : "bg-amber-50/60 border-amber-200/50"
-              }`}>
-                <div className="flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4 text-[#C5A059]" />
-                  <span className={`text-xs ${isDarkMode ? "text-neutral-300" : "text-amber-950 font-medium"}`}>
-                    Siparişi ana simülatöre yükleyip sahnede canlı incelemek veya yazdırmak ister misiniz?
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onLoadOrderToWorkspace(selectedOrderForPrint);
-                    setSelectedOrderForPrint(null);
-                    onClose();
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-[#C5A059] hover:bg-[#b59049] text-black font-bold text-xs shrink-0 cursor-pointer transition-colors shadow-sm"
-                >
-                  Simülatöre Aktar
-                </button>
-              </div>
-
-              {/* 2. Uretim Emri & Kesim Listesi */}
-              <div className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 ${
-                isDarkMode ? "bg-[#181b22] border-white/10 hover:border-amber-500/50" : "bg-slate-50 border-slate-200 hover:border-amber-500/50"
-              }`}>
-                <div className="flex items-start gap-3">
-                  <div className="p-2 sm:p-2.5 rounded-xl bg-amber-500/10 text-amber-400 shrink-0 mt-0.5">
-                    <Scissors className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400">2. Üretim Emri & Kesim Listesi (A4)</h4>
-                    <p className={`text-[11px] mt-0.5 leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                      Atölye ve marangoz için milimetrik 45° gönye kesim ölçüleri, bini payları, arkalık, cam ve montaj sırası.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handlePrintCuttingList(selectedOrderForPrint);
-                  }}
-                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Yazdır</span>
-                </button>
-              </div>
-
-              {/* 3. Tablo Arka Etiketi (4x4 cm Barkod) */}
-              <div className={`p-3.5 sm:p-4 rounded-2xl border-2 transition-all flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 ${
-                isDarkMode ? "bg-[#181b22] border-[#C5A059]/40 hover:border-[#C5A059]" : "bg-amber-50/50 border-[#B88E3A]/40 hover:border-[#B88E3A]"
-              }`}>
-                <div className="flex items-start gap-3">
-                  <div className="p-2 sm:p-2.5 rounded-xl bg-[#C5A059]/20 text-[#C5A059] shrink-0 mt-0.5">
-                    <Tag className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#C5A059]">3. Tablo Arka Etiketi (4x4 cm)</h4>
-                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-[#C5A059] text-black">YENİ</span>
-                    </div>
-                    <p className={`text-[11px] mt-0.5 leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                      Çerçeve arkasına yapıştırmak için kurumsal etiket: Logo, müşteri adı, sipariş no ve Code39 barkod.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handlePrintBackLabel(selectedOrderForPrint);
-                  }}
-                  className={`w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
-                    isDarkMode ? "bg-[#C5A059] hover:bg-[#b8944c] text-black" : "bg-[#B88E3A] hover:bg-[#a17a2b] text-white"
-                  }`}
-                >
-                  <Tag className="w-3.5 h-3.5" />
-                  <span>Yazdır</span>
-                </button>
-              </div>
-
-              {/* 4. Maliyet Tablosu */}
-              <div className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 ${
-                isDarkMode ? "bg-[#181b22] border-white/10 hover:border-emerald-500/50" : "bg-slate-50 border-slate-200 hover:border-emerald-500/50"
-              }`}>
-                <div className="flex items-start gap-3">
-                  <div className="p-2 sm:p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0 mt-0.5">
-                    <Calculator className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400">4. Maliyet Tablosu & Analiz</h4>
-                    <p className={`text-[11px] mt-0.5 leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                      Hammadde, sarf malzemeler, işçilik, kâr marjı ve KDV finansal hesap dökümü.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handlePrintCostBreakdown(selectedOrderForPrint);
-                  }}
-                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-md shrink-0 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Yazdır</span>
-                </button>
-              </div>
-
-            </div>
-
-            {/* Sub-Modal Footer */}
-            <div className={`p-4 border-t flex justify-end shrink-0 ${
-              isDarkMode ? "bg-[#101217] border-white/10" : "bg-slate-50 border-slate-200"
-            }`}>
-              <button
-                type="button"
-                onClick={() => setSelectedOrderForPrint(null)}
-                className={`px-4 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
-                  isDarkMode ? "border-white/10 hover:bg-white/10 text-neutral-300" : "border-slate-300 hover:bg-slate-200 text-slate-700"
-                }`}
-              >
-                Vazgeç
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
