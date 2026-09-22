@@ -720,7 +720,7 @@ export function triggerImagePrintWindow(
                 <!-- 10. Dıştan Dışa Toplam Ölçü -->
                 <tr class="row-active">
                   <td><strong>10. Dıştan Dışa Toplam Ölçü</strong></td>
-                  <td colspan="2"><strong>${details.totalW.toFixed(1)} x ${details.totalH.toFixed(1)} cm</strong></td>
+                  <td colspan="2"><strong>${details.totalW.toFixed(2)} x ${details.totalH.toFixed(2)} cm</strong></td>
                   <td><span class="badge-active">TAM KESİM</span></td>
                 </tr>
 
@@ -934,7 +934,7 @@ export async function triggerBackLabelPrintWindow(details: BackLabelDetails) {
       const qrText = `SİPARİŞ NO: ${details.orderNumber}
 MÜŞTERİ: ${details.customerName || 'Belirtilmedi'}
 ESER: ${safeArtW}x${safeArtH} cm
-DIŞ EBAT: ${safeOuterW.toFixed(1)}x${safeOuterH.toFixed(1)} cm
+DIŞ EBAT: ${safeOuterW.toFixed(2)}x${safeOuterH.toFixed(2)} cm
 PROFİL: ${frameName}
 TARİH: ${displayDate}
 FİRMA: ${companyName}`;
@@ -952,34 +952,40 @@ FİRMA: ${companyName}`;
     }
   }
 
-  // 60x30 mm Tekli Termal Etiket HTML Tasarımı
+  // 60x30 mm Tekli Termal Etiket HTML Tasarımı (Sol: Logo + Karekod, Sağ: Sipariş No + Bilgi Kartı)
   const singleLabelHtml = `
     <div class="sticker-60x30">
       <div class="sticker-inner">
-        ${hasProLogo ? `
-          <div class="sticker-logo-bar">
-            <img src="${details.companyProfile?.logoUrl}" alt="Logo" class="sticker-logo" />
+        <!-- SOL KOLON: Üstte Logo + Altta Karekod -->
+        <div class="sticker-left-col">
+          <div class="sticker-logo-box">
+            ${hasProLogo ? `
+              <img src="${details.companyProfile?.logoUrl}" alt="Logo" class="sticker-logo" />
+            ` : `
+              <div class="sticker-logo-text">
+                <span class="logo-icon">❖</span>
+                <span class="logo-title">${companyName}</span>
+              </div>
+            `}
           </div>
-        ` : ''}
-
-        <!-- 1. Siyah Zeminli Sipariş No Rozeti -->
-        <div class="sticker-ord-badge">
-          <span class="ord-label">SİPARİŞ NO:</span>
-          <span class="ord-val">${details.orderNumber}</span>
-        </div>
-
-        <!-- 2. Karekod ve Yanında Bilgi Kartı -->
-        <div class="sticker-main-row">
-          <!-- Karekod (Sol Kolon) -->
-          <div class="qr-col">
+          <div class="sticker-qr-box">
             ${qrImgSrc ? `
               <img src="${qrImgSrc}" alt="QR Kod" class="sticker-qr" />
             ` : `
               <div class="qr-placeholder">QR</div>
             `}
           </div>
+        </div>
 
-          <!-- Bilgi Kartı (Sağ Kolon - Müşteri, Ölçüler, Eser, Tarih) -->
+        <!-- SAĞ KOLON: Üstte Sipariş No Çubuğu + Altta Müşteri, Ölçüler, Eser, Tarih -->
+        <div class="sticker-right-col">
+          <!-- Siyah Zeminli Sipariş No Rozeti (Bilgi Kartı Genişliğinde) -->
+          <div class="sticker-ord-badge">
+            <span class="ord-label">SİPARİŞ NO:</span>
+            <span class="ord-val">${details.orderNumber}</span>
+          </div>
+
+          <!-- Bilgi Kartı (Müşteri, Ölçüler, Eser, Tarih) -->
           <div class="info-col">
             <div class="info-row">
               <span class="info-lbl">Müşteri:</span>
@@ -987,7 +993,7 @@ FİRMA: ${companyName}`;
             </div>
             <div class="info-row">
               <span class="info-lbl">Ölçüler:</span>
-              <span class="info-val font-mono">Dış: ${safeOuterW.toFixed(1)}×${safeOuterH.toFixed(1)} cm</span>
+              <span class="info-val font-mono">Dış: ${safeOuterW.toFixed(2)}×${safeOuterH.toFixed(2)} cm</span>
             </div>
             <div class="info-row">
               <span class="info-lbl">Eser:</span>
@@ -1139,74 +1145,78 @@ FİRMA: ${companyName}`;
             width: 100%;
             height: 100%;
             display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            flex-direction: row;
+            gap: 1.8mm;
+            align-items: stretch;
             overflow: hidden;
           }
 
-          .sticker-logo-bar {
-            text-align: center;
-            margin-bottom: 0.5mm;
+          /* SOL KOLON: Logo (Üstte) + Karekod (Altta) */
+          .sticker-left-col {
+            width: 21mm;
+            min-width: 21mm;
+            max-width: 21mm;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            overflow: hidden;
+            flex-shrink: 0;
+          }
+
+          .sticker-logo-box {
+            width: 100%;
+            height: 6.2mm;
+            min-height: 6.2mm;
+            max-height: 6.2mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
           }
           .sticker-logo {
-            max-height: 3.5mm;
-            max-width: 35mm;
+            max-height: 6.2mm;
+            max-width: 21mm;
+            width: auto;
             object-fit: contain;
             display: block;
             margin: 0 auto;
           }
-
-          /* Siyah Zeminli Sipariş No Rozeti (Kullanıcının İstediği Tasarım) */
-          .sticker-ord-badge {
-            background: #000000;
-            color: #ffffff;
-            padding: 0.9mm 1.8mm;
-            border-radius: 1mm;
+          .sticker-logo-text {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            flex-shrink: 0;
+            justify-content: center;
+            gap: 1.2mm;
+            text-align: center;
+            line-height: 1.1;
           }
-          .ord-label {
+          .logo-icon {
+            font-size: 7.5pt;
+            color: #C5A059;
+          }
+          .logo-title {
             font-size: 6.2pt;
-            font-weight: 700;
-            color: #e4e4e7;
-            letter-spacing: 0.4px;
-          }
-          .ord-val {
-            font-size: 7.8pt;
             font-weight: 900;
-            letter-spacing: 0.6px;
-            color: #ffffff;
-            font-family: monospace, -apple-system, sans-serif;
+            color: #18181b;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
           }
 
-          /* Ana Gövde: Sol Karekod + Sağ Bilgi Kartı */
-          .sticker-main-row {
-            display: flex;
-            align-items: stretch;
-            gap: 1.5mm;
-            flex: 1;
-            margin-top: 1mm;
-            min-height: 0;
-            overflow: hidden;
-          }
-
-          /* Karekod Kolonu */
-          .qr-col {
+          .sticker-qr-box {
             width: 20.5mm;
+            height: 20.5mm;
             min-width: 20.5mm;
-            height: 100%;
+            min-height: 20.5mm;
             display: flex;
             align-items: center;
             justify-content: center;
             background: #ffffff;
-            flex-shrink: 0;
+            overflow: hidden;
           }
           .sticker-qr {
             width: 100%;
             height: 100%;
-            max-height: 20.5mm;
             object-fit: contain;
             display: block;
             image-rendering: -webkit-optimize-contrast;
@@ -1224,14 +1234,56 @@ FİRMA: ${companyName}`;
             border: 1px solid #000;
           }
 
+          /* SAĞ KOLON: Sipariş No Çubuğu (Üstte) + Bilgi Kartı (Altta) */
+          .sticker-right-col {
+            flex: 1;
+            height: 100%;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+          }
+
+          /* Siyah Zeminli Sipariş No Rozeti (Sağ Bilgi Kartı Genişliğinde) */
+          .sticker-ord-badge {
+            width: 100%;
+            height: 6.2mm;
+            min-height: 6.2mm;
+            max-height: 6.2mm;
+            background: #000000;
+            color: #ffffff;
+            padding: 0 1.6mm;
+            border-radius: 1mm;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            margin-bottom: 0.8mm;
+          }
+          .ord-label {
+            font-size: 5.8pt;
+            font-weight: 700;
+            color: #d4d4d8;
+            letter-spacing: 0.3px;
+          }
+          .ord-val {
+            font-size: 7.5pt;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+            font-family: monospace, -apple-system, sans-serif;
+          }
+
           /* Bilgi Kartı Kolonu */
           .info-col {
+            width: 100%;
             flex: 1;
             min-width: 0;
             background: #f4f4f5;
             border: 0.5px solid #d4d4d8;
-            border-radius: 1mm;
-            padding: 0.8mm 1.4mm;
+            border-radius: 1.2mm;
+            padding: 0.6mm 1.4mm;
             display: flex;
             flex-direction: column;
             justify-content: space-evenly;

@@ -2244,7 +2244,7 @@ Paspartu: ${matWidth > 0 ? `${matWidth} cm` : 'Yok'}
 Ara Paspartu (3D): ${middleMatWidth > 0 ? `${middleMatWidth} cm` : 'Yok'}
 Ic Cerceve: ${frameWidth} cm (Profil: ${customFrameFile})
 Dis Cerceve: ${outerFrameWidth > 0 ? `${outerFrameWidth} cm (Profil: ${customOuterFrameFile})` : 'Yok'}
-Toplam Olcu: ${totalW.toFixed(1)}x${totalH.toFixed(1)} cm
+Toplam Olcu: ${totalW.toFixed(2)}x${totalH.toFixed(2)} cm
 Fiyat: TL ${costBreakdown.effectiveFinalPriceWithVat.toLocaleString('tr-TR')}
 Durum: Onaylandi / Uretime Hazir`;
 
@@ -2672,7 +2672,7 @@ Durum: Onaylandi / Uretime Hazir`;
       const qrText = `SİPARİŞ NO: ${orderNumber}
 MÜŞTERİ: ${customerName || 'Belirtilmedi'}
 ESER: ${artworkWidth}x${artworkHeight} cm
-DIŞ EBAT: ${totalW.toFixed(1)}x${totalH.toFixed(1)} cm
+DIŞ EBAT: ${totalW.toFixed(2)}x${totalH.toFixed(2)} cm
 TARİH: ${new Date().toLocaleDateString('tr-TR')}
 ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
 
@@ -3628,7 +3628,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               <div className={`text-[11px] font-mono px-2 py-0.5 rounded-md border ${
                 isDarkMode ? "bg-white/5 border-white/10 text-[#C5A059]" : "bg-slate-100 border-slate-200 text-[#8F6A1E]"
               }`}>
-                Dış Çerçeve: {Math.round(totalW)}×{Math.round(totalH)} cm
+                Dış Çerçeve: {totalW.toFixed(2)}×{totalH.toFixed(2)} cm
               </div>
 
               {/* Aktif Sipariş / Teklif Bilgileri Rozeti */}

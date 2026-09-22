@@ -381,7 +381,7 @@ export const CustomerWallPreviewModal: React.FC<CustomerWallPreviewModalProps> =
 
     let message = `Sayın ${name},\n\n${atelierName} olarak siparişinize özel hazırladığımız tablonun salonunuzdaki 3D yerleşim simülasyonu:\n\n` +
       `📐 Eser Ölçüsü: ${artW} × ${artH} cm\n` +
-      `🖼️ Çerçeveli Dış Ölçü: ~${totalW.toFixed(1)} × ${totalH.toFixed(1)} cm\n` +
+      `🖼️ Çerçeveli Dış Ölçü: ~${totalW.toFixed(2)} × ${totalH.toFixed(2)} cm\n` +
       `🎨 Çerçeve Profili: ${profileLabel}\n`;
 
     if (props.outerProfileName) {
@@ -697,7 +697,7 @@ export const CustomerWallPreviewModal: React.FC<CustomerWallPreviewModalProps> =
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-neutral-400">Dış Ebat:</span>
-              <span className="font-mono text-neutral-200">~{totalW.toFixed(1)} × {totalH.toFixed(1)} cm</span>
+              <span className="font-mono text-neutral-200">~{totalW.toFixed(2)} × {totalH.toFixed(2)} cm</span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-neutral-400">Çerçeve:</span>
