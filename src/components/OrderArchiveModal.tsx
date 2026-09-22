@@ -40,13 +40,56 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [copiedNotice, setCopiedNotice] = useState<string | null>(null);
 
+  const resolveOrderFlags = (order: OrderArchiveItem) => {
+    const flags = order.inclusionFlags || order.simulatorConfig?.flags || order.simulatorConfig?.inclusionFlags;
+    if (flags) {
+      return {
+        includeArtworkPrint: Boolean(flags.includeArtworkPrint),
+        includeInnerMat: Boolean(flags.includeInnerMat),
+        includeInnerFrame: flags.includeInnerFrame !== false,
+        includeMiddleMat: Boolean(flags.includeMiddleMat),
+        includeOuterFrame: Boolean(flags.includeOuterFrame),
+        includeGlass: flags.includeGlass !== false,
+        includeBackingBoard: flags.includeBackingBoard !== false,
+        includeBackingCloth: Boolean(flags.includeBackingCloth),
+        includeKraftTape: flags.includeKraftTape !== false,
+      };
+    }
+    const hasMat = Boolean((order.matWidthCm && order.matWidthCm > 0) || (order.matInfo && !order.matInfo.toLowerCase().includes("paspartusuz")));
+    const hasOuter = Boolean((order.outerFrameWidthCm && order.outerFrameWidthCm > 0) || (order.outerFrameTitle && order.outerFrameTitle !== "Yok"));
+    const hasMiddleMat = Boolean(order.middleMatWidthCm && order.middleMatWidthCm > 0);
+    return {
+      includeArtworkPrint: false,
+      includeInnerMat: hasMat,
+      includeInnerFrame: true,
+      includeMiddleMat: hasMiddleMat,
+      includeOuterFrame: hasOuter,
+      includeGlass: true,
+      includeBackingBoard: true,
+      includeBackingCloth: false,
+      includeKraftTape: true,
+    };
+  };
+
   if (!isOpen) return null;
 
   const filteredOrders = orders.filter((order) => {
+    const flags = resolveOrderFlags(order);
+    const flagsTerms = [
+      flags.includeArtworkPrint ? "baskı tuval kanvas print" : "müşteri eseri",
+      flags.includeGlass ? "cam pleksi" : "camsız",
+      flags.includeBackingBoard ? "mdf arkalık" : "",
+      flags.includeBackingCloth ? "kapama bezi" : "",
+      flags.includeKraftTape ? "kraft bant" : "",
+      order.matInfo || "",
+      order.outerFrameTitle || ""
+    ].join(" ").toLowerCase();
+
     const matchesSearch = 
       order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (order.innerFrameTitle && order.innerFrameTitle.toLowerCase().includes(searchQuery.toLowerCase()));
+      (order.innerFrameTitle && order.innerFrameTitle.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      flagsTerms.includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
@@ -255,16 +298,105 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                         <span className="font-mono">{order.deliveryMethod === "shipping" ? "🚚 Kargo Dahil" : "🏪 Atölye Teslim"}</span>
                       </div>
 
-                      <div className="bg-white/5 dark:bg-white/5 p-2 rounded-xl flex items-center justify-between text-[11px]">
-                        <div className="truncate pr-2">
-                          <span className="font-mono font-semibold text-[#C5A059]">{order.artworkWidthCm}×{order.artworkHeightCm} cm</span>
-                          <span className="text-neutral-400 mx-1">•</span>
-                          <span className="text-neutral-300">{order.innerFrameTitle || "Çerçeve Belirtilmedi"}</span>
-                        </div>
-                        <div className="text-[10px] text-neutral-500 shrink-0 font-mono">
-                          {order.createdAt?.split(" ")[0] || ""}
-                        </div>
-                      </div>
+                      {/* Sipariş Detay & Tüm Bileşenler (Mobil) */}
+                      {(() => {
+                        const flags = resolveOrderFlags(order);
+                        const hasOuter = Boolean(flags.includeOuterFrame && order.outerFrameTitle && order.outerFrameTitle !== "Yok");
+                        const hasMat = Boolean(flags.includeInnerMat && order.matInfo && !order.matInfo.toLowerCase().includes("paspartusuz"));
+                        const hasMiddleMat = Boolean(flags.includeMiddleMat && order.middleMatWidthCm && order.middleMatWidthCm > 0);
+
+                        return (
+                          <div className="bg-white/5 dark:bg-white/5 p-2.5 rounded-xl space-y-1.5 text-[11px]">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-xs text-[#C5A059]">
+                                  {order.artworkWidthCm} × {order.artworkHeightCm} cm
+                                </span>
+                                {order.frameWidthCm ? (
+                                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-white/5 text-neutral-400 border border-white/5">
+                                    En: {order.frameWidthCm}cm
+                                  </span>
+                                ) : null}
+                              </div>
+                              <span className="text-[10px] text-neutral-500 font-mono">
+                                {order.createdAt?.split(" ")[0] || ""}
+                              </span>
+                            </div>
+
+                            <div className="text-neutral-200 font-medium truncate flex items-baseline gap-1">
+                              <span className="text-[#C5A059] font-bold text-[10px] uppercase">Profil:</span>
+                              <span className="truncate">{order.innerFrameTitle || "Standart Çerçeve"}</span>
+                            </div>
+
+                            {hasOuter && (
+                              <div className="text-amber-400/90 text-[10px] truncate flex items-baseline gap-1">
+                                <span className="font-bold text-[9px] uppercase">Dış:</span>
+                                <span className="truncate">{order.outerFrameTitle}</span>
+                                {order.outerFrameWidthCm ? <span>({order.outerFrameWidthCm} cm)</span> : null}
+                              </div>
+                            )}
+
+                            <div className="text-neutral-400 text-[10px] flex items-baseline gap-1">
+                              <span className="text-neutral-500">Paspartu:</span>
+                              {hasMat ? (
+                                <span className="text-neutral-300">
+                                  {order.matInfo}
+                                  {hasMiddleMat ? ` (+Ara: ${order.middleMatWidthCm} cm)` : ""}
+                                </span>
+                              ) : (
+                                <span className="text-neutral-500 italic">Paspartusuz</span>
+                              )}
+                            </div>
+
+                            {/* Bileşen Rozetleri */}
+                            <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-white/5">
+                              {flags.includeArtworkPrint ? (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                                  🎨 Tuval Baskı
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-white/5 text-neutral-400 border border-white/5">
+                                  Müşteri Eseri
+                                </span>
+                              )}
+
+                              {flags.includeGlass ? (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                                  🪟 Cam
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-neutral-800 text-neutral-400 border border-neutral-700/50">
+                                  Camsız
+                                </span>
+                              )}
+
+                              {flags.includeBackingBoard && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  MDF
+                                </span>
+                              )}
+
+                              {flags.includeBackingCloth && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                  Kapama Bezi
+                                </span>
+                              )}
+
+                              {flags.includeKraftTape && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-stone-500/15 text-stone-300 border border-stone-500/30">
+                                  Kraft
+                                </span>
+                              )}
+
+                              {order.customOverridePrice != null && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                                  Özel Fiyat
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Alt İşlem Butonları (Mobilde: Simülatöre Ekle & Sil) */}
@@ -317,7 +449,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                   }`}>
                     <th className="py-3 px-4">Tarih &amp; No</th>
                     <th className="py-3 px-4">Müşteri Bilgisi</th>
-                    <th className="py-3 px-4">Eser Ölçüsü &amp; Profil</th>
+                    <th className="py-3 px-4">Sipariş Detayı</th>
                     <th className="py-3 px-4 text-right">Toplam Tutar</th>
                     <th className="py-3 px-4 text-center">Durum</th>
                     <th className="py-3 px-4 text-right">İşlemler</th>
@@ -362,19 +494,150 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                         )}
                       </td>
 
-                      {/* Olcu & Profil */}
-                      <td className="py-3.5 px-4 align-top">
-                        <div className="font-bold font-mono">
-                          {order.artworkWidthCm} × {order.artworkHeightCm} cm
-                        </div>
-                        <div className="text-[11px] text-neutral-400 truncate max-w-xs mt-0.5">
-                          {order.innerFrameTitle}
-                        </div>
-                        {order.matInfo && (
-                          <div className="text-[10px] text-neutral-500">
-                            {order.matInfo}
-                          </div>
-                        )}
+                      {/* Siparis Detay (Eser Ölçüsü, Profil ve Dahil Olan Tüm Bileşenler) */}
+                      <td className="py-3.5 px-4 align-top min-w-[260px]">
+                        {(() => {
+                          const flags = resolveOrderFlags(order);
+                          const hasOuter = Boolean(
+                            flags.includeOuterFrame && 
+                            order.outerFrameTitle && 
+                            order.outerFrameTitle !== "Yok" && 
+                            order.outerFrameTitle !== "Seçilmedi"
+                          );
+                          const hasMat = Boolean(
+                            flags.includeInnerMat && 
+                            order.matInfo && 
+                            !order.matInfo.toLowerCase().includes("paspartusuz")
+                          );
+                          const hasMiddleMat = Boolean(
+                            flags.includeMiddleMat && 
+                            order.middleMatWidthCm && 
+                            order.middleMatWidthCm > 0
+                          );
+
+                          return (
+                            <div className="space-y-1.5">
+                              {/* 1. Eser Ölçüsü */}
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold font-mono text-sm text-neutral-100 dark:text-neutral-100 text-slate-900">
+                                  {order.artworkWidthCm} × {order.artworkHeightCm} cm
+                                </span>
+                                {order.frameWidthCm ? (
+                                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-white/5 border border-white/10 text-neutral-400">
+                                    En: {order.frameWidthCm} cm
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              {/* 2. Profil / Çerçeve */}
+                              <div className="text-[11px] leading-tight text-neutral-300">
+                                <div className="flex items-baseline gap-1 truncate max-w-sm">
+                                  <span className="text-[#C5A059] font-bold text-[10px] uppercase tracking-wider shrink-0">Profil:</span>
+                                  <span className="font-medium truncate text-neutral-200" title={order.innerFrameTitle}>
+                                    {order.innerFrameTitle || "Standart Çerçeve"}
+                                  </span>
+                                </div>
+                                {hasOuter && (
+                                  <div className="flex items-baseline gap-1 text-[10px] text-amber-400/90 mt-0.5 truncate max-w-sm">
+                                    <span className="font-bold text-[9px] uppercase tracking-wider shrink-0">Dış Çerçeve:</span>
+                                    <span className="truncate">{order.outerFrameTitle}</span>
+                                    {order.outerFrameWidthCm ? <span>({order.outerFrameWidthCm} cm)</span> : null}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* 3. Paspartu */}
+                              <div className="text-[10px] text-neutral-400 flex items-center gap-1.5 flex-wrap">
+                                <span className="text-neutral-500 font-semibold">Paspartu:</span>
+                                {hasMat ? (
+                                  <span className="text-amber-200/90 font-medium">
+                                    {order.matInfo}
+                                    {hasMiddleMat ? ` + Ara: ${order.middleMatWidthCm} cm` : ""}
+                                  </span>
+                                ) : (
+                                  <span className="text-neutral-500 italic">Paspartusuz</span>
+                                )}
+                              </div>
+
+                              {/* 4. Siparişe Eklenmiş Tüm Bileşenler (Farkları Gösteren Rozetler) */}
+                              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                {/* Baskı / Eser */}
+                                {flags.includeArtworkPrint ? (
+                                  <span 
+                                    title="Kanvas / Tuval Baskı Atölyede Yapılacak"
+                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase font-mono bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1"
+                                  >
+                                    <span>🎨</span> Baskı Dahil
+                                  </span>
+                                ) : (
+                                  <span 
+                                    title="Müşteri Kendi Eserini Getirecek / Baskısız"
+                                    className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-white/5 text-neutral-400 border border-white/5"
+                                  >
+                                    Müşteri Eseri
+                                  </span>
+                                )}
+
+                                {/* Cam Durumu */}
+                                {flags.includeGlass ? (
+                                  <span 
+                                    title="Cam / Pleksi Dahil"
+                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase font-mono bg-sky-500/15 text-sky-300 border border-sky-500/30 flex items-center gap-1"
+                                  >
+                                    <span>🪟</span> Cam Dahil
+                                  </span>
+                                ) : (
+                                  <span 
+                                    title="Camsız Üretim"
+                                    className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-neutral-800 text-neutral-400 border border-neutral-700/50"
+                                  >
+                                    Camsız
+                                  </span>
+                                )}
+
+                                {/* MDF / Arkalık */}
+                                {flags.includeBackingBoard && (
+                                  <span 
+                                    title="MDF Arkalık Dahil"
+                                    className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                  >
+                                    MDF Arkalık
+                                  </span>
+                                )}
+
+                                {/* Kapama Bezi */}
+                                {flags.includeBackingCloth && (
+                                  <span 
+                                    title="Arka Kapama Bezi Uygulanacak"
+                                    className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                                  >
+                                    Kapama Bezi
+                                  </span>
+                                )}
+
+                                {/* Kraft İzolasyon Bandı */}
+                                {flags.includeKraftTape && (
+                                  <span 
+                                    title="Arka Kraft İzolasyon Bandı"
+                                    className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-stone-500/15 text-stone-300 border border-stone-500/30"
+                                  >
+                                    Kraft Bant
+                                  </span>
+                                )}
+
+                                {/* Manuel İskonto / Özel Fiyat */}
+                                {order.customOverridePrice != null && (
+                                  <span 
+                                    title="Bu siparişte manuel özel fiyat uygulandı"
+                                    className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase font-mono bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                                  >
+                                    Özel Fiyat
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Tutar */}
