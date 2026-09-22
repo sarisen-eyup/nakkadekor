@@ -36,6 +36,9 @@ interface OrderStepProps {
   setDeliveryDate: (val: string) => void;
   deliveryDateError: boolean;
   setDeliveryDateError: (err: boolean) => void;
+  deliveryDateErrorMessage?: string | null;
+  setDeliveryDateErrorMessage?: (msg: string | null) => void;
+  loadedOrderOriginalDeliveryDate?: string | null;
   formatTrPhone: (val: string) => string;
   isDarkMode: boolean;
   orderNumber: string;
@@ -74,6 +77,9 @@ export const OrderStep: React.FC<OrderStepProps> = ({
   setDeliveryDate,
   deliveryDateError,
   setDeliveryDateError,
+  deliveryDateErrorMessage,
+  setDeliveryDateErrorMessage,
+  loadedOrderOriginalDeliveryDate,
   formatTrPhone,
   isDarkMode,
   orderNumber,
@@ -92,6 +98,26 @@ export const OrderStep: React.FC<OrderStepProps> = ({
   onPrevStep,
   isExistingOrder = false,
 }) => {
+  const getTodayIso = () => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  };
+
+  const normalizeDate = (d?: string | null) => {
+    if (!d) return "";
+    const trimmed = d.trim();
+    if (trimmed.includes('.')) {
+      const parts = trimmed.split('.');
+      if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    } else if (trimmed.includes('-')) {
+      const parts = trimmed.split('-');
+      if (parts.length === 3 && parts[0].length <= 2) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+    return trimmed;
+  };
+
+  const todayIso = getTodayIso();
+
   const handleCreateOrderClick = (asNewOrder: boolean = false) => {
     let hasError = false;
 
@@ -103,8 +129,29 @@ export const OrderStep: React.FC<OrderStepProps> = ({
       setCustomerPhoneError(true);
       hasError = true;
     }
+
+    const normDelivery = normalizeDate(deliveryDate);
+    const normOriginal = normalizeDate(loadedOrderOriginalDeliveryDate);
+
+    let dateIssue = false;
+    let dateIssueMsg = "";
+
     if (!deliveryDate || !deliveryDate.trim()) {
+      dateIssue = true;
+      dateIssueMsg = "Lütfen teslim tarihini belirleyiniz.";
+    } else if (normDelivery < todayIso) {
+      dateIssue = true;
+      dateIssueMsg = "Lütfen teslim tarihini güncelleyin.";
+    } else if (normOriginal && normDelivery === normOriginal) {
+      dateIssue = true;
+      dateIssueMsg = "Lütfen teslim tarihini güncelleyin.";
+    }
+
+    if (dateIssue) {
       setDeliveryDateError(true);
+      if (setDeliveryDateErrorMessage) {
+        setDeliveryDateErrorMessage(dateIssueMsg);
+      }
       hasError = true;
     }
 
@@ -113,7 +160,7 @@ export const OrderStep: React.FC<OrderStepProps> = ({
         document.getElementById("customer-name-input")?.focus();
       } else if (!customerPhone || !customerPhone.trim()) {
         document.getElementById("customer-phone-input")?.focus();
-      } else if (!deliveryDate || !deliveryDate.trim()) {
+      } else if (dateIssue) {
         document.getElementById("delivery-date-input")?.focus();
       }
       return;
@@ -372,7 +419,7 @@ export const OrderStep: React.FC<OrderStepProps> = ({
               </label>
               {deliveryDateError && (
                 <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider flex items-center gap-1 animate-pulse">
-                  <AlertCircle className="w-3 h-3" /> Zorunlu Alan
+                  <AlertCircle className="w-3 h-3" /> {deliveryDateErrorMessage || "Lütfen tarihi güncelleyin"}
                 </span>
               )}
             </div>
@@ -380,10 +427,17 @@ export const OrderStep: React.FC<OrderStepProps> = ({
               id="delivery-date-input"
               type="date"
               required
+              min={todayIso}
               value={deliveryDate}
               onChange={(e) => {
-                setDeliveryDate(e.target.value);
-                if (e.target.value.trim()) setDeliveryDateError(false);
+                const val = e.target.value;
+                setDeliveryDate(val);
+                const normVal = normalizeDate(val);
+                const normOrig = normalizeDate(loadedOrderOriginalDeliveryDate);
+                if (normVal && normVal >= todayIso && (!normOrig || normVal !== normOrig)) {
+                  setDeliveryDateError(false);
+                  if (setDeliveryDateErrorMessage) setDeliveryDateErrorMessage(null);
+                }
               }}
               className={`w-full px-3 py-2 text-xs rounded-xl border transition-all cursor-pointer ${
                 deliveryDateError
@@ -391,13 +445,23 @@ export const OrderStep: React.FC<OrderStepProps> = ({
                   : (isDarkMode ? "bg-[#101216] border-white/10 text-white focus:border-[#C5A059] focus:outline-none [color-scheme:dark]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:outline-none [color-scheme:light]")
               }`}
             />
+            {deliveryDateError && (
+              <p className="mt-1 text-[11px] font-bold text-red-500 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{deliveryDateErrorMessage || "Lütfen teslim tarihini güncelleyin."}</span>
+              </p>
+            )}
           </div>
 
           {/* Zorunlu Alanlar Hata Bildirim Çubuğu */}
           {(customerNameError || customerPhoneError || deliveryDateError) && (
             <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-[11px] font-bold flex items-center gap-2 animate-pulse">
               <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>Siparişi oluşturabilmek için lütfen kırmızı ile belirtilen zorunlu alanları doldurunuz.</span>
+              <span>
+                {deliveryDateError && deliveryDateErrorMessage
+                  ? deliveryDateErrorMessage
+                  : "Siparişi oluşturabilmek için lütfen kırmızı ile belirtilen zorunlu alanları doldurunuz."}
+              </span>
             </div>
           )}
         </div>

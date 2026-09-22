@@ -341,6 +341,8 @@ function SimulatorMain() {
   const [customerNameError, setCustomerNameError] = useState<boolean>(false);
   const [customerPhoneError, setCustomerPhoneError] = useState<boolean>(false);
   const [deliveryDateError, setDeliveryDateError] = useState<boolean>(false);
+  const [deliveryDateErrorMessage, setDeliveryDateErrorMessage] = useState<string | null>(null);
+  const [loadedOrderOriginalDeliveryDate, setLoadedOrderOriginalDeliveryDate] = useState<string | null>(null);
 
   // Pricing, Database & Modal States
   const [unitPricesSettings, setUnitPricesSettings] = useState<UnitPricesSettings>(() => loadSettingsFromStorage());
@@ -1076,7 +1078,15 @@ function SimulatorMain() {
     // 2. Müşteri ve Teslimat Bilgilerini yükle
     if (order.customerName) setCustomerName(order.customerName);
     if (order.customerPhone) setCustomerPhone(order.customerPhone);
-    if (order.deliveryDate) setDeliveryDate(order.deliveryDate);
+    if (order.deliveryDate) {
+      setDeliveryDate(order.deliveryDate);
+      setLoadedOrderOriginalDeliveryDate(order.deliveryDate);
+    } else {
+      setDeliveryDate("");
+      setLoadedOrderOriginalDeliveryDate(null);
+    }
+    setDeliveryDateError(false);
+    setDeliveryDateErrorMessage(null);
     if (order.deliveryMethod) {
       setDeliveryMethod(order.deliveryMethod === "pickup" ? "store" : order.deliveryMethod);
     }
@@ -1296,6 +1306,9 @@ function SimulatorMain() {
     setOrderNumber(newNum);
     setActiveOrderId(null);
     setActiveOrderCreatedAt(null);
+    setLoadedOrderOriginalDeliveryDate(null);
+    setDeliveryDateErrorMessage(null);
+    setDeliveryDateError(false);
     clearWorkspaceDraft();
 
     // 9. Sekmeyi 1. Eser adımına getir
@@ -2435,25 +2448,64 @@ Durum: Onaylandi / Uretime Hazir`;
 
   // Simülatörden Doğrudan Sipariş Oluşturma (Görsel 3 & 4 Doğrulaması)
   const handleCreateOrderFromSimulator = async (options?: { asNewOrder?: boolean }) => {
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    const normalizeDateToIso = (dStr?: string | null): string => {
+      if (!dStr) return "";
+      const trimmed = dStr.trim();
+      if (trimmed.includes('.')) {
+        const parts = trimmed.split('.');
+        if (parts.length === 3) {
+          return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+      } else if (trimmed.includes('-')) {
+        const parts = trimmed.split('-');
+        if (parts.length === 3 && parts[0].length <= 2) {
+          return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+      }
+      return trimmed;
+    };
+
     const isNameEmpty = !customerName || !customerName.trim();
     const isPhoneEmpty = !customerPhone || !customerPhone.trim();
     const isDateEmpty = !deliveryDate || !deliveryDate.trim();
 
-    if (isNameEmpty || isPhoneEmpty || isDateEmpty) {
+    const normDelivery = normalizeDateToIso(deliveryDate);
+    const normOriginal = normalizeDateToIso(loadedOrderOriginalDeliveryDate);
+
+    const isDateInPast = normDelivery !== "" && normDelivery < todayIso;
+    const isDateUnchangedFromLoaded = Boolean(normOriginal && normDelivery === normOriginal);
+    const isDateInvalid = isDateEmpty || isDateInPast || isDateUnchangedFromLoaded;
+
+    if (isNameEmpty || isPhoneEmpty || isDateInvalid) {
       if (isNameEmpty) setCustomerNameError(true);
       if (isPhoneEmpty) setCustomerPhoneError(true);
-      if (isDateEmpty) setDeliveryDateError(true);
 
-      setToastMessage({
-        text: "Siparişi oluşturmak için lütfen kırmızı ile belirtilen zorunlu alanları doldurunuz.",
-        type: "error"
-      });
+      let dateErrMsg = "Lütfen teslim tarihini güncelleyin.";
+      if (isDateEmpty) {
+        dateErrMsg = "Lütfen teslim tarihini belirleyiniz.";
+      } else if (isDateInPast || isDateUnchangedFromLoaded) {
+        dateErrMsg = "Lütfen teslim tarihini güncelleyin.";
+      }
+
+      if (isDateInvalid) {
+        setDeliveryDateError(true);
+        setDeliveryDateErrorMessage(dateErrMsg);
+      }
+
+      if (isDateInvalid && !isNameEmpty && !isPhoneEmpty) {
+        toast.error(dateErrMsg);
+      } else {
+        toast.error("Siparişi oluşturmak için lütfen kırmızı ile belirtilen zorunlu alanları doldurunuz.");
+      }
 
       if (isNameEmpty) {
         document.getElementById("customer-name-input")?.focus();
       } else if (isPhoneEmpty) {
         document.getElementById("customer-phone-input")?.focus();
-      } else if (isDateEmpty) {
+      } else if (isDateInvalid) {
         document.getElementById("delivery-date-input")?.focus();
       }
       return;
@@ -2464,18 +2516,7 @@ Durum: Onaylandi / Uretime Hazir`;
       : `+90 ${customerPhone.trim()}`;
 
     // Standardize ISO date (YYYY-MM-DD) for PostgreSQL
-    let isoDeliveryDate = deliveryDate.trim();
-    if (isoDeliveryDate.includes('.')) {
-      const parts = isoDeliveryDate.split('.');
-      if (parts.length === 3) {
-        isoDeliveryDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
-    } else if (isoDeliveryDate.includes('-')) {
-      const parts = isoDeliveryDate.split('-');
-      if (parts.length === 3 && parts[0].length <= 2) {
-        isoDeliveryDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
-    }
+    const isoDeliveryDate = normDelivery;
 
     const asNewOrder = options?.asNewOrder === true;
     let currentOrderNum = orderNumber;
@@ -2575,6 +2616,10 @@ Durum: Onaylandi / Uretime Hazir`;
     } else {
       toast.success("Sipariş başarıyla oluşturuldu.");
     }
+
+    setLoadedOrderOriginalDeliveryDate(null);
+    setDeliveryDateErrorMessage(null);
+    setDeliveryDateError(false);
 
     if (isSupabaseConfigured()) {
       (async () => {
@@ -3358,6 +3403,9 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 setDeliveryDate={setDeliveryDate}
                 deliveryDateError={deliveryDateError}
                 setDeliveryDateError={setDeliveryDateError}
+                deliveryDateErrorMessage={deliveryDateErrorMessage}
+                setDeliveryDateErrorMessage={setDeliveryDateErrorMessage}
+                loadedOrderOriginalDeliveryDate={loadedOrderOriginalDeliveryDate}
                 formatTrPhone={formatTrPhone}
                 isDarkMode={isDarkMode}
                 orderNumber={orderNumber}
