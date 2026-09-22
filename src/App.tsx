@@ -2434,7 +2434,7 @@ Durum: Onaylandi / Uretime Hazir`;
   }, [pendingAutoPrint]);
 
   // Simülatörden Doğrudan Sipariş Oluşturma (Görsel 3 & 4 Doğrulaması)
-  const handleCreateOrderFromSimulator = async () => {
+  const handleCreateOrderFromSimulator = async (options?: { asNewOrder?: boolean }) => {
     const isNameEmpty = !customerName || !customerName.trim();
     const isPhoneEmpty = !customerPhone || !customerPhone.trim();
     const isDateEmpty = !deliveryDate || !deliveryDate.trim();
@@ -2477,11 +2477,19 @@ Durum: Onaylandi / Uretime Hazir`;
       }
     }
 
-    const currentOrderNum = orderNumber;
-    const existingOrder = archiveOrders.find(
+    const asNewOrder = options?.asNewOrder === true;
+    let currentOrderNum = orderNumber;
+    if (asNewOrder) {
+      currentOrderNum = generateOrderNumber();
+      setOrderNumber(currentOrderNum);
+      setActiveOrderId(null);
+      setActiveOrderCreatedAt(null);
+    }
+
+    const existingOrder = !asNewOrder ? archiveOrders.find(
       o => o.orderNumber === currentOrderNum || (activeOrderId && o.id === activeOrderId)
-    );
-    const isUpdate = Boolean(activeOrderId || existingOrder);
+    ) : undefined;
+    const isUpdate = !asNewOrder && Boolean(activeOrderId || existingOrder);
 
     // Kredi Kontrolü: Yeni sipariş oluşturulurken (güncelleme değilse) kredi sıfır veya altındaysa engelle
     const isUnlimited = subscriptionData.isUnlimited || subscriptionData.subscriptionTier === "unlimited";
@@ -2491,7 +2499,7 @@ Durum: Onaylandi / Uretime Hazir`;
       return;
     }
 
-    const resolvedId = activeOrderId || existingOrder?.id || ("ord_" + Date.now());
+    const resolvedId = (!asNewOrder && (activeOrderId || existingOrder?.id)) || ("ord_" + Date.now());
 
     const canvas = document.querySelector(".canvas-container canvas") as HTMLCanvasElement;
     let currentPreviewDataUrl: string | undefined = undefined;
@@ -2506,7 +2514,7 @@ Durum: Onaylandi / Uretime Hazir`;
     const newArchiveItem: OrderArchiveItem = {
       id: resolvedId,
       orderNumber: currentOrderNum,
-      createdAt: existingOrder?.createdAt || (new Date().toLocaleDateString("tr-TR") + " " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })),
+      createdAt: (!asNewOrder && existingOrder?.createdAt) || (new Date().toLocaleDateString("tr-TR") + " " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })),
       customerName: customerName.trim(),
       customerPhone: fullPhone,
       deliveryDate: isoDeliveryDate,
@@ -2517,7 +2525,7 @@ Durum: Onaylandi / Uretime Hazir`;
       matInfo: matWidth > 0 ? `${matWidth} cm ${getPaspartuColorName(innerMatColor)}` : "Paspartusuz",
       totalAmount: costBreakdown.effectiveFinalPriceWithVat,
       currency: "₺",
-      status: existingOrder?.status || "confirmed",
+      status: (!asNewOrder && existingOrder?.status) || "confirmed",
       deliveryMethod: deliveryMethod,
       authorUser: activeUser?.fullName || "Yetkili Personel",
 
@@ -2554,8 +2562,7 @@ Durum: Onaylandi / Uretime Hazir`;
     setActiveOrderId(resolvedId);
 
     setArchiveOrders(prev => {
-      const exists = prev.some(o => o.orderNumber === newArchiveItem.orderNumber || o.id === newArchiveItem.id);
-      if (exists) {
+      if (isUpdate) {
         return prev.map(o => (o.orderNumber === newArchiveItem.orderNumber || o.id === newArchiveItem.id) ? newArchiveItem : o);
       }
       return [newArchiveItem, ...prev];
@@ -2563,6 +2570,8 @@ Durum: Onaylandi / Uretime Hazir`;
 
     if (isUpdate) {
       toast.success(`${currentOrderNum} numaralı sipariş başarıyla güncellendi.`);
+    } else if (asNewOrder) {
+      toast.success(`${currentOrderNum} numaralı yeni sipariş başarıyla oluşturuldu. Önceki sipariş arşivde korundu.`);
     } else {
       toast.success("Sipariş başarıyla oluşturuldu.");
     }
@@ -2967,9 +2976,9 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 NAKKA <span className={isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}>DEKOR</span>
               </h1>
               <p className={`text-[9px] md:text-[10px] uppercase tracking-[0.18em] font-bold -mt-0.5 hidden sm:block ${
-                isDarkMode ? "text-[#C5A059]/80" : "text-[#B88E3A]"
+                isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
               }`}>
-                Tablo & Çerçeve Simülatörü
+                B2B Sanat & Çerçeve Atölye Portalı
               </p>
             </div>
           </div>
@@ -3363,6 +3372,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 onOpenCostModal={() => setIsCostModalOpen(true)}
                 onOpenPrintCenter={() => setIsPrintCenterModalOpen(true)}
                 onCreateOrder={handleCreateOrderFromSimulator}
+                onCreateNewOrder={() => handleCreateOrderFromSimulator({ asNewOrder: true })}
                 onPrevStep={activeSidebarTab === "materials" ? () => setActiveSidebarTab("framing") : undefined}
                 isExistingOrder={Boolean(activeOrderId || archiveOrders.some(o => o.orderNumber === orderNumber))}
               />

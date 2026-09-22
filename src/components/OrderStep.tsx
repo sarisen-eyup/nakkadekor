@@ -12,7 +12,8 @@ import {
   CheckCircle2, 
   FileText,
   Printer,
-  AlertCircle
+  AlertCircle,
+  Plus
 } from "lucide-react";
 import { MaterialInclusionFlags, CostCalculationBreakdown } from "../types/pricing";
 
@@ -48,7 +49,8 @@ interface OrderStepProps {
   downloadCompositedImage: () => void;
   onOpenCostModal: () => void;
   onOpenPrintCenter?: () => void;
-  onCreateOrder?: () => void;
+  onCreateOrder?: (options?: { asNewOrder?: boolean }) => void;
+  onCreateNewOrder?: () => void;
   onPrevStep?: () => void;
   isExistingOrder?: boolean;
 }
@@ -86,10 +88,11 @@ export const OrderStep: React.FC<OrderStepProps> = ({
   onOpenCostModal,
   onOpenPrintCenter,
   onCreateOrder,
+  onCreateNewOrder,
   onPrevStep,
   isExistingOrder = false,
 }) => {
-  const handleCreateOrderClick = () => {
+  const handleCreateOrderClick = (asNewOrder: boolean = false) => {
     let hasError = false;
 
     if (!customerName || !customerName.trim()) {
@@ -116,10 +119,18 @@ export const OrderStep: React.FC<OrderStepProps> = ({
       return;
     }
 
-    if (onCreateOrder) {
-      onCreateOrder();
-    } else if (onOpenPrintCenter) {
-      onOpenPrintCenter();
+    if (asNewOrder) {
+      if (onCreateNewOrder) {
+        onCreateNewOrder();
+      } else if (onCreateOrder) {
+        onCreateOrder({ asNewOrder: true });
+      }
+    } else {
+      if (onCreateOrder) {
+        onCreateOrder({ asNewOrder: false });
+      } else if (onOpenPrintCenter) {
+        onOpenPrintCenter();
+      }
     }
   };
   const materialItems = [
@@ -428,14 +439,6 @@ export const OrderStep: React.FC<OrderStepProps> = ({
               <span className="font-mono font-bold">{finalOuterWidthCm.toFixed(1)} × {finalOuterHeightCm.toFixed(1)} cm</span>
             </div>
             <div className="flex justify-between">
-              <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Profil:</span>
-              <span className="font-medium truncate max-w-[160px]">{activeInnerProfileName || "Standart Profil"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Paspartu:</span>
-              <span className="font-medium">{matWidth > 0 ? `${matWidth} cm (${innerMatColorName})` : "Paspartusuz"}</span>
-            </div>
-            <div className="flex justify-between">
               <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Teslimat:</span>
               <span className="font-medium">{deliveryMethod === "store" ? "Mağaza Teslim" : "Kargo"}</span>
             </div>
@@ -464,20 +467,54 @@ export const OrderStep: React.FC<OrderStepProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            id="btn-create-simulator-order"
-            onClick={handleCreateOrderClick}
-            className={`px-4 py-2.5 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer shrink-0 ${
-              isDarkMode
-                ? "bg-[#C5A059] text-black hover:bg-[#b5924d]"
-                : "bg-[#B88E3A] text-white hover:bg-[#a67e2f]"
-            }`}
-            title={isExistingOrder ? "Mevcut siparişi simülatördeki değişikliklerle güncelle" : "Simülatördeki ölçü ve malzemelerle siparişi oluştur"}
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>{isExistingOrder ? "Siparişi Güncelle" : "Siparişi Oluştur"}</span>
-          </button>
+          {isExistingOrder ? (
+            <div className="flex flex-col gap-1.5 shrink-0 items-stretch sm:items-end">
+              <button
+                type="button"
+                id="btn-update-simulator-order"
+                onClick={() => handleCreateOrderClick(false)}
+                className={`px-4 py-2 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer ${
+                  isDarkMode
+                    ? "bg-[#C5A059] text-black hover:bg-[#b5924d]"
+                    : "bg-[#B88E3A] text-white hover:bg-[#a67e2f]"
+                }`}
+                title="Mevcut siparişi simülatördeki değişikliklerle güncelle"
+              >
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>Siparişi Güncelle</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-create-new-order-from-archive"
+                onClick={() => handleCreateOrderClick(true)}
+                className={`px-3 py-1.5 rounded-xl font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all border active:scale-95 cursor-pointer ${
+                  isDarkMode
+                    ? "border-emerald-500/40 text-emerald-400 bg-emerald-950/30 hover:bg-emerald-900/40 hover:border-emerald-500/70"
+                    : "border-emerald-600 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                }`}
+                title="Önceki siparişi arşivde koruyarak, yeni bir sipariş numarası ile yeni sipariş oluştur"
+              >
+                <Plus className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                <span>Yeni Sipariş Oluştur</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              id="btn-create-simulator-order"
+              onClick={() => handleCreateOrderClick(false)}
+              className={`px-4 py-2.5 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer shrink-0 ${
+                isDarkMode
+                  ? "bg-[#C5A059] text-black hover:bg-[#b5924d]"
+                  : "bg-[#B88E3A] text-white hover:bg-[#a67e2f]"
+              }`}
+              title="Simülatördeki ölçü ve malzemelerle siparişi oluştur"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Siparişi Oluştur</span>
+            </button>
+          )}
         </div>
       </div>
 

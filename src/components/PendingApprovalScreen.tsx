@@ -90,8 +90,8 @@ export const PendingApprovalScreen: React.FC = () => {
             <span className="text-sm font-black tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-[#FAE2B3] via-[#E5C17B] to-[#C5A059]">
               NAKKA DEKOR
             </span>
-            <span className={`text-[10px] block font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-              B2B ÇERÇEVE ATÖLYE SİSTEMİ
+            <span className={`text-[10px] block font-mono uppercase font-bold tracking-[0.15em] ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
+              B2B Sanat & Çerçeve Atölye Portalı
             </span>
           </div>
         </div>

@@ -830,7 +830,7 @@ export function triggerImagePrintWindow(
           </div>
 
           <div style="border-top: 1px solid #eee; padding-top: 6px; margin-top: 8px; display: flex; justify-content: space-between; font-size: 9px; color: #888;">
-            <span>${details.companyProfile?.tradeTitle || details.companyProfile?.companyName || 'Nakka Dekor Atölye Otomasyon Sistemi'} ${details.companyProfile?.address ? `• ${details.companyProfile.address}` : ''}</span>
+            <span>${details.companyProfile?.tradeTitle || details.companyProfile?.companyName || 'Nakka Dekor B2B Sanat & Çerçeve Atölye Portalı'} ${details.companyProfile?.address ? `• ${details.companyProfile.address}` : ''}</span>
             <span>${details.companyProfile?.website || 'https://nakkadekor.com'}</span>
           </div>
         </div>

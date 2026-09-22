@@ -1,6 +1,6 @@
 {
   "name": "Nakka Dekor",
-  "description": "Premium tablo ve çerçeve simülasyonu, gerçekçi ölçeklendirme, ortam entegrasyonu ve miter-cut birleştirme uygulaması.",
+  "description": "B2B Sanat & Çerçeve Atölye Portalı. Profesyonel çerçeveleme, atölye maliyet hesaplama ve sipariş yönetim sistemi.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
