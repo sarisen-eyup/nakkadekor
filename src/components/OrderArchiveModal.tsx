@@ -267,43 +267,38 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                       : "bg-white border-slate-200 hover:border-[#B88E3A]/50 hover:shadow-md"
                   }`}
                 >
-                  {/* Üst Satır: No/Tarih/Yetkili */}
-                  <div className="flex items-center justify-between gap-2.5 pb-2 border-b border-dashed border-neutral-700/20 dark:border-white/10">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-mono font-bold text-xs ${
-                        isDarkMode 
-                          ? "bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30" 
-                          : "bg-amber-50 text-amber-900 border border-amber-300"
-                      }`}>
-                        <FileText className="w-3.5 h-3.5 shrink-0" />
-                        <span>{order.orderNumber}</span>
+                  {/* Ana Bilgi Satırı: Sipariş No & Müşteri | Malzeme Listesi | Fiyat & Aksiyonlar */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                    {/* Sipariş No, Tarih & Müşteri Bilgisi (3 Kolon) */}
+                    <div className="md:col-span-3 min-w-0">
+                      {/* Sipariş No */}
+                      <div className="flex items-center gap-1.5">
+                        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg font-mono font-bold text-xs ${
+                          isDarkMode 
+                            ? "bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30" 
+                            : "bg-amber-50 text-amber-900 border border-amber-300"
+                        }`}>
+                          <FileText className="w-3.5 h-3.5 shrink-0" />
+                          <span>{order.orderNumber}</span>
+                        </div>
                       </div>
 
-                      <div className={`text-[11px] font-mono flex items-center gap-1.5 ${
+                      {/* Sipariş Tarihi */}
+                      <div className={`text-[11px] font-mono mt-0.5 ${
                         isDarkMode ? "text-neutral-400" : "text-slate-500"
                       }`}>
-                        <span>{order.createdAt}</span>
-                        {order.authorUser && (
-                          <>
-                            <span>•</span>
-                            <span className="font-semibold">{order.authorUser.split(" ")[0]}</span>
-                          </>
-                        )}
+                        {order.createdAt}
                       </div>
-                    </div>
-                  </div>
 
-                  {/* Ana Bilgi Satırı: Müşteri & Çerçeve / Eser Detayları */}
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                    {/* Müşteri Bilgisi (3 Kolon) */}
-                    <div className="md:col-span-3 min-w-0">
-                      <div className={`font-bold text-sm sm:text-base truncate flex items-center gap-1.5 ${
+                      {/* Müşteri Adı */}
+                      <div className={`font-bold text-sm sm:text-base truncate flex items-center gap-1.5 mt-2 ${
                         isDarkMode ? "text-white" : "text-slate-900"
                       }`}>
                         <User className={`w-4 h-4 shrink-0 ${isDarkMode ? "text-neutral-400" : "text-slate-400"}`} />
                         <span className="truncate">{order.customerName}</span>
                       </div>
                       
+                      {/* Müşteri Telefonu */}
                       <div className={`text-xs font-mono mt-0.5 flex items-center gap-1.5 ${
                         isDarkMode ? "text-neutral-400" : "text-slate-600"
                       }`}>
@@ -311,6 +306,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                         <span>{order.customerPhone || "Tel Belirtilmedi"}</span>
                       </div>
 
+                      {/* Teslimat Tarihi */}
                       {order.deliveryDate && (
                         <div className={`text-[11px] font-mono mt-1 flex items-center gap-1.5 font-medium ${
                           isDarkMode ? "text-amber-400" : "text-amber-800"
