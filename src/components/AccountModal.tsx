@@ -43,6 +43,7 @@ import {
 } from "../services/supabaseService";
 import { compressImage } from "../utils/imageCompressor";
 import { LegalTermsModal, LegalTermsCheckbox, LegalDocType } from "./LegalTermsModal";
+import { PaymentBankTransferModal } from "./PaymentBankTransferModal";
 import { useToast } from "../context/ToastContext";
 import { useAuthGuard } from "../context/AuthGuardContext";
 
@@ -87,6 +88,22 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   const [paymentToast, setPaymentToast] = useState<{ text: string; subText?: string } | null>(null);
   const [isLegalModalOpen, setIsLegalModalOpen] = useState<boolean>(false);
   const [selectedLegalDoc, setSelectedLegalDoc] = useState<LegalDocType>("user_agreement");
+  const [isBankTransferModalOpen, setIsBankTransferModalOpen] = useState<boolean>(false);
+  const [pendingPaymentInfo, setPendingPaymentInfo] = useState<{
+    packageName: string;
+    packagePriceText: string;
+    amount: number;
+  }>({
+    packageName: "Atölye Başlangıç Paketi (+50 Kredi)",
+    packagePriceText: "1.500 ₺",
+    amount: 50
+  });
+
+  const handleCloseBankModal = () => {
+    setIsBankTransferModalOpen(false);
+    toast.info("Ödeme adımı tamamlandığında krediniz onaylanacaktır.");
+  };
+
   const [confirmHighCreditPurchase, setConfirmHighCreditPurchase] = useState<{
     packageKey: "credits_50" | "credits_150" | "unlimited";
     packageName: string;
@@ -213,7 +230,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     }
   };
 
-  // Kredi İşlemleri - Asıl Satın Alma / GAS Web Hook ile E-posta Gönderimi
+  // Kredi İşlemleri - Satın Alma & Havale/EFT Ödeme Modalı Akışı
   const executePurchasePackage = async (packageKey: "credits_50" | "credits_150" | "unlimited") => {
     if (purchasingPackage) return;
     setPurchasingPackage(packageKey);
@@ -231,49 +248,19 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           pendingCredits: res.pendingCredits
         });
 
-        // Kullanıcı e-postası ve adını belirle
-        const toEmail = (
-          authUser?.email ||
-          activeUser?.email ||
-          localCompany.email ||
-          companyProfile.email ||
-          ""
-        ).trim();
+        // 2. Seçilen paket bilgilerini kaydet
+        setPendingPaymentInfo({
+          packageName: res.packageName,
+          packagePriceText: res.packagePriceText,
+          amount: res.packageAmount
+        });
 
-        const toName = (
-          localCompany.companyName ||
-          companyProfile.companyName ||
-          authUser?.name ||
-          authTenant?.name ||
-          activeUser?.fullName ||
-          "Değerli Müşterimiz"
-        ).trim();
-
-        // 2. Satın Alma Akışı (Fetch API): doGet için Query String parametreleri ile GET & mode: 'no-cors' isteği at
-        const gasWebhookBase = import.meta.env.VITE_GAS_BILLING_URL || 'https://script.google.com/macros/s/AKfycbwAmvnOXiXbaOSLpl05eF3_TJZir0WC2TnBiP_h1X0/dev';
-
-        try {
-          const url = new URL(gasWebhookBase);
-          url.searchParams.append('toEmail', toEmail);
-          url.searchParams.append('toName', toName);
-          url.searchParams.append('packageName', res.packageName);
-          url.searchParams.append('price', res.packagePriceText);
-
-          // no-cors modunda yanıt 'opaque' olduğundan .json() veya .text() okunmaz
-          await fetch(url.toString(), {
-            method: 'GET',
-            mode: 'no-cors'
-          });
-        } catch (webhookErr) {
-          console.warn("GAS Webhook gönderme uyarısı:", webhookErr);
-        }
-
-        // 3. UI Geri Bildirimi: Başarılı toast mesajı
-        toast.success("Ödeme talimatınız e-posta adresinize gönderildi.");
+        // 3. Güncelleme başarılı olduğunda ekranda şık Ödeme Modalı aç
+        setIsBankTransferModalOpen(true);
 
         setPaymentToast({
-          text: "Talep Alındı & E-posta Gönderildi",
-          subText: `${toEmail ? `${toEmail} adresinize ` : ""}ödeme talimatı ve banka hesap bilgilerimiz iletildi.`
+          text: "Talep Alındı (Ödeme Bekleniyor)",
+          subText: "Havale/EFT dekontunuz iletildiğinde kredileriniz aktif bakiyenize tanımlanacaktır."
         });
 
         // Güncelleme biter bitmez ekrandaki mevcut kredi göstergesini yeniden fetch et ve UI'ı anında tazele
@@ -1136,6 +1123,26 @@ export const AccountModal: React.FC<AccountModalProps> = ({
 
                     {/* Sağ Hızlı Butonlar */}
                     <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full md:w-auto shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingPaymentInfo({
+                            packageName: subscription.pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${subscription.pendingCredits} Kredi Paketi`,
+                            packagePriceText: subscription.pendingCredits >= 999999 ? "37.500 ₺ / Yıl" : subscription.pendingCredits >= 150 ? "3.750 ₺" : "1.500 ₺",
+                            amount: subscription.pendingCredits
+                          });
+                          setIsBankTransferModalOpen(true);
+                        }}
+                        className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 ${
+                          isDarkMode 
+                            ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" 
+                            : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+                        }`}
+                      >
+                        <Building2 className="w-4 h-4" />
+                        <span>Banka &amp; IBAN Gör</span>
+                      </button>
+
                       <a
                         href={`https://wa.me/905424710686?text=${encodeURIComponent(
                           `Merhaba, Nakka Dekor atölye hesabım için ${subscription.pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${subscription.pendingCredits} Kredi`} havale/EFT ödemesini gerçekleştirdim. Dekontu iletiyorum, kredimin onaylanmasını rica ederim.`
@@ -1370,6 +1377,22 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           onClose={() => setIsLegalModalOpen(false)}
           defaultDoc={selectedLegalDoc}
           isDarkMode={isDarkMode}
+        />
+
+        {/* Havale/EFT ve WhatsApp Ödeme Modalı */}
+        <PaymentBankTransferModal
+          isOpen={isBankTransferModalOpen}
+          onClose={handleCloseBankModal}
+          isDarkMode={isDarkMode}
+          packageName={pendingPaymentInfo.packageName}
+          packagePriceText={pendingPaymentInfo.packagePriceText}
+          pendingCreditsAmount={pendingPaymentInfo.amount}
+          companyName={localCompany.companyName || companyProfile.companyName || authTenant?.name || activeUser?.fullName || "Atölyemiz"}
+          onReceiptSent={() => {
+            if (onRefreshTenant) {
+              onRefreshTenant();
+            }
+          }}
         />
 
         {/* 15'ten Fazla Kredisi Olan Kullanıcı İçin Onay Modalı */}
