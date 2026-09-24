@@ -164,16 +164,9 @@ export const PaymentBankTransferModal: React.FC<PaymentBankTransferModalProps> =
               ? "bg-[#181b20] border-amber-500/30 shadow-inner" 
               : "bg-amber-50/50 border-amber-300/80 shadow-sm"
           }`}>
-            <div className="flex items-center justify-between border-b pb-3 border-amber-500/20">
+            <div className="border-b pb-3 border-amber-500/20">
               <span className="font-bold flex items-center gap-2 text-[#C5A059] uppercase tracking-wider text-xs">
                 <Building2 className="w-4 h-4" /> Banka Hesap Bilgileri
-              </span>
-              <span className={`text-[11px] font-bold font-mono px-2.5 py-1 rounded border ${
-                isDarkMode 
-                  ? "bg-red-950/40 text-red-300 border-red-500/30" 
-                  : "bg-red-50 text-red-700 border-red-200"
-              }`}>
-                {BANK_NAME}
               </span>
             </div>
 
@@ -182,7 +175,9 @@ export const PaymentBankTransferModal: React.FC<PaymentBankTransferModalProps> =
               <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-neutral-400" /> Hesap Adı
               </span>
-              <div className="text-sm font-black tracking-wide text-white dark:text-white font-mono mt-0.5">
+              <div className={`text-sm font-black tracking-wide font-mono mt-0.5 ${
+                isDarkMode ? "text-white" : "text-slate-900"
+              }`}>
                 {RECIPIENT_NAME}
               </div>
             </div>
@@ -199,13 +194,13 @@ export const PaymentBankTransferModal: React.FC<PaymentBankTransferModalProps> =
               </div>
             </div>
 
-            {/* IBAN Numarası & Kopyala Butonu */}
+            {/* IBAN Numarası & Kopyala Butonu (Tek Satır, Asla Bölünmez) */}
             <div>
               <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 flex items-center gap-1.5">
                 <CreditCard className="w-3.5 h-3.5 text-neutral-400" /> IBAN
               </span>
-              <div className="mt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                <div className={`flex-1 px-3.5 py-2.5 rounded-xl border font-mono text-xs sm:text-sm font-bold tracking-wider select-all break-all ${
+              <div className="mt-1.5 flex items-center gap-2 w-full">
+                <div className={`flex-1 min-w-0 px-3 py-2.5 rounded-xl border font-mono text-[12px] sm:text-[13px] font-bold select-all whitespace-nowrap overflow-x-auto scrollbar-none ${
                   isDarkMode 
                     ? "bg-black/60 border-neutral-700 text-amber-300" 
                     : "bg-white border-slate-300 text-slate-900"
@@ -216,7 +211,7 @@ export const PaymentBankTransferModal: React.FC<PaymentBankTransferModalProps> =
                 <button
                   type="button"
                   onClick={handleCopyIban}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer shadow-sm active:scale-95 ${
+                  className={`px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer shadow-sm active:scale-95 ${
                     copied 
                       ? "bg-emerald-600 text-white" 
                       : isDarkMode 
@@ -228,7 +223,7 @@ export const PaymentBankTransferModal: React.FC<PaymentBankTransferModalProps> =
                   {copied ? (
                     <>
                       <Check className="w-4 h-4 text-emerald-300" />
-                      <span>Kopyalandı!</span>
+                      <span>Kopyalandı</span>
                     </>
                   ) : (
                     <>
