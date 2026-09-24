@@ -335,8 +335,8 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
 
                   {/* Ana Bilgi Satırı: Müşteri & Çerçeve / Eser Detayları */}
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                    {/* Müşteri Bilgisi (4 Kolon) */}
-                    <div className="md:col-span-4 min-w-0">
+                    {/* Müşteri Bilgisi (3 Kolon) */}
+                    <div className="md:col-span-3 min-w-0">
                       <div className={`font-bold text-sm sm:text-base truncate flex items-center gap-1.5 ${
                         isDarkMode ? "text-white" : "text-slate-900"
                       }`}>
@@ -361,17 +361,22 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                       )}
                     </div>
 
-                    {/* Çerçeve & Eser Detayları (5 Kolon) */}
-                    <div className="md:col-span-5 min-w-0 space-y-1">
-                      {/* Ölçü & Profil Kalınlığı */}
-                      <div className="flex items-center gap-2">
+                    {/* Malzeme Listesi (6 Kolon - Geniş & Detaylı) */}
+                    <div className="md:col-span-6 min-w-0 space-y-1 text-xs">
+                      {/* 1- Tablo Ölçü */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                          isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                        }`}>
+                          1- Tablo Ölçü:
+                        </span>
                         <span className={`font-mono font-black text-sm tracking-wide ${
                           isDarkMode ? "text-white" : "text-slate-900"
                         }`}>
                           {order.artworkWidthCm} × {order.artworkHeightCm} cm
                         </span>
                         {order.frameWidthCm ? (
-                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-semibold border ${
+                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold border ${
                             isDarkMode 
                               ? "bg-white/5 border-white/10 text-neutral-300" 
                               : "bg-slate-100 border-slate-200 text-slate-700"
@@ -381,46 +386,65 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                         ) : null}
                       </div>
 
-                      {/* Profil İsimleri */}
-                      <div className="text-xs leading-tight">
-                        <div className="truncate flex items-baseline gap-1.5">
-                          <span className={`text-[10px] uppercase font-bold tracking-wider shrink-0 ${
-                            isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
-                          }`}>
-                            1. Çerçeve:
-                          </span>
-                          <span className={`font-medium truncate ${
-                            isDarkMode ? "text-neutral-200" : "text-slate-800"
-                          }`}>
-                            {order.innerFrameTitle || "Standart Çerçeve"}
-                          </span>
-                        </div>
+                      {/* 2- 1. Çerçeve */}
+                      <div className="flex items-baseline gap-1.5 truncate">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                          isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                        }`}>
+                          2- 1. Çerçeve:
+                        </span>
+                        <span className={`font-medium truncate ${
+                          isDarkMode ? "text-neutral-200" : "text-slate-800"
+                        }`} title={order.innerFrameTitle}>
+                          {order.innerFrameTitle || "Standart Çerçeve"}
+                        </span>
+                      </div>
 
-                        {hasOuter && (
-                          <div className={`truncate flex items-baseline gap-1.5 text-[11px] mt-0.5 ${
-                            isDarkMode ? "text-amber-300" : "text-amber-900"
-                          }`}>
-                            <span className="text-[9px] uppercase font-bold tracking-wider shrink-0">
-                              Dış Çerçeve:
-                            </span>
-                            <span className="truncate">{order.outerFrameTitle}</span>
-                            {order.outerFrameWidthCm ? <span>({order.outerFrameWidthCm} cm)</span> : null}
-                          </div>
+                      {/* 3- İç Paspartu */}
+                      <div className="flex items-baseline gap-1.5 truncate">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                          isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                        }`}>
+                          3- İç Paspartu:
+                        </span>
+                        {hasMat ? (
+                          <span className={`font-medium truncate ${isDarkMode ? "text-neutral-200" : "text-slate-800"}`}>
+                            {order.matInfo}
+                          </span>
+                        ) : (
+                          <span className="italic text-neutral-500">Paspartusuz</span>
                         )}
                       </div>
 
-                      {/* Paspartu */}
-                      <div className={`text-[11px] flex items-center gap-1.5 ${
-                        isDarkMode ? "text-neutral-400" : "text-slate-600"
-                      }`}>
-                        <span className="opacity-75">Paspartu:</span>
-                        {hasMat ? (
-                          <span className={`font-medium ${isDarkMode ? "text-neutral-200" : "text-slate-800"}`}>
-                            {order.matInfo}
-                            {hasMiddleMat ? ` (+3D Ara: ${order.middleMatWidthCm} cm)` : ""}
+                      {/* 4- Dış Paspartu */}
+                      <div className="flex items-baseline gap-1.5 truncate">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                          isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                        }`}>
+                          4- Dış Paspartu:
+                        </span>
+                        {hasMiddleMat ? (
+                          <span className={`font-medium truncate ${isDarkMode ? "text-amber-300" : "text-amber-900"}`}>
+                            {order.middleMatWidthCm} cm {order.outerMatColor ? `(${order.outerMatColor})` : ""} (3D Derinlik)
                           </span>
                         ) : (
-                          <span className="italic opacity-60">Paspartusuz</span>
+                          <span className="italic text-neutral-500">Yok</span>
+                        )}
+                      </div>
+
+                      {/* 5- Dış Çerçeve */}
+                      <div className="flex items-baseline gap-1.5 truncate">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                          isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                        }`}>
+                          5- Dış Çerçeve:
+                        </span>
+                        {hasOuter ? (
+                          <span className={`font-medium truncate ${isDarkMode ? "text-amber-300" : "text-amber-900"}`}>
+                            {order.outerFrameTitle} {order.outerFrameWidthCm ? `(${order.outerFrameWidthCm} cm)` : ""}
+                          </span>
+                        ) : (
+                          <span className="italic text-neutral-500">Çerçeve Yok</span>
                         )}
                       </div>
                     </div>
