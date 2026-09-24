@@ -3,7 +3,7 @@ import { ChevronDown, Check, Layers, Lock, Plus, Camera, TrendingUp } from "luci
 import { FrameProfileItem } from "../types/pricing";
 
 interface FrameProfileSelectorProps {
-  label: string;
+  label?: string;
   selectedProfileId: string;
   profiles: FrameProfileItem[];
   onSelectProfile: (profId: string) => void;
@@ -41,19 +41,6 @@ export function FrameProfileSelector({
 
   return (
     <div className="relative" ref={containerRef}>
-      <label className={`text-[10px] font-bold uppercase tracking-wider block mb-1.5 flex items-center justify-between font-sans ${
-        isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
-      }`}>
-        <span>{label}</span>
-        {selectedProfile && (
-          <span className={`text-[10px] font-mono flex items-center gap-1 font-normal ${
-            isDarkMode ? "text-neutral-400" : "text-slate-600"
-          }`}>
-            <Lock className="w-2.5 h-2.5" /> Profil Kalınlığı: {selectedProfile.widthCm.toFixed(2)} cm
-          </span>
-        )}
-      </label>
-
       {/* Selected Profile Button Header */}
       <button
         type="button"
@@ -95,22 +82,6 @@ export function FrameProfileSelector({
                   ₺{selectedProfile.unitPricePerMeter}/mt
                 </span>
               </div>
-            </div>
-          </div>
-        ) : allowNoneOption ? (
-          <div className="flex items-center gap-3 py-1">
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-mono text-xs border font-bold ${
-              isDarkMode ? "bg-neutral-800 border-neutral-700 text-neutral-400" : "bg-slate-100 border-slate-200 text-slate-600"
-            }`}>
-              YOK
-            </div>
-            <div>
-              <span className={`text-xs sm:text-sm font-bold block ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
-                Yok (Dış Çerçevesiz)
-              </span>
-              <span className={`text-[11px] ${isDarkMode ? "text-neutral-500" : "text-slate-500"}`}>
-                Dış kasa çerçevesi kullanılmıyor
-              </span>
             </div>
           </div>
         ) : (
@@ -224,7 +195,7 @@ export function FrameProfileSelector({
           })}
 
           {onManageProfiles && (
-            <div className={`p-2 border-t sticky bottom-0 z-10 backdrop-blur-sm flex flex-col sm:flex-row gap-2 ${
+            <div className={`p-2 border-t sticky bottom-0 z-10 backdrop-blur-sm ${
               isDarkMode ? "bg-[#141719]/95 border-neutral-800" : "bg-white/95 border-slate-200"
             }`}>
               <button
@@ -234,32 +205,15 @@ export function FrameProfileSelector({
                   setIsOpen(false);
                   onManageProfiles();
                 }}
-                className={`flex-1 py-1.5 px-2.5 text-[11px] font-mono font-bold rounded-lg border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                className={`w-full py-2 px-3 text-xs font-mono font-bold rounded-xl border flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   isDarkMode 
-                    ? "bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#C5A059] border-[#C5A059]/35" 
-                    : "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300"
+                    ? "bg-[#C5A059] hover:bg-[#b08c48] text-black border-[#C5A059] shadow-md" 
+                    : "bg-[#B88E3A] hover:bg-[#9E7728] text-white border-[#B88E3A] shadow-md"
                 }`}
-                title="Toptancı zammı uygula ve fiyatları güncelle"
+                title="Yeni profil ve fotoğraf ekle"
               >
-                <TrendingUp className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>⚡ Toplu Zam Yap</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsOpen(false);
-                  onManageProfiles();
-                }}
-                className={`flex-1 py-1.5 px-2.5 text-[11px] font-mono font-bold rounded-lg border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  isDarkMode 
-                    ? "bg-neutral-800 hover:bg-neutral-700 text-white border-neutral-700" 
-                    : "bg-white hover:bg-slate-100 text-slate-800 border-slate-300"
-                }`}
-              >
-                <Camera className="w-3.5 h-3.5 text-[#C5A059]" />
-                <span>Yeni Profil / Fotoğraf</span>
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Yeni Profil Ekle</span>
               </button>
             </div>
           )}

@@ -155,7 +155,7 @@ export const FramingStep: React.FC<FramingStepProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* 03. Ana Çerçeve Profili Kartı */}
+      {/* 03. 1. Çerçeve Profili Kartı */}
       <div className={`p-4 rounded-2xl border transition-all ${
         isDarkMode ? "bg-[#171a20] border-white/10" : "bg-slate-50/80 border-slate-200 shadow-sm"
       }`}>
@@ -169,7 +169,7 @@ export const FramingStep: React.FC<FramingStepProps> = ({
             <h3 className={`text-xs font-bold uppercase tracking-wider ${
               isDarkMode ? "text-neutral-100" : "text-slate-800"
             }`}>
-              Ana Çerçeve Profili
+              1. Çerçeve Profili
             </h3>
           </div>
           <div className="flex items-center gap-1.5">
@@ -182,10 +182,10 @@ export const FramingStep: React.FC<FramingStepProps> = ({
                     ? "bg-[#C5A059]/15 hover:bg-[#C5A059]/25 text-[#C5A059] border-[#C5A059]/30"
                     : "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300"
                 }`}
-                title="Toptancı zammı uygula ve profilleri yönet"
+                title="Çerçeve profillerini yönet"
               >
                 <TrendingUp className="w-3 h-3 text-[#C5A059]" />
-                <span>Toplu Zam & Yönet</span>
+                <span>Çerçeve Yönetimi</span>
               </button>
             )}
             {activeInnerProfile && (
@@ -223,11 +223,8 @@ export const FramingStep: React.FC<FramingStepProps> = ({
               <h3 className={`text-xs font-bold uppercase tracking-wider ${
                 isDarkMode ? "text-neutral-100" : "text-slate-800"
               }`}>
-                İç Paspartu (Genişlik & Renk)
+                İç Paspartu
               </h3>
-              <p className={`text-[10px] ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                Eser etrafındaki karton kenarlık payı
-              </p>
             </div>
           </div>
           <span className={`text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg border ${
@@ -243,7 +240,7 @@ export const FramingStep: React.FC<FramingStepProps> = ({
           {/* Presets & Custom Input Unified Row */}
           <div>
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider mb-1.5">
-              <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Paspartu Payı Seçimi</span>
+              <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>İç Paspartu Genişliği</span>
               <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Özel Ölçü</span>
             </div>
             
@@ -303,7 +300,7 @@ export const FramingStep: React.FC<FramingStepProps> = ({
             <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 transition-all ${
               isDarkMode ? "bg-[#101216]/60 border-white/5 text-neutral-400" : "bg-slate-100/70 border-slate-200 text-slate-600"
             }`}>
-              <span className="text-[11px]">Paspartu kapalı. Eser doğrudan çerçeve içine oturur.</span>
+              <span className="text-[11px]">Paspartu kapalı</span>
               <button
                 type="button"
                 onClick={() => setMatWidthInput("5")}
@@ -321,7 +318,7 @@ export const FramingStep: React.FC<FramingStepProps> = ({
         </div>
       </div>
 
-      {/* 05. 3D Ara Mukavva & Paspartu (Opsiyonel) */}
+      {/* 05. 3D Derinlik & Paspartu (Opsiyonel) */}
       <div className={`rounded-2xl border transition-all ${
         isDarkMode ? "bg-[#171a20] border-white/10" : "bg-slate-50/80 border-slate-200 shadow-sm"
       } ${middleMatWidth > 0 ? "p-4" : "p-3.5"}`}>
@@ -338,7 +335,7 @@ export const FramingStep: React.FC<FramingStepProps> = ({
               <h3 className={`text-xs font-bold uppercase tracking-wider ${
                 isDarkMode ? "text-neutral-100" : "text-slate-800"
               }`}>
-                3D Ara Mukavva & Paspartu
+                3D Derinlik & Paspartu
               </h3>
               <p className={`text-[10px] ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
                 {middleMatWidth > 0 ? "Eser ile ana paspartu arasına derinlik katmanı" : "Opsiyonel derinlik katmanı"}
@@ -438,12 +435,12 @@ export const FramingStep: React.FC<FramingStepProps> = ({
               </div>
             </div>
 
-            {renderColorPicker(outerMatColor, setOuterMatColor, "Ara Mukavva / Paspartu Rengi")}
+            {renderColorPicker(outerMatColor, setOuterMatColor, "3D Derinlik / Paspartu Rengi")}
           </div>
         )}
       </div>
 
-      {/* 06. Dış Kasa Çerçeve Profili (Opsiyonel) */}
+      {/* 06. Dış Çerçeve (Opsiyonel) */}
       <div className={`p-4 rounded-2xl border transition-all ${
         isDarkMode ? "bg-[#171a20] border-white/10" : "bg-slate-50/80 border-slate-200 shadow-sm"
       }`}>
@@ -457,7 +454,7 @@ export const FramingStep: React.FC<FramingStepProps> = ({
             <h3 className={`text-xs font-bold uppercase tracking-wider ${
               isDarkMode ? "text-neutral-100" : "text-slate-800"
             }`}>
-              Dış Kasa Çerçeve Profili (Opsiyonel)
+              DIŞ ÇERÇEVE
             </h3>
           </div>
           <span className={`text-[10px] font-mono font-bold ${
@@ -465,13 +462,13 @@ export const FramingStep: React.FC<FramingStepProps> = ({
               ? (isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]") 
               : (isDarkMode ? "text-neutral-500" : "text-slate-400")
           }`}>
-            {activeOuterProfile ? `${activeOuterProfile.widthCm} cm Genişlik` : "Dış Kasa Yok"}
+            {activeOuterProfile ? `${activeOuterProfile.widthCm} cm Genişlik` : "Çerçeve yok"}
           </span>
         </div>
 
         <div className="space-y-3">
           <FrameProfileSelector
-            label="Dış Kasa Çerçeve Profili"
+            label="Çerçeve Koleksiyonu"
             selectedProfileId={selectedOuterProfileId}
             profiles={frameProfiles}
             onSelectProfile={handleSelectOuterProfile}

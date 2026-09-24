@@ -1564,11 +1564,8 @@ function SimulatorMain() {
   const frameFileInputRef = useRef<HTMLInputElement | null>(null);
   const outerFrameFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Handle local image uploads - Base64 İptali & Supabase Storage Entegrasyonu
-  const handlePaintingUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Handle local image uploads & camera captures - Base64 İptali & Supabase Storage Entegrasyonu
+  const processPaintingFile = async (file: File) => {
     // 1. Tarayıcıda anında yerel önizleme aç (kullanıcı hiç beklemesin)
     const localBlobPreview = URL.createObjectURL(file);
     setCustomPaintingUrl(localBlobPreview);
@@ -1616,6 +1613,12 @@ function SimulatorMain() {
     } catch (err) {
       console.error("Görsel sıkıştırma veya Storage aktarım hatası:", err);
     }
+  };
+
+  const handlePaintingUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processPaintingFile(file);
   };
 
   const handleFrameUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3333,6 +3336,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 customPaintingFile={customPaintingFile}
                 customPaintingUrl={customPaintingUrl}
                 handlePaintingUpload={handlePaintingUpload}
+                onCapturePaintingFile={processPaintingFile}
                 setIsCropModalOpen={setIsCropModalOpen}
                 widthInput={widthInput}
                 setWidthInput={setWidthInput}

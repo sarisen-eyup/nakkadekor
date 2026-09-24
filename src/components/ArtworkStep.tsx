@@ -1,14 +1,16 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { Upload, Scan, ArrowLeftRight, Palette, Sliders, ChevronRight, Home, Camera, Sparkles, ZoomIn, ZoomOut, RotateCcw, Maximize2, Download, Loader2 } from "lucide-react";
 import { DEFAULT_ROOM_TEMPLATES } from "../types/roomPreview";
 import { compressImage } from "../utils/imageCompressor";
 import { uploadImageToSupabaseStorage, isSupabaseConfigured } from "../services/supabaseService";
+import { CameraCaptureModal } from "./CameraCaptureModal";
 
 interface ArtworkStepProps {
   fileInputRef: React.RefObject<HTMLInputElement>;
   customPaintingFile: string;
   customPaintingUrl: string;
   handlePaintingUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onCapturePaintingFile?: (file: File) => void;
   setIsCropModalOpen: (open: boolean) => void;
   widthInput: string;
   setWidthInput: (val: string) => void;
@@ -49,6 +51,7 @@ export const ArtworkStep: React.FC<ArtworkStepProps> = ({
   customPaintingFile,
   customPaintingUrl,
   handlePaintingUpload,
+  onCapturePaintingFile,
   setIsCropModalOpen,
   widthInput,
   setWidthInput,
@@ -76,6 +79,7 @@ export const ArtworkStep: React.FC<ArtworkStepProps> = ({
   onResetRoomBg
 }) => {
   const roomFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState<boolean>(false);
 
   const swapDimensions = () => {
     const temp = widthInput;
@@ -144,18 +148,36 @@ export const ArtworkStep: React.FC<ArtworkStepProps> = ({
           </span>
         </div>
 
-        <div className="flex gap-3 items-center">
+        <div className="flex gap-2.5 items-center">
+          {/* Görsel Seç Butonu */}
           <div
             onClick={() => fileInputRef.current?.click()}
-            className={`w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all text-center p-2 shrink-0 ${
+            className={`w-[74px] h-20 sm:w-20 sm:h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all text-center p-2 shrink-0 select-none ${
               isDarkMode
                 ? "bg-[#101216] border-[#C5A059]/40 hover:border-[#C5A059] hover:bg-[#1a1e26]"
                 : "bg-white border-[#B88E3A]/40 hover:border-[#B88E3A] hover:bg-slate-50"
             }`}
+            title="Dosyadan veya Galeriden Görsel Seç"
           >
             <Upload className={`w-5 h-5 mb-1 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
             <span className={`text-[9px] font-bold leading-tight ${isDarkMode ? "text-neutral-300" : "text-slate-600"}`}>
               Görsel Seç
+            </span>
+          </div>
+
+          {/* Fotoğraf Çek Butonu (Mobil / Tablet / Masaüstü Kamera Modülü) */}
+          <div
+            onClick={() => setIsCameraModalOpen(true)}
+            className={`w-[74px] h-20 sm:w-20 sm:h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all text-center p-2 shrink-0 select-none ${
+              isDarkMode
+                ? "bg-[#101216] border-[#C5A059]/40 hover:border-[#C5A059] hover:bg-[#1a1e26]"
+                : "bg-white border-[#B88E3A]/40 hover:border-[#B88E3A] hover:bg-slate-50"
+            }`}
+            title="Kamera ile Eser Fotoğrafı Çek (Mobil, Tablet & Masaüstü)"
+          >
+            <Camera className={`w-5 h-5 mb-1 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+            <span className={`text-[9px] font-bold leading-tight ${isDarkMode ? "text-neutral-300" : "text-slate-600"}`}>
+              Fotoğraf Çek
             </span>
           </div>
 
@@ -621,6 +643,18 @@ export const ArtworkStep: React.FC<ArtworkStepProps> = ({
           <ChevronRight className="w-4 h-4" />
         </button>
       )}
+
+      {/* Kamera ile Fotoğraf Çekme Modalı (Mobil, Tablet & Masaüstü) */}
+      <CameraCaptureModal
+        isOpen={isCameraModalOpen}
+        onClose={() => setIsCameraModalOpen(false)}
+        onCapture={(file) => {
+          if (onCapturePaintingFile) {
+            onCapturePaintingFile(file);
+          }
+        }}
+        isDarkMode={isDarkMode}
+      />
     </div>
   );
 };
