@@ -72,6 +72,16 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
     };
   };
 
+  const cleanFrameName = (rawTitle?: string) => {
+    if (!rawTitle) return "";
+    let name = rawTitle.trim();
+    if (name.includes(" - ")) {
+      name = name.split(" - ").slice(1).join(" - ").trim();
+    }
+    name = name.replace(/\s*\(\s*\d+(\.\d+)?\s*cm\s*\)/gi, "").trim();
+    return name;
+  };
+
   if (!isOpen) return null;
 
   const filteredOrders = orders.filter((order) => {
@@ -362,89 +372,102 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                     </div>
 
                     {/* Malzeme Listesi (6 Kolon - Geniş & Detaylı) */}
-                    <div className="md:col-span-6 min-w-0 space-y-1 text-xs">
+                    <div className="md:col-span-6 min-w-0 space-y-1">
                       {/* 1- Tablo Ölçü */}
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                        <span className={`text-[11px] font-bold uppercase tracking-wider shrink-0 ${
                           isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
                         }`}>
                           1- Tablo Ölçü:
                         </span>
-                        <span className={`font-mono font-black text-sm tracking-wide ${
+                        <span className={`font-mono font-bold text-[11px] tracking-wide ${
                           isDarkMode ? "text-white" : "text-slate-900"
                         }`}>
                           {order.artworkWidthCm} × {order.artworkHeightCm} cm
                         </span>
-                        {order.frameWidthCm ? (
-                          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold border ${
-                            isDarkMode 
-                              ? "bg-white/5 border-white/10 text-neutral-300" 
-                              : "bg-slate-100 border-slate-200 text-slate-700"
-                          }`}>
-                            Genişlik: {order.frameWidthCm} cm
-                          </span>
-                        ) : null}
                       </div>
 
                       {/* 2- 1. Çerçeve */}
                       <div className="flex items-baseline gap-1.5 truncate">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                        <span className={`text-[11px] font-bold uppercase tracking-wider shrink-0 ${
                           isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
                         }`}>
                           2- 1. Çerçeve:
                         </span>
-                        <span className={`font-medium truncate ${
-                          isDarkMode ? "text-neutral-200" : "text-slate-800"
-                        }`} title={order.innerFrameTitle}>
-                          {order.innerFrameTitle || "Standart Çerçeve"}
-                        </span>
+                        {(() => {
+                          const name = cleanFrameName(order.innerFrameTitle) || "Standart Çerçeve";
+                          const width = order.frameWidthCm ? ` (${order.frameWidthCm} cm)` : "";
+                          return (
+                            <span 
+                              className={`text-[11px] font-medium truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}
+                              title={`${name}${width}`}
+                            >
+                              {name}{width}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       {/* 3- İç Paspartu */}
                       <div className="flex items-baseline gap-1.5 truncate">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                        <span className={`text-[11px] font-bold uppercase tracking-wider shrink-0 ${
                           isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
                         }`}>
                           3- İç Paspartu:
                         </span>
                         {hasMat ? (
-                          <span className={`font-medium truncate ${isDarkMode ? "text-neutral-200" : "text-slate-800"}`}>
+                          <span className={`text-[11px] font-medium truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                             {order.matInfo}
                           </span>
                         ) : (
-                          <span className="italic text-neutral-500">Paspartusuz</span>
+                          <span className={`text-[11px] font-medium ${isDarkMode ? "text-white/70" : "text-slate-600"}`}>
+                            Paspartusuz
+                          </span>
                         )}
                       </div>
 
                       {/* 4- Dış Paspartu */}
                       <div className="flex items-baseline gap-1.5 truncate">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                        <span className={`text-[11px] font-bold uppercase tracking-wider shrink-0 ${
                           isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
                         }`}>
                           4- Dış Paspartu:
                         </span>
                         {hasMiddleMat ? (
-                          <span className={`font-medium truncate ${isDarkMode ? "text-amber-300" : "text-amber-900"}`}>
-                            {order.middleMatWidthCm} cm {order.outerMatColor ? `(${order.outerMatColor})` : ""} (3D Derinlik)
+                          <span className={`text-[11px] font-medium truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+                            {order.middleMatWidthCm} cm {order.outerMatColor && !order.outerMatColor.startsWith("#") ? `(${order.outerMatColor}) ` : ""}(3D Derinlik)
                           </span>
                         ) : (
-                          <span className="italic text-neutral-500">Yok</span>
+                          <span className={`text-[11px] font-medium ${isDarkMode ? "text-white/70" : "text-slate-600"}`}>
+                            Yok
+                          </span>
                         )}
                       </div>
 
                       {/* 5- Dış Çerçeve */}
                       <div className="flex items-baseline gap-1.5 truncate">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                        <span className={`text-[11px] font-bold uppercase tracking-wider shrink-0 ${
                           isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
                         }`}>
                           5- Dış Çerçeve:
                         </span>
                         {hasOuter ? (
-                          <span className={`font-medium truncate ${isDarkMode ? "text-amber-300" : "text-amber-900"}`}>
-                            {order.outerFrameTitle} {order.outerFrameWidthCm ? `(${order.outerFrameWidthCm} cm)` : ""}
-                          </span>
+                          (() => {
+                            const name = cleanFrameName(order.outerFrameTitle) || "Dış Çerçeve";
+                            const width = order.outerFrameWidthCm ? ` (${order.outerFrameWidthCm} cm)` : "";
+                            return (
+                              <span 
+                                className={`text-[11px] font-medium truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}
+                                title={`${name}${width}`}
+                              >
+                                {name}{width}
+                              </span>
+                            );
+                          })()
                         ) : (
-                          <span className="italic text-neutral-500">Çerçeve Yok</span>
+                          <span className={`text-[11px] font-medium ${isDarkMode ? "text-white/70" : "text-slate-600"}`}>
+                            Çerçeve Yok
+                          </span>
                         )}
                       </div>
                     </div>
