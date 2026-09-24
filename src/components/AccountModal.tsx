@@ -249,29 +249,27 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           "Değerli Müşterimiz"
         ).trim();
 
-        // 2. Satın Alma Akışı (Fetch API): URLSearchParams kullanarak application/x-www-form-urlencoded formatında POST isteği at
-        const gasWebhookUrl = import.meta.env.VITE_GAS_BILLING_URL || 'https://script.google.com/macros/s/AKfycbwAmvnOXiXbaOSLpl05eF3_TJZir0WC2TnBiP_h1X0/dev';
+        // 2. Satın Alma Akışı (Fetch API): doGet için Query String parametreleri ile GET & mode: 'no-cors' isteği at
+        const gasWebhookBase = import.meta.env.VITE_GAS_BILLING_URL || 'https://script.google.com/macros/s/AKfycbwAmvnOXiXbaOSLpl05eF3_TJZir0WC2TnBiP_h1X0/dev';
 
         try {
-          const formData = new URLSearchParams();
-          formData.append('toEmail', toEmail);
-          formData.append('toName', toName);
-          formData.append('packageName', res.packageName);
-          formData.append('price', res.packagePriceText);
+          const url = new URL(gasWebhookBase);
+          url.searchParams.append('toEmail', toEmail);
+          url.searchParams.append('toName', toName);
+          url.searchParams.append('packageName', res.packageName);
+          url.searchParams.append('price', res.packagePriceText);
 
-          await fetch(gasWebhookUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: formData.toString()
+          // no-cors modunda yanıt 'opaque' olduğundan .json() veya .text() okunmaz
+          await fetch(url.toString(), {
+            method: 'GET',
+            mode: 'no-cors'
           });
         } catch (webhookErr) {
           console.warn("GAS Webhook gönderme uyarısı:", webhookErr);
         }
 
         // 3. UI Geri Bildirimi: Başarılı toast mesajı
-        toast.success("Ödeme talimatınız ve banka hesap bilgilerimiz kayıtlı e-posta adresinize gönderildi.");
+        toast.success("Ödeme talimatınız e-posta adresinize gönderildi.");
 
         setPaymentToast({
           text: "Talep Alındı & E-posta Gönderildi",
