@@ -250,12 +250,15 @@ export const AccountModal: React.FC<AccountModalProps> = ({
         ).trim();
 
         // 2. Satın Alma Akışı (Fetch API): Standart fetch() API'si kullanarak Google Apps Script URL'sine POST isteği at
+        // NOT: CORS preflight engellemesini aşmak için Content-Type KESİNLİKLE text/plain;charset=utf-8 ve mode: 'no-cors' kullanılmalıdır.
+        const gasWebhookUrl = import.meta.env.VITE_GAS_BILLING_URL || 'https://script.google.com/macros/s/AKfycbwAmvnOXiXbaOSLpl05eF3_TJZir0WC2TnBiP_h1X0/dev';
+
         try {
-          await fetch("https://script.google.com/macros/s/AKfycbydrTmT9ijKVZ-VpRoQWFBg7E6grHBdqIgkBoKTqPubvVDxuf-_RI49442h7DN81JWN/exec", {
-            method: "POST",
-            mode: "no-cors",
+          await fetch(gasWebhookUrl, {
+            method: 'POST',
+            mode: 'no-cors',
             headers: {
-              "Content-Type": "application/json"
+              'Content-Type': 'text/plain;charset=utf-8',
             },
             body: JSON.stringify({
               toEmail: toEmail,
