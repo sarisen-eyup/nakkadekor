@@ -43,8 +43,8 @@ import {
 } from "../services/supabaseService";
 import { compressImage } from "../utils/imageCompressor";
 import { LegalTermsModal, LegalTermsCheckbox, LegalDocType } from "./LegalTermsModal";
-import { PaymentBankTransferModal } from "./PaymentBankTransferModal";
 import { useToast } from "../context/ToastContext";
+import { useAuthGuard } from "../context/AuthGuardContext";
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -75,6 +75,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   onLogout,
   initialTab = "company"
 }) => {
+  const { user: authUser, tenant: authTenant } = useAuthGuard();
   const [activeTab, setActiveTab] = useState<"company" | "credits">(initialTab);
   const [localCompany, setLocalCompany] = useState<CompanyProfile>(companyProfile || EMPTY_COMPANY_PROFILE);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -86,16 +87,6 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   const [paymentToast, setPaymentToast] = useState<{ text: string; subText?: string } | null>(null);
   const [isLegalModalOpen, setIsLegalModalOpen] = useState<boolean>(false);
   const [selectedLegalDoc, setSelectedLegalDoc] = useState<LegalDocType>("user_agreement");
-  const [isBankTransferModalOpen, setIsBankTransferModalOpen] = useState<boolean>(false);
-  const [pendingPaymentInfo, setPendingPaymentInfo] = useState<{
-    packageName: string;
-    packagePriceText: string;
-    amount: number;
-  }>({
-    packageName: "Atölye Başlangıç Paketi (+50 Kredi)",
-    packagePriceText: "1.500 ₺",
-    amount: 50
-  });
   const [confirmHighCreditPurchase, setConfirmHighCreditPurchase] = useState<{
     packageKey: "credits_50" | "credits_150" | "unlimited";
     packageName: string;
@@ -222,41 +213,67 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     }
   };
 
-  // Kredi İşlemleri - Asıl Satın Alma / Havale Talebi Gönderimi
+  // Kredi İşlemleri - Asıl Satın Alma / GAS Web Hook ile E-posta Gönderimi
   const executePurchasePackage = async (packageKey: "credits_50" | "credits_150" | "unlimited") => {
     if (purchasingPackage) return;
     setPurchasingPackage(packageKey);
     setPaymentToast(null);
 
-    // Kısa işlem yükleniyor simülasyonu (1000ms)
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
     try {
       const effectiveId = tenantId || activeUser?.id;
+      // 1. Supabase'de pending_credits alanını güncelle
       const res = await purchaseTenantPackageInSupabase(effectiveId, packageKey);
 
       if (res.success) {
-        // Kural 2: remainingCredits (aktif kredi) KESİNLİKLE artırılmaz, sadece pendingCredits güncellenir!
+        // remainingCredits (aktif kredi) KESİNLİKLE artırılmaz, sadece pendingCredits güncellenir!
         onUpdateSubscription({
           ...subscription,
           pendingCredits: res.pendingCredits
         });
 
-        setPendingPaymentInfo({
-          packageName: res.packageName,
-          packagePriceText: res.packagePriceText,
-          amount: res.packageAmount
-        });
+        // Kullanıcı e-postası ve adını belirle
+        const toEmail = (
+          authUser?.email ||
+          activeUser?.email ||
+          localCompany.email ||
+          companyProfile.email ||
+          ""
+        ).trim();
 
-        // Kural 3: Veritabanı güncellemesi başarılı olduktan hemen sonra Havale/EFT Bilgilendirme Modalını aç
-        setIsBankTransferModalOpen(true);
+        const toName = (
+          localCompany.companyName ||
+          companyProfile.companyName ||
+          authUser?.name ||
+          authTenant?.name ||
+          activeUser?.fullName ||
+          "Değerli Müşterimiz"
+        ).trim();
 
-        // Global Toast Bildirimi
-        toast.success("Kredi talebiniz başarıyla alındı.");
+        // 2. Satın Alma Akışı (Fetch API): Standart fetch() API'si kullanarak Google Apps Script URL'sine POST isteği at
+        try {
+          await fetch("https://script.google.com/macros/s/AKfycbydrTmT9ijKVZ-VpRoQWFBg7E6grHBdqIgkBoKTqPubvVDxuf-_RI49442h7DN81JWN/exec", {
+            method: "POST",
+            mode: "no-cors",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              toEmail: toEmail,
+              toName: toName,
+              packageName: res.packageName,
+              price: res.packagePriceText
+            })
+          });
+        } catch (webhookErr) {
+          console.warn("GAS Webhook gönderme uyarısı:", webhookErr);
+        }
+
+        // 3. UI Geri Bildirimi: Başarılı toast mesajı
+        toast.success("Ödeme talimatınız ve banka hesap bilgilerimiz kayıtlı e-posta adresinize gönderildi.");
 
         setPaymentToast({
-          text: "Talep Alındı (Onay Bekleniyor)",
-          subText: "Havale/EFT dekontunuz iletildiğinde kredileriniz aktif bakiyenize tanımlanacaktır."
+          text: "Talep Alındı & E-posta Gönderildi",
+          subText: `${toEmail ? `${toEmail} adresinize ` : ""}ödeme talimatı ve banka hesap bilgilerimiz iletildi.`
         });
 
         // Güncelleme biter bitmez ekrandaki mevcut kredi göstergesini yeniden fetch et ve UI'ı anında tazele
@@ -283,6 +300,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
         subText: "Lütfen daha sonra tekrar deneyiniz."
       });
     } finally {
+      // Yükleniyor (loading) state'ini sonlandır
       setPurchasingPackage(null);
       setTimeout(() => {
         setPaymentToast(null);
@@ -1118,26 +1136,6 @@ export const AccountModal: React.FC<AccountModalProps> = ({
 
                     {/* Sağ Hızlı Butonlar */}
                     <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full md:w-auto shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPendingPaymentInfo({
-                            packageName: subscription.pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${subscription.pendingCredits} Kredi Paketi`,
-                            packagePriceText: subscription.pendingCredits >= 999999 ? "37.500 ₺ / Yıl" : subscription.pendingCredits >= 150 ? "3.750 ₺" : "1.500 ₺",
-                            amount: subscription.pendingCredits
-                          });
-                          setIsBankTransferModalOpen(true);
-                        }}
-                        className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer active:scale-95 ${
-                          isDarkMode 
-                            ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" 
-                            : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
-                        }`}
-                      >
-                        <Building2 className="w-4 h-4" />
-                        <span>Banka &amp; IBAN Gör</span>
-                      </button>
-
                       <a
                         href={`https://wa.me/905424710686?text=${encodeURIComponent(
                           `Merhaba, Nakka Dekor atölye hesabım için ${subscription.pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${subscription.pendingCredits} Kredi`} havale/EFT ödemesini gerçekleştirdim. Dekontu iletiyorum, kredimin onaylanmasını rica ederim.`
@@ -1372,21 +1370,6 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           onClose={() => setIsLegalModalOpen(false)}
           defaultDoc={selectedLegalDoc}
           isDarkMode={isDarkMode}
-        />
-
-        {/* Havale/EFT ve WhatsApp Onay Modalı */}
-        <PaymentBankTransferModal
-          isOpen={isBankTransferModalOpen}
-          onClose={() => setIsBankTransferModalOpen(false)}
-          isDarkMode={isDarkMode}
-          packageName={pendingPaymentInfo.packageName}
-          packagePriceText={pendingPaymentInfo.packagePriceText}
-          pendingCreditsAmount={pendingPaymentInfo.amount}
-          onReceiptSent={() => {
-            if (onRefreshTenant) {
-              onRefreshTenant();
-            }
-          }}
         />
 
         {/* 15'ten Fazla Kredisi Olan Kullanıcı İçin Onay Modalı */}
