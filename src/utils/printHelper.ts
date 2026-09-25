@@ -307,6 +307,24 @@ export function triggerImagePrintWindow(
     ? Boolean(flags.includeBackingBoard)
     : (isFrameActive || details.frameWidth > 0);
 
+  const firmName = details.companyProfile?.tradeTitle?.trim() 
+    || details.companyProfile?.companyName?.trim() 
+    || 'NAKKA DEKOR';
+
+  let userName = details.authorUser?.trim();
+  if (!userName && details.companyProfile?.companyName && details.companyProfile.companyName !== firmName) {
+    userName = details.companyProfile.companyName.trim();
+  }
+  if (!userName) {
+    userName = 'Yetkili Satış Danışmanı';
+  }
+
+  const rawEmail = details.companyProfile?.email?.trim() || 'info@sarisen.com.tr';
+  const emailLine = rawEmail.toLowerCase().startsWith('e-posta:') ? rawEmail : `E-posta: ${rawEmail}`;
+
+  const rawPhone = details.companyProfile?.phone?.trim() || '5424710686';
+  const phoneLine = rawPhone.toLowerCase().startsWith('tel:') ? rawPhone : `Tel: ${rawPhone}`;
+
   const fullHtml = `
     <!DOCTYPE html>
     <html lang="tr">
@@ -370,43 +388,45 @@ export function triggerImagePrintWindow(
           }
           .a4-page {
             width: 210mm;
-            min-height: 297mm;
+            height: 297mm;
+            max-height: 297mm;
             background: #ffffff;
-            padding: 8mm 10mm;
+            padding: 7mm 9mm 6mm 9mm;
             border-radius: 4px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.12);
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
+            justify-content: space-between;
+            overflow: hidden;
+            box-sizing: border-box;
           }
           .doc-header {
+            flex-shrink: 0;
             border-bottom: 1.5px solid #C5A059;
             padding-bottom: 5px;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             display: flex;
             justify-content: space-between;
-            align-items: flex-end;
+            align-items: center;
           }
-          .brand-title {
-            font-size: 14px;
-            font-weight: 800;
-            color: #121415;
-            letter-spacing: 0.4px;
-            line-height: 1.2;
+          .header-company-info {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5px;
+            justify-content: center;
           }
-          .brand-subtitle {
+          .header-company-line {
             font-size: 9px;
-            color: #C5A059;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin-top: 1px;
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.25;
           }
           .doc-badge {
             font-family: monospace;
             font-size: 10px;
             text-align: right;
             line-height: 1.2;
+            flex-shrink: 0;
           }
           .doc-badge-no {
             font-weight: bold;
@@ -418,22 +438,32 @@ export function triggerImagePrintWindow(
             font-size: 9px;
           }
           
-          /* Kompakt Görsel Konteynırı (Tek Sayfa A4 Uyumlu) */
+          /* Responsive Büyüyen Görsel Alanı (Kalan Boşluğu Doldurur, Alt Tabloları Sona İter) */
           .img-preview-container {
-            width: 100%;
+            flex: 1 1 auto;
+            min-height: 50px;
             display: flex;
             justify-content: center;
             align-items: center;
             margin: 4px 0 6px 0;
+            overflow: hidden;
           }
           .img-preview-container img {
-            max-width: 65%;
-            max-height: 200px;
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
             height: auto;
             object-fit: contain;
             border: 1px solid #e4e4e7;
             border-radius: 4px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+          }
+
+          .doc-bottom-section {
+            flex-shrink: 0;
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
           }
 
           .specs-table {
@@ -574,7 +604,7 @@ export function triggerImagePrintWindow(
           @media print {
             @page {
               size: A4 portrait;
-              margin: 6mm 8mm;
+              margin: 5mm 7mm;
             }
             html, body {
               background: #ffffff !important;
@@ -588,17 +618,42 @@ export function triggerImagePrintWindow(
               box-shadow: none !important;
               border: none !important;
               width: 100% !important;
-              min-height: auto !important;
-              max-height: 284mm !important;
+              height: 287mm !important;
+              max-height: 287mm !important;
+              min-height: 287mm !important;
               padding: 0 !important;
               margin: 0 !important;
+              box-sizing: border-box !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: space-between !important;
               overflow: hidden !important;
               page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+            .img-preview-container {
+              flex: 1 1 auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              margin: 3px 0 !important;
+              overflow: hidden !important;
             }
             .img-preview-container img {
-              max-width: 65%;
-              max-height: 200px;
-              box-shadow: none;
+              max-width: 100% !important;
+              max-height: 100% !important;
+              width: auto !important;
+              height: auto !important;
+              object-fit: contain !important;
+              box-shadow: none !important;
+            }
+            .doc-bottom-section {
+              flex-shrink: 0 !important;
+              margin-top: auto !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
             }
           }
         </style>
@@ -618,47 +673,43 @@ export function triggerImagePrintWindow(
         </div>
 
         <div class="a4-page">
-          <div>
-            <!-- Header -->
-            <div class="doc-header">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                ${details.companyProfile?.logoUrl ? `
-                  <img 
-                    src="${details.companyProfile.logoUrl}" 
-                    alt="Logo" 
-                    style="max-height: 40px; max-width: 105px; object-fit: contain; border-radius: 3px;" 
-                  />
-                ` : ''}
-                <div>
-                  <div class="brand-title">${details.companyProfile?.companyName || 'NAKKA DEKOR'}</div>
-                  <div class="brand-subtitle">${details.companyProfile?.tradeTitle || 'SİPARİŞ FORMU & İŞ EMRİ'}</div>
-                  ${(details.companyProfile?.phone || details.companyProfile?.email) ? `
-                    <div style="font-size: 8.5px; color: #555; margin-top: 1px;">
-                      ${details.companyProfile.phone ? `Tel: ${details.companyProfile.phone}` : ''} 
-                      ${details.companyProfile.email ? ` | E-posta: ${details.companyProfile.email}` : ''}
-                      ${details.authorUser ? ` | Satış Danışmanı: ${details.authorUser}` : ''}
-                    </div>
-                  ` : ''}
-                </div>
-              </div>
-              <div class="doc-badge">
-                <div class="doc-badge-no">SİPARİŞ NO: ${details.orderNumber}</div>
-                <div class="doc-badge-date">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
+          <!-- Header -->
+          <div class="doc-header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              ${details.companyProfile?.logoUrl ? `
+                <img 
+                  src="${details.companyProfile.logoUrl}" 
+                  alt="Logo" 
+                  style="max-height: 48px; max-width: 110px; object-fit: contain; border-radius: 3px;" 
+                />
+              ` : ''}
+              <div class="header-company-info">
+                <div class="header-company-line">${firmName}</div>
+                <div class="header-company-line">${userName}</div>
+                <div class="header-company-line">${emailLine}</div>
+                <div class="header-company-line">${phoneLine}</div>
               </div>
             </div>
-
-            <!-- Büyütülmüş Çerçeve Tasarım Görseli (Kompakt ve Net) -->
-            <div class="img-preview-container">
-              <img src="${dataUrl}" alt="${title}" />
+            <div class="doc-badge">
+              <div class="doc-badge-no">SİPARİŞ NO: ${details.orderNumber}</div>
+              <div class="doc-badge-date">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
             </div>
+          </div>
 
+          <!-- Büyütülmüş Çerçeve Tasarım Görseli (Responsive, kalan tüm boşluğu dolduran) -->
+          <div class="img-preview-container">
+            <img src="${dataUrl}" alt="${title}" />
+          </div>
+
+          <!-- Sayfa Sonuna Yaslanan Alt Bölüm (Tablo, Müşteri & İmza Kartları) -->
+          <div class="doc-bottom-section">
             <!-- Teknik Detaylar Tablosu (Aktif = Renkli, Pasif = Gri) -->
             <table class="specs-table">
               <thead>
                 <tr>
                   <th>Bileşen / Malzeme</th>
                   <th>Ölçü / Özellik</th>
-                  <th>Sistem & Detay</th>
+                  <th>Sistem &amp; Detay</th>
                   <th>Durum</th>
                 </tr>
               </thead>
@@ -714,37 +765,29 @@ export function triggerImagePrintWindow(
                 <!-- 07. Arkalık Koruma Bezi -->
                 <tr class="${isBackingClothActive ? 'row-active' : 'row-inactive'}">
                   <td><strong>07. Arkalık Koruma Bezi</strong></td>
-                  <td>${isBackingClothActive ? 'Toz & Nem İzolasyon Bezi' : 'Yok'}</td>
+                  <td>${isBackingClothActive ? 'Toz &amp; Nem İzolasyon Bezi' : 'Yok'}</td>
                   <td>${isBackingClothActive ? 'Asitsiz Koruyucu Bitiş Kapama Bezi' : 'Kapama Bezi Kullanılmıyor'}</td>
                   <td><span class="${isBackingClothActive ? 'badge-active' : 'badge-inactive'}">${isBackingClothActive ? 'VAR' : 'YOK'}</span></td>
                 </tr>
 
-                <!-- 08. Kraft Bitiş Bandı -->
-                <tr class="${isKraftTapeActive ? 'row-active' : 'row-inactive'}">
-                  <td><strong>08. Kraft Bitiş Bandı</strong></td>
-                  <td>${isKraftTapeActive ? '4 Kenar Çevre Bandı' : 'Yok'}</td>
-                  <td>${isKraftTapeActive ? 'Asitsiz Koruyucu Yapışkanlı Bitiş Bandı' : 'Bitiş Bandı Kullanılmıyor'}</td>
-                  <td><span class="${isKraftTapeActive ? 'badge-active' : 'badge-inactive'}">${isKraftTapeActive ? 'VAR' : 'YOK'}</span></td>
-                </tr>
-
-                <!-- 09. 3mm MDF Arka Kapama -->
+                <!-- 08. 3mm MDF Arka Kapama -->
                 <tr class="${isBackingBoardActive ? 'row-active' : 'row-inactive'}">
-                  <td><strong>09. 3mm MDF Arka Kapama</strong></td>
+                  <td><strong>08. 3mm MDF Arka Kapama</strong></td>
                   <td>${isBackingBoardActive ? '3 mm Pres MDF Arkalık' : 'Yok'}</td>
                   <td>${isBackingBoardActive ? 'Sertleştirilmiş Arka Koruma Plakası' : 'MDF Arkalık Kullanılmıyor'}</td>
                   <td><span class="${isBackingBoardActive ? 'badge-active' : 'badge-inactive'}">${isBackingBoardActive ? 'VAR' : 'YOK'}</span></td>
                 </tr>
 
-                <!-- 10. Dıştan Dışa Toplam Ölçü -->
+                <!-- 09. Dıştan Dışa Toplam Ölçü -->
                 <tr class="row-active">
-                  <td><strong>10. Dıştan Dışa Toplam Ölçü</strong></td>
+                  <td><strong>09. Dıştan Dışa Toplam Ölçü</strong></td>
                   <td colspan="2"><strong>${details.totalW.toFixed(2)} x ${details.totalH.toFixed(2)} cm</strong></td>
                   <td><span class="badge-active">TAM KESİM</span></td>
                 </tr>
 
-                <!-- 11. Toplam Sipariş Tutarı -->
+                <!-- 10. Toplam Sipariş Tutarı -->
                 <tr class="row-active">
-                  <td><strong>11. Toplam Sipariş Tutarı</strong></td>
+                  <td><strong>10. Toplam Sipariş Tutarı</strong></td>
                   <td colspan="2"><strong>₺${details.effectivePrice.toLocaleString('tr-TR')}</strong> (KDV Dahil)</td>
                   <td><span class="badge-active">ONAYLI FİYAT</span></td>
                 </tr>
@@ -762,7 +805,7 @@ export function triggerImagePrintWindow(
             <!-- Müşteri Bilgileri & Karekod -->
             <div class="grid-2">
               <div class="info-card">
-                <div class="info-card-title">Müşteri & Teslimat Bilgileri</div>
+                <div class="info-card-title">Müşteri &amp; Teslimat Bilgileri</div>
                 <div style="margin-bottom: 3px;">
                   <span style="color:#666;">Müşteri Adı:</span>
                   <strong style="color:#121415; margin-left: 4px;">
@@ -781,7 +824,7 @@ export function triggerImagePrintWindow(
                     ${details.deliveryMethod === 'shipping' ? `🚚 Kargo ile Gönderim (Kargo: ₺${details.shippingCost || 0})` : '🏪 Mağazada Teslim'}
                   </strong>
                 </div>
-                <div style="margin-bottom: 3px;">
+                <div>
                   <span style="color:#666;">Tahmini Teslim Tarihi:</span>
                   <strong style="color:#121415; margin-left: 4px;">
                     ${
@@ -793,18 +836,13 @@ export function triggerImagePrintWindow(
                     }
                   </strong>
                 </div>
-                <div>
-                  <span style="color:#666;">Sipariş Notu:</span>
-                  <span style="color:#121415; font-style:italic; margin-left: 4px;">Atölye hassas kesim montaj işlemi.</span>
-                </div>
               </div>
 
               <!-- Üretim Durumu & Karekod -->
               <div class="info-card" style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                 <div>
                   <div class="info-card-title">Üretim Durumu</div>
-                  <div style="color: #16a34a; font-weight: bold; font-size: 10px;">✓ DOKÜMAN HAZIRLANDI</div>
-                  <div style="color: #666; font-size: 8.5px; margin-top: 2px;">Atölye hassas kesim onayına sunulmuştur.</div>
+                  <div style="color: #16a34a; font-weight: 800; font-size: 11px; letter-spacing: 0.3px; margin-top: 4px;">✓ SİPARİŞ ONAYLANMIŞTIR.</div>
                 </div>
                 ${
                   details.qrDataUrl
@@ -840,20 +878,21 @@ export function triggerImagePrintWindow(
               <div class="info-card" style="text-align: center;">
                 <div class="info-card-title">Müşteri Islak İmza / Onay</div>
                 <div class="signature-line"></div>
-                <div style="font-size: 9px; color: #666;">İmza & Kaşe</div>
+                <div style="font-size: 9px; color: #666;">İmza &amp; Kaşe</div>
               </div>
             </div>
+
             ${details.companyProfile?.iban ? `
-              <div style="margin-top: 4px; padding: 4px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 3px; font-size: 8.5px; font-family: monospace; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
+              <div style="margin-top: 3px; padding: 3px 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 3px; font-size: 8px; font-family: monospace; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
                 <span><strong>Banka / IBAN:</strong> ${details.companyProfile.iban}</span>
                 ${details.companyProfile.taxOffice ? `<span><strong>V.D.:</strong> ${details.companyProfile.taxOffice} (${details.companyProfile.taxNumber || '-'})</span>` : ''}
               </div>
             ` : ''}
-          </div>
 
-          <div style="border-top: 1px solid #eee; padding-top: 4px; margin-top: 5px; display: flex; justify-content: space-between; font-size: 8.5px; color: #888;">
-            <span>${details.companyProfile?.tradeTitle || details.companyProfile?.companyName || 'Nakka Dekor B2B Sanat & Çerçeve Atölye Portalı'} ${details.companyProfile?.address ? `• ${details.companyProfile.address}` : ''}</span>
-            <span>${details.companyProfile?.website || 'https://nakkadekor.com'}</span>
+            <!-- Alt Bilgi / Footer -->
+            <div style="border-top: 1px solid #e4e4e7; padding-top: 3px; margin-top: 4px; display: flex; justify-content: flex-end; font-size: 8px; color: #888; font-family: monospace;">
+              <span>${details.companyProfile?.website || 'nakkadekor.com'}</span>
+            </div>
           </div>
         </div>
       </body>

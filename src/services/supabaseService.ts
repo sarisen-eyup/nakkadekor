@@ -2083,17 +2083,17 @@ export async function purchaseTenantPackageInSupabase(
   const packageMeta = {
     credits_50: {
       name: "Atölye Başlangıç Paketi (+50 Kredi)",
-      priceText: "1.500 ₺",
+      priceText: "1.800 ₺", // 1.500 ₺ + %20 KDV
       amount: 50
     },
     credits_150: {
       name: "Büyük Atölye Paketi (+150 Kredi)",
-      priceText: "3.750 ₺",
+      priceText: "4.500 ₺", // 3.750 ₺ + %20 KDV
       amount: 150
     },
     unlimited: {
       name: "Yıllık Sınırsız Paket",
-      priceText: "37.500 ₺",
+      priceText: "45.000 ₺", // 37.500 ₺ + %20 KDV
       amount: 999999
     }
   }[packageKey];

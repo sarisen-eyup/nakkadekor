@@ -95,7 +95,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     amount: number;
   }>({
     packageName: "Atölye Başlangıç Paketi (+50 Kredi)",
-    packagePriceText: "1.500 ₺",
+    packagePriceText: "1.800 ₺",
     amount: 50
   });
 
@@ -309,9 +309,9 @@ export const AccountModal: React.FC<AccountModalProps> = ({
     }
 
     const packageMeta: Record<"credits_50" | "credits_150" | "unlimited", { name: string; price: string }> = {
-      credits_50: { name: "Atölye Başlangıç Paketi (+50 Kredi)", price: "1.500 ₺" },
-      credits_150: { name: "Büyük Atölye Paketi (+150 Kredi)", price: "3.750 ₺" },
-      unlimited: { name: "Yıllık Sınırsız Paket", price: "37.500 ₺ / Yıl" }
+      credits_50: { name: "Atölye Başlangıç Paketi (+50 Kredi)", price: "1.800 ₺ (%20 KDV Dahil)" },
+      credits_150: { name: "Büyük Atölye Paketi (+150 Kredi)", price: "4.500 ₺ (%20 KDV Dahil)" },
+      unlimited: { name: "Yıllık Sınırsız Paket", price: "45.000 ₺ / Yıl (%20 KDV Dahil)" }
     };
 
     const meta = packageMeta[packageKey];
@@ -1128,7 +1128,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                         onClick={() => {
                           setPendingPaymentInfo({
                             packageName: subscription.pendingCredits >= 999999 ? "Yıllık Sınırsız Paket" : `${subscription.pendingCredits} Kredi Paketi`,
-                            packagePriceText: subscription.pendingCredits >= 999999 ? "37.500 ₺ / Yıl" : subscription.pendingCredits >= 150 ? "3.750 ₺" : "1.500 ₺",
+                            packagePriceText: subscription.pendingCredits >= 999999 ? "45.000 ₺ / Yıl" : subscription.pendingCredits >= 150 ? "4.500 ₺" : "1.800 ₺",
                             amount: subscription.pendingCredits
                           });
                           setIsBankTransferModalOpen(true);
@@ -1229,7 +1229,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                       ) : (
                         <>
                           <Plus className="w-3.5 h-3.5" />
-                          <span>₺1500 • Satın Al</span>
+                          <span>₺1.500 + KDV • Satın Al</span>
                         </>
                       )}
                     </button>
@@ -1273,7 +1273,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                       ) : (
                         <>
                           <Plus className="w-3.5 h-3.5" />
-                          <span>₺3750 • Satın Al</span>
+                          <span>₺3.750 + KDV • Satın Al</span>
                         </>
                       )}
                     </button>
@@ -1321,7 +1321,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                       ) : (
                         <>
                           <Infinity className="w-3.5 h-3.5" />
-                          <span>₺37.500 / Yıl • Satın Al</span>
+                          <span>₺37.500 / Yıl + KDV • Satın Al</span>
                         </>
                       )}
                     </button>

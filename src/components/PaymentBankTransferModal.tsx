@@ -28,7 +28,7 @@ export const PaymentBankTransferModal: React.FC<PaymentBankTransferModalProps> =
   onClose,
   isDarkMode,
   packageName = "Atölye Kredi Paketi",
-  packagePriceText = "1.500 ₺",
+  packagePriceText = "1.800 ₺",
   pendingCreditsAmount = 50,
   companyName = "Atölyemiz",
   onReceiptSent
@@ -37,6 +37,30 @@ export const PaymentBankTransferModal: React.FC<PaymentBankTransferModalProps> =
 
   if (!isOpen) return null;
 
+  // KDV (%20) ve Net/Brüt Tutar Hesaplamaları
+  const isUnlimited = pendingCreditsAmount >= 999999 || packageName?.toLowerCase().includes("sınırsız");
+  const is150 = !isUnlimited && (
+    pendingCreditsAmount >= 150 || 
+    packageName?.includes("150") || 
+    packagePriceText?.includes("3.750") || 
+    packagePriceText?.includes("3750") || 
+    packagePriceText?.includes("4.500")
+  );
+
+  let basePriceText = "1.500 ₺";
+  let vatAmountText = "300 ₺";
+  let vatInclusivePriceText = "1.800 ₺";
+
+  if (isUnlimited) {
+    basePriceText = "37.500 ₺";
+    vatAmountText = "7.500 ₺";
+    vatInclusivePriceText = "45.000 ₺";
+  } else if (is150) {
+    basePriceText = "3.750 ₺";
+    vatAmountText = "750 ₺";
+    vatInclusivePriceText = "4.500 ₺";
+  }
+
   const RECIPIENT_NAME = "AYŞEN SARIŞEN";
   const BANK_NAME = "T.C. ZİRAAT BANKASI";
   const IBAN_NUMBER = "TR06 0001 0020 8346 4637 3750 05";
@@ -44,7 +68,7 @@ export const PaymentBankTransferModal: React.FC<PaymentBankTransferModalProps> =
 
   const WHATSAPP_PHONE = "905424710686";
   const effectiveCompanyName = companyName?.trim() || "Atölyemiz";
-  const WHATSAPP_MESSAGE = `Merhaba, ${packageName} paketi için ödemeyi gerçekleştirdim. Firma/Atölye adım: ${effectiveCompanyName}.`;
+  const WHATSAPP_MESSAGE = `Merhaba, ${packageName} paketi (${vatInclusivePriceText} - %20 KDV Dahil) için havale/EFT ödemesini gerçekleştirdim. Firma/Atölye adım: ${effectiveCompanyName}. Faturanın kesilmesini ve kredimin aktif edilmesini rica ederim.`;
   const WHATSAPP_URL = `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
 
   const handleCopyIban = async () => {
@@ -70,8 +94,6 @@ export const PaymentBankTransferModal: React.FC<PaymentBankTransferModalProps> =
       setTimeout(() => setCopied(false), 3000);
     }
   };
-
-  const isUnlimited = pendingCreditsAmount >= 999999;
 
   return (
     <div 
@@ -137,23 +159,29 @@ export const PaymentBankTransferModal: React.FC<PaymentBankTransferModalProps> =
           </p>
 
           {/* Talep Edilen Paket & Tutar Özeti */}
-          <div className={`p-4 rounded-xl border flex items-center justify-between ${
+          <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 ${
             isDarkMode ? "bg-black/40 border-neutral-800 text-neutral-300" : "bg-slate-50 border-slate-200 text-slate-800"
           }`}>
             <div>
               <span className="text-[11px] uppercase tracking-wider text-neutral-400 block font-bold">
                 Seçilen Paket
               </span>
-              <span className="text-sm font-black text-[#C5A059]">
+              <span className="text-sm font-black text-[#C5A059] block">
                 {packageName}
               </span>
+              <span className="text-[10px] text-neutral-400 block font-mono mt-0.5">
+                Net: {basePriceText} + %20 KDV ({vatAmountText})
+              </span>
             </div>
-            <div className="text-right">
+            <div className="text-right shrink-0">
               <span className="text-[11px] uppercase tracking-wider text-neutral-400 block font-bold">
                 Ödenecek Tutar
               </span>
-              <span className="text-base font-black font-mono text-emerald-400">
-                {packagePriceText}
+              <span className="text-lg font-black font-mono text-emerald-400 block">
+                {vatInclusivePriceText}
+              </span>
+              <span className="text-[10px] text-neutral-400 font-sans block font-semibold">
+                (%20 KDV Dahil)
               </span>
             </div>
           </div>
@@ -250,7 +278,7 @@ export const PaymentBankTransferModal: React.FC<PaymentBankTransferModalProps> =
           }`}>
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
             <div>
-              Ödemenizi yaptıktan sonra dekontu aşağıdaki yeşil butona tıklayarak WhatsApp üzerinden iletebilirsiniz. Ekibimiz en kısa sürede kredinizi aktif edecektir.
+              Ödemenizi yaptıktan sonra dekontu aşağıdaki yeşil butona tıklayarak WhatsApp üzerinden iletebilirsiniz. Ekibimiz en kısa sürede kredinizi aktif edecek ve %20 KDV&apos;li kurumsal e-faturanızı tanzim edecektir.
             </div>
           </div>
 
