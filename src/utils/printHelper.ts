@@ -88,15 +88,19 @@ export function triggerPrintWindow(title: string, bodyHtml: string) {
       <head>
         <meta charset="utf-8" />
         <title>${title}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
         <style>
           * { box-sizing: border-box; }
           body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             margin: 0;
             padding: 30px;
-            color: #111;
+            color: #0f172a;
             background: #fff;
             line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
           }
           .no-print-bar {
             background: #121415;
@@ -106,19 +110,20 @@ export function triggerPrintWindow(title: string, bodyHtml: string) {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-family: monospace;
+            font-family: 'Roboto', system-ui, sans-serif;
             border-bottom: 2px solid #C5A059;
           }
           .print-btn {
             background: #C5A059;
             color: #000;
-            font-weight: bold;
+            font-weight: 700;
             padding: 8px 18px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-size: 13px;
-            font-family: monospace;
+            font-family: 'Roboto', system-ui, sans-serif;
+            letter-spacing: 0.3px;
           }
           .print-btn:hover {
             background: #b08c48;
@@ -128,17 +133,17 @@ export function triggerPrintWindow(title: string, bodyHtml: string) {
             border-collapse: collapse;
             margin: 15px 0;
             font-size: 12px;
-            font-family: monospace;
+            font-family: 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           }
           th, td {
-            border: 1px solid #ccc;
+            border: 1px solid #cbd5e1;
             padding: 8px 12px;
             text-align: left;
           }
           th {
-            background-color: #f2f2f2;
-            font-weight: bold;
-            color: #000;
+            background-color: #f1f5f9;
+            font-weight: 700;
+            color: #1e293b;
           }
           .text-right { text-align: right; }
           .text-center { text-align: center; }
@@ -1509,25 +1514,29 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
   const itemsRows = cutList.items
     .map(
       (item) => `
-      <tr style="${!item.included ? 'opacity:0.35; font-style:italic; background:#fbfbfb;' : ''}">
-        <td style="border:1px solid #ccc; padding:3px 6px; vertical-align:middle;">
-          <div style="font-weight:bold; color:#111; font-size:10.5px; line-height:1.2;">${item.layerName}</div>
-          <div style="font-size:8.5px; color:#555; line-height:1.15;">
-            ${item.materialInfo}
-            ${item.profileCode ? ` • <strong style="color:#000;">Profil: ${item.profileCode}</strong>` : ''}
-          </div>
-          ${item.notes ? `<div style="font-size:8px; color:#777; line-height:1.1; margin-top:1px;">${item.notes}</div>` : ''}
+      <tr style="${!item.included ? 'opacity:0.45; background:#f8fafc; font-style:italic;' : ''}">
+        <td style="border:1px solid #cbd5e1; padding:4px 7px; vertical-align:middle;">
+          <div style="font-weight:700; color:#0f172a; font-size:11px; line-height:1.25;">${item.layerName}</div>
+          ${item.materialInfo ? `
+            <div style="font-size:9.5px; color:#475569; line-height:1.2; margin-top:1px;">
+              ${item.materialInfo}
+              ${item.profileCode ? ` • <strong style="color:#0f172a; font-family:'JetBrains Mono', monospace;">Profil: ${item.profileCode}</strong>` : ''}
+            </div>
+          ` : ''}
+          ${item.notes ? `<div style="font-size:8.5px; color:#64748b; line-height:1.1; margin-top:1px;">${item.notes}</div>` : ''}
         </td>
-        <td style="border:1px solid #ccc; padding:3px 6px; text-align:center; font-weight:bold; font-size:9.5px; vertical-align:middle;">
+        <td style="border:1px solid #cbd5e1; padding:4px 7px; text-align:center; font-weight:600; font-size:10px; color:#334155; vertical-align:middle;">
           ${item.cutAngle}
         </td>
-        <td style="border:1px solid #ccc; padding:3px 6px; text-align:center; font-weight:bold; font-size:11px; font-family:monospace; vertical-align:middle;">
-          ${item.pieceWidthCm.toFixed(2)} cm <span style="font-size:8px; font-weight:normal; color:#444;">(${item.quantityWidthPieces > 1 ? `${item.quantityWidthPieces} Adet` : '1 Plaka'})</span>
+        <td style="border:1px solid #cbd5e1; padding:4px 7px; text-align:center; vertical-align:middle;">
+          <span style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:11.5px; color:#0f172a;">${item.pieceWidthCm.toFixed(2)} cm</span>
+          <span style="font-size:9px; font-weight:normal; color:#64748b; margin-left:3px;">(${item.quantityWidthPieces > 1 ? `${item.quantityWidthPieces} Adet` : '1 Plaka'})</span>
         </td>
-        <td style="border:1px solid #ccc; padding:3px 6px; text-align:center; font-weight:bold; font-size:11px; font-family:monospace; vertical-align:middle;">
-          ${item.pieceHeightCm.toFixed(2)} cm <span style="font-size:8px; font-weight:normal; color:#444;">(${item.quantityHeightPieces > 1 ? `${item.quantityHeightPieces} Adet` : '1 Plaka'})</span>
+        <td style="border:1px solid #cbd5e1; padding:4px 7px; text-align:center; vertical-align:middle;">
+          <span style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:11.5px; color:#0f172a;">${item.pieceHeightCm.toFixed(2)} cm</span>
+          <span style="font-size:9px; font-weight:normal; color:#64748b; margin-left:3px;">(${item.quantityHeightPieces > 1 ? `${item.quantityHeightPieces} Adet` : '1 Plaka'})</span>
         </td>
-        <td style="border:1px solid #ccc; padding:3px 6px; text-align:right; font-weight:bold; font-family:monospace; font-size:10px; vertical-align:middle;">
+        <td style="border:1px solid #cbd5e1; padding:4px 7px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace; font-size:11px; color:#0f172a; vertical-align:middle;">
           ${item.totalMeterNeeded.toFixed(2)} ${item.unit || 'm²'}
         </td>
       </tr>
@@ -1538,60 +1547,60 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
   const assemblyRows = cutList.assemblyInstructions
     .map(
       (step) => `
-      <div style="background:#fafafa; border:1px solid #e0e0e0; padding:3.5px 7px; border-radius:3px; font-size:9px; line-height:1.2;">
-        <strong>${step}</strong>
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:4.5px 8px; border-radius:3px; font-size:10px; line-height:1.35; color:#1e293b;">
+        <strong style="font-weight:600;">${step}</strong>
       </div>
     `
     )
     .join("");
 
   const contentHtml = `
-    <div style="max-width:100%; page-break-inside:avoid; font-family:system-ui, -apple-system, sans-serif;">
+    <div style="max-width:100%; page-break-inside:avoid; font-family:'Roboto', system-ui, -apple-system, sans-serif;">
       <!-- 1. Üst Başlık Çubuğu -->
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid #111; padding-bottom:5px; margin-bottom:6px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #0f172a; padding-bottom:6px; margin-bottom:7px;">
         <div>
-          <div style="font-size:15px; font-weight:bold; text-transform:uppercase; letter-spacing:0.3px; line-height:1.15;">
+          <div style="font-size:15px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; line-height:1.15; color:#0f172a;">
             ${companyProfile?.companyName || 'NAKKA DEKOR'} - ATÖLYE İŞ EMRİ & KESİM FİŞİ
           </div>
         </div>
-        <div style="text-align:right; font-family:monospace; line-height:1.2;">
-          <div style="font-weight:bold; font-size:12px; color:#000;">SİPARİŞ NO: ${cutList.orderNumber}</div>
-          <div style="font-size:9px; color:#666;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
+        <div style="text-align:right; line-height:1.25;">
+          <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:12px; color:#0f172a;">SİPARİŞ NO: ${cutList.orderNumber}</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-size:9.5px; color:#64748b; margin-top:1px;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
         </div>
       </div>
 
       <!-- 2. Özet Bilgi Kartı (4 Kolon) -->
-      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; background:#f7f7f7; border:1px solid #ddd; padding:5px 8px; border-radius:3px; font-family:monospace; margin-bottom:6px;">
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; background:#f8fafc; border:1px solid #cbd5e1; padding:6px 10px; border-radius:4px; margin-bottom:7px;">
         <div>
-          <div style="font-size:8px; color:#666; text-transform:uppercase; line-height:1;">ESER / TABLO ÖLÇÜSÜ</div>
-          <div style="font-weight:bold; font-size:11px; margin-top:2px;">${artworkWidthCm} × ${artworkHeightCm} cm</div>
+          <div style="font-size:8.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; line-height:1;">ESER / TABLO ÖLÇÜSÜ</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:12px; color:#0f172a; margin-top:2px;">${artworkWidthCm} × ${artworkHeightCm} cm</div>
         </div>
         <div>
-          <div style="font-size:8px; color:#666; text-transform:uppercase; line-height:1;">BİTMİŞ DIŞ ÖLÇÜ</div>
-          <div style="font-weight:bold; font-size:11px; color:#b45309; margin-top:2px;">${cutList.totalOuterDimensions}</div>
+          <div style="font-size:8.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; line-height:1;">BİTMİŞ DIŞ ÖLÇÜ</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:12px; color:#b45309; margin-top:2px;">${cutList.totalOuterDimensions}</div>
         </div>
         <div>
-          <div style="font-size:8px; color:#666; text-transform:uppercase; line-height:1;">MÜŞTERİ ADI</div>
-          <div style="font-weight:bold; font-size:11px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; margin-top:2px;">${customerName || "—"}</div>
+          <div style="font-size:8.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; line-height:1;">MÜŞTERİ ADI</div>
+          <div style="font-weight:700; font-size:12px; color:#0f172a; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; margin-top:2px;">${customerName || "—"}</div>
         </div>
         <div>
-          <div style="font-size:8px; color:#666; text-transform:uppercase; line-height:1;">TESLİM TARİHİ</div>
-          <div style="font-weight:bold; font-size:11px; margin-top:2px;">${deliveryDate || "—"}</div>
+          <div style="font-size:8.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; line-height:1;">TESLİM TARİHİ</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:12px; color:#0f172a; margin-top:2px;">${deliveryDate || "—"}</div>
         </div>
       </div>
 
       <!-- 3. Kesim Ölçüleri Tablosu -->
-      <h3 style="font-size:10px; font-family:monospace; margin-bottom:3px; text-transform:uppercase; border-left:3px solid #C5A059; padding-left:6px; line-height:1.2;">
+      <h3 style="font-size:11px; font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.4px; border-left:3px solid #C5A059; padding-left:6px; line-height:1.2; color:#0f172a;">
         Kesim Ölçüleri Tablosu
       </h3>
-      <table style="width:100%; border-collapse:collapse; margin-bottom:6px; font-family:monospace; font-size:9.5px;">
+      <table style="width:100%; border-collapse:collapse; margin-bottom:7px; font-size:9.5px;">
         <thead>
-          <tr style="background:#e8e8e8;">
-            <th style="border:1px solid #ccc; padding:3px 5px; text-align:left; font-size:8.5px;">KATMAN / PARÇA</th>
-            <th style="border:1px solid #ccc; padding:3px 5px; text-align:center; font-size:8.5px;">KESİM AÇISI</th>
-            <th style="border:1px solid #ccc; padding:3px 5px; text-align:center; font-size:8.5px;">EN BOYU (2x)</th>
-            <th style="border:1px solid #ccc; padding:3px 5px; text-align:center; font-size:8.5px;">BOY BOYU (2x)</th>
-            <th style="border:1px solid #ccc; padding:3px 5px; text-align:right; font-size:8.5px;">SARFİYAT</th>
+          <tr style="background:#f1f5f9; color:#1e293b;">
+            <th style="border:1px solid #cbd5e1; padding:4px 6px; text-align:left; font-size:8.5px; font-weight:700; letter-spacing:0.3px;">KATMAN / PARÇA</th>
+            <th style="border:1px solid #cbd5e1; padding:4px 6px; text-align:center; font-size:8.5px; font-weight:700; letter-spacing:0.3px;">KESİM AÇISI</th>
+            <th style="border:1px solid #cbd5e1; padding:4px 6px; text-align:center; font-size:8.5px; font-weight:700; letter-spacing:0.3px;">EN BOYU (2x)</th>
+            <th style="border:1px solid #cbd5e1; padding:4px 6px; text-align:center; font-size:8.5px; font-weight:700; letter-spacing:0.3px;">BOY BOYU (2x)</th>
+            <th style="border:1px solid #cbd5e1; padding:4px 6px; text-align:right; font-size:8.5px; font-weight:700; letter-spacing:0.3px;">SARFİYAT</th>
           </tr>
         </thead>
         <tbody>
@@ -1600,15 +1609,15 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
       </table>
 
       <!-- 4. Atölye Montaj Sıralaması -->
-      <h3 style="font-size:10px; font-family:monospace; margin-bottom:3px; text-transform:uppercase; border-left:3px solid #C5A059; padding-left:6px; line-height:1.2;">
+      <h3 style="font-size:11px; font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.4px; border-left:3px solid #C5A059; padding-left:6px; line-height:1.2; color:#0f172a;">
         Atölye Montaj Sıralaması
       </h3>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:3.5px; margin-bottom:8px; font-family:sans-serif;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:8px;">
         ${assemblyRows}
       </div>
 
       <!-- 5. İmza & Onay Satırı -->
-      <div style="border-top:1px dashed #777; padding-top:5px; display:flex; justify-content:space-between; font-size:9px; font-family:monospace; line-height:1.2;">
+      <div style="border-top:1px dashed #94a3b8; padding-top:6px; display:flex; justify-content:space-between; font-size:9.5px; line-height:1.2; color:#334155;">
         <div>
           <span>Kesim Yapan Usta: ________________________</span>
         </div>
@@ -1616,7 +1625,7 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
           <span>Montaj & Kontrol: ________________________</span>
         </div>
         <div>
-          <span>Tarih: ${new Date().toLocaleDateString('tr-TR')}</span>
+          <span>Tarih: <strong style="font-family:'JetBrains Mono', monospace; font-weight:600;">${new Date().toLocaleDateString('tr-TR')}</strong></span>
         </div>
       </div>
     </div>
@@ -1644,138 +1653,140 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
   const { breakdown, settings, artworkWidthCm, artworkHeightCm, orderNumber, customerName, deliveryDate, flags, companyProfile } = details;
 
   const contentHtml = `
-    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #111; padding-bottom:12px; margin-bottom:16px;">
-      <div>
-        <div style="font-size:20px; font-weight:bold; text-transform:uppercase;">
-          ${companyProfile?.companyName || 'NAKKA DEKOR'}
+    <div style="font-family:'Roboto', system-ui, -apple-system, sans-serif;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #0f172a; padding-bottom:12px; margin-bottom:16px;">
+        <div>
+          <div style="font-size:20px; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; color:#0f172a;">
+            ${companyProfile?.companyName || 'NAKKA DEKOR'}
+          </div>
+          <div style="font-size:12px; font-weight:600; color:#64748b; letter-spacing:0.3px; margin-top:2px;">SİPARİŞ MALİYET ANALİZİ & FİNANSAL DÖKÜM BELGESİ</div>
         </div>
-        <div style="font-size:12px; color:#555;">SİPARİŞ MALİYET ANALİZİ & FİNANSAL DÖKÜM BELGESİ</div>
+        <div style="text-align:right; line-height:1.25;">
+          <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:14px; color:#0f172a;">SİPARİŞ NO: #${orderNumber}</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-size:10px; color:#64748b; margin-top:1px;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
+        </div>
       </div>
-      <div style="text-align:right; font-family:monospace;">
-        <div style="font-weight:bold; font-size:15px;">SİPARİŞ NO: #${orderNumber}</div>
-        <div style="font-size:11px; color:#666;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
+
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; background:#f8fafc; padding:12px; border:1px solid #cbd5e1; border-radius:4px; font-size:12px; margin-bottom:18px;">
+        <div><strong>Müşteri Adı:</strong> ${customerName || "Belirtilmedi"}</div>
+        <div><strong>Teslim Tarihi:</strong> <span style="font-family:'JetBrains Mono', monospace;">${deliveryDate || "Normal"}</span></div>
+        <div><strong>Eser Ölçüsü:</strong> <span style="font-family:'JetBrains Mono', monospace; font-weight:600;">${artworkWidthCm} × ${artworkHeightCm} cm</span></div>
       </div>
-    </div>
 
-    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; background:#f9f9f9; padding:12px; border:1px solid #ddd; border-radius:4px; font-size:12px; margin-bottom:20px; font-family:monospace;">
-      <div><strong>Müşteri Adı:</strong> ${customerName || "Belirtilmedi"}</div>
-      <div><strong>Teslim Tarihi:</strong> ${deliveryDate || "Normal"}</div>
-      <div><strong>Eser Ölçüsü:</strong> ${artworkWidthCm} × ${artworkHeightCm} cm</div>
-    </div>
+      <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:11.5px;">
+        <thead>
+          <tr style="background-color:#f1f5f9; color:#1e293b;">
+            <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:left; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">MALZEME / HİZMET</th>
+            <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:left; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">DURUM</th>
+            <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:left; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">MİKTAR</th>
+            <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">BİRİM FİYAT</th>
+            <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">TUTAR (₺)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">Kanvas / Tuval Baskı</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeArtworkPrint ? "Dahil" : "Müşteriden (Hariç)"}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.artworkSqm ?? 0).toFixed(3)} m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${settings.canvasPrintPricePerSqm}/m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.artworkCost ?? 0).toFixed(2)}</td>
+          </tr>
+          ${(breakdown.innerMatSqm ?? 0) > 0 ? `
+          <tr>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">İç Paspartu Kartonu</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeInnerMat ? "Dahil" : "Hariç"}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.innerMatSqm ?? 0).toFixed(3)} m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${breakdown.innerMatUnitPrice ?? settings.matBoardPricePerSqm}/m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.innerMatCost ?? 0).toFixed(2)}</td>
+          </tr>` : ''}
+          <tr>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">Ana Çerçeve Profili</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeInnerFrame ? "Dahil" : "Hariç"}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.innerFrameMeter ?? 0).toFixed(2)} mt</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">Metre Tül</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.innerFrameCost ?? 0).toFixed(2)}</td>
+          </tr>
+          ${(breakdown.middleMatSqm ?? 0) > 0 ? `
+          <tr>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">3D Ara Paspartu</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeMiddleMat ? "Dahil" : "Hariç"}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.middleMatSqm ?? 0).toFixed(3)} m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${breakdown.middleMatUnitPrice ?? settings.middleMatBoardPricePerSqm}/m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.middleMatCost ?? 0).toFixed(2)}</td>
+          </tr>` : ''}
+          ${(breakdown.outerFrameMeter ?? 0) > 0 ? `
+          <tr>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">Dış Kasa Çerçeve Profili</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeOuterFrame ? "Dahil" : "Hariç"}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.outerFrameMeter ?? 0).toFixed(2)} mt</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">Metre Tül</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.outerFrameCost ?? 0).toFixed(2)}</td>
+          </tr>` : ''}
+          <tr>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">Koruyucu Cam / Pleksi</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeGlass ? "Dahil" : "Hariç"}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.glassBackingSqm ?? 0).toFixed(3)} m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${settings.glassPricePerSqm}/m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.glassCost ?? 0).toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">3mm MDF Arka Kapama</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeBackingBoard ? "Dahil" : "Hariç"}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.glassBackingSqm ?? 0).toFixed(3)} m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${settings.backingBoardPricePerSqm}/m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.backingBoardCost ?? 0).toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">Arkalık Koruma Bezi</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeBackingCloth || flags.includeBackingPaper ? "Dahil" : "Hariç"}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.backingClothSqm ?? 0).toFixed(3)} m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${settings.backingClothPricePerSqm ?? 90}/m²</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.backingClothCost ?? 0).toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">Atölye Sabit El İşçiliği</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeLaborCost ? "Dahil" : "Hariç"}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">1 Adet</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${settings.laborFixedCost}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.laborCost ?? 0).toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600; color:#b45309;">Kesim Fire / Atık (%${settings.wastePercentage})</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">Dahil</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">Oransal</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">%${settings.wastePercentage}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace; color:#b45309;">₺${(breakdown.wasteCost ?? 0).toFixed(2)}</td>
+          </tr>
+        </tbody>
+      </table>
 
-    <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:12px; font-family:monospace;">
-      <thead>
-        <tr style="background-color:#f2f2f2;">
-          <th style="border:1px solid #ccc; padding:8px; text-align:left;">MALZEME / HİZMET</th>
-          <th style="border:1px solid #ccc; padding:8px; text-align:left;">DURUM</th>
-          <th style="border:1px solid #ccc; padding:8px; text-align:left;">MİKTAR</th>
-          <th style="border:1px solid #ccc; padding:8px; text-align:right;">BİRİM FİYAT</th>
-          <th style="border:1px solid #ccc; padding:8px; text-align:right;">TUTAR (₺)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Kanvas / Tuval Baskı</td>
-          <td style="border:1px solid #ccc; padding:8px;">${flags.includeArtworkPrint ? "Dahil" : "Müşteriden (Hariç)"}</td>
-          <td style="border:1px solid #ccc; padding:8px;">${(breakdown.artworkSqm ?? 0).toFixed(3)} m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${settings.canvasPrintPricePerSqm}/m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.artworkCost ?? 0).toFixed(2)}</td>
-        </tr>
-        ${(breakdown.innerMatSqm ?? 0) > 0 ? `
-        <tr>
-          <td style="border:1px solid #ccc; padding:8px;">İç Paspartu Kartonu</td>
-          <td style="border:1px solid #ccc; padding:8px;">${flags.includeInnerMat ? "Dahil" : "Hariç"}</td>
-          <td style="border:1px solid #ccc; padding:8px;">${(breakdown.innerMatSqm ?? 0).toFixed(3)} m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${breakdown.innerMatUnitPrice ?? settings.matBoardPricePerSqm}/m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.innerMatCost ?? 0).toFixed(2)}</td>
-        </tr>` : ''}
-        <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Ana Çerçeve Profili</td>
-          <td style="border:1px solid #ccc; padding:8px;">${flags.includeInnerFrame ? "Dahil" : "Hariç"}</td>
-          <td style="border:1px solid #ccc; padding:8px;">${(breakdown.innerFrameMeter ?? 0).toFixed(2)} mt</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right;">Metre Tül</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.innerFrameCost ?? 0).toFixed(2)}</td>
-        </tr>
-        ${(breakdown.middleMatSqm ?? 0) > 0 ? `
-        <tr>
-          <td style="border:1px solid #ccc; padding:8px;">3D Ara Paspartu</td>
-          <td style="border:1px solid #ccc; padding:8px;">${flags.includeMiddleMat ? "Dahil" : "Hariç"}</td>
-          <td style="border:1px solid #ccc; padding:8px;">${(breakdown.middleMatSqm ?? 0).toFixed(3)} m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${breakdown.middleMatUnitPrice ?? settings.middleMatBoardPricePerSqm}/m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.middleMatCost ?? 0).toFixed(2)}</td>
-        </tr>` : ''}
-        ${(breakdown.outerFrameMeter ?? 0) > 0 ? `
-        <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Dış Kasa Çerçeve Profili</td>
-          <td style="border:1px solid #ccc; padding:8px;">${flags.includeOuterFrame ? "Dahil" : "Hariç"}</td>
-          <td style="border:1px solid #ccc; padding:8px;">${(breakdown.outerFrameMeter ?? 0).toFixed(2)} mt</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right;">Metre Tül</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.outerFrameCost ?? 0).toFixed(2)}</td>
-        </tr>` : ''}
-        <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Koruyucu Cam / Pleksi</td>
-          <td style="border:1px solid #ccc; padding:8px;">${flags.includeGlass ? "Dahil" : "Hariç"}</td>
-          <td style="border:1px solid #ccc; padding:8px;">${(breakdown.glassBackingSqm ?? 0).toFixed(3)} m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${settings.glassPricePerSqm}/m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.glassCost ?? 0).toFixed(2)}</td>
-        </tr>
-        <tr>
-          <td style="border:1px solid #ccc; padding:8px;">3mm MDF Arka Kapama</td>
-          <td style="border:1px solid #ccc; padding:8px;">${flags.includeBackingBoard ? "Dahil" : "Hariç"}</td>
-          <td style="border:1px solid #ccc; padding:8px;">${(breakdown.glassBackingSqm ?? 0).toFixed(3)} m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${settings.backingBoardPricePerSqm}/m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.backingBoardCost ?? 0).toFixed(2)}</td>
-        </tr>
-        <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Arkalık Koruma Bezi</td>
-          <td style="border:1px solid #ccc; padding:8px;">${flags.includeBackingCloth || flags.includeBackingPaper ? "Dahil" : "Hariç"}</td>
-          <td style="border:1px solid #ccc; padding:8px;">${(breakdown.backingClothSqm ?? 0).toFixed(3)} m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${settings.backingClothPricePerSqm ?? 90}/m²</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.backingClothCost ?? 0).toFixed(2)}</td>
-        </tr>
-        <tr>
-          <td style="border:1px solid #ccc; padding:8px;">Atölye Sabit El İşçiliği</td>
-          <td style="border:1px solid #ccc; padding:8px;">${flags.includeLaborCost ? "Dahil" : "Hariç"}</td>
-          <td style="border:1px solid #ccc; padding:8px;">1 Adet</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right;">₺${settings.laborFixedCost}</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.laborCost ?? 0).toFixed(2)}</td>
-        </tr>
-        <tr>
-          <td style="border:1px solid #ccc; padding:8px; color:#b45309;">Kesim Fire / Atık (%${settings.wastePercentage})</td>
-          <td style="border:1px solid #ccc; padding:8px;">Dahil</td>
-          <td style="border:1px solid #ccc; padding:8px;">Oransal</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right;">%${settings.wastePercentage}</td>
-          <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold; color:#b45309;">₺${(breakdown.wasteCost ?? 0).toFixed(2)}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div style="margin-top:20px; display:flex; justify-content:flex-end;">
-      <div style="width:340px; background:#f9f9f9; border:1px solid #ccc; padding:15px; border-radius:4px; font-family:monospace; font-size:12px;">
-        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-          <span>Toplam Net Maliyet:</span>
-          <span>₺${(breakdown.totalDirectCost ?? 0).toFixed(2)}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#15803d;">
-          <span>Uygulanan Kâr Marjı:</span>
-          <span>%${settings.targetProfitMarginPercent}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-          <span>Ara Toplam (KDV Hariç):</span>
-          <span>₺${(breakdown.calculatedPriceBeforeVat ?? 0).toFixed(2)}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#555;">
-          <span>KDV Tutarı (%${settings.vatRatePercent}):</span>
-          <span>₺${(breakdown.vatAmount ?? 0).toFixed(2)}</span>
-        </div>
-        ${breakdown.shippingCost > 0 ? `
-        <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#2563eb;">
-          <span>Kargo & Sevk Ücreti:</span>
-          <span>₺${breakdown.shippingCost.toFixed(2)}</span>
-        </div>` : ''}
-        <div style="display:flex; justify-content:space-between; font-size:16px; font-weight:bold; border-top:2px solid #000; padding-top:8px;">
-          <span>GENEL SATIŞ TUTARI:</span>
-          <span style="color:#b45309;">₺${(breakdown.effectiveFinalPriceWithVat ?? 0).toLocaleString('tr-TR')}</span>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end;">
+        <div style="width:340px; background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:4px; font-size:12px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span>Toplam Net Maliyet:</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:700;">₺${(breakdown.totalDirectCost ?? 0).toFixed(2)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#15803d;">
+            <span>Uygulanan Kâr Marjı:</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:700;">%${settings.targetProfitMarginPercent}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span>Ara Toplam (KDV Hariç):</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:700;">₺${(breakdown.calculatedPriceBeforeVat ?? 0).toFixed(2)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#64748b;">
+            <span>KDV Tutarı (%${settings.vatRatePercent}):</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:600;">₺${(breakdown.vatAmount ?? 0).toFixed(2)}</span>
+          </div>
+          ${breakdown.shippingCost > 0 ? `
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#2563eb;">
+            <span>Kargo & Sevk Ücreti:</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:600;">₺${breakdown.shippingCost.toFixed(2)}</span>
+          </div>` : ''}
+          <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:800; border-top:2px solid #0f172a; padding-top:8px; color:#0f172a;">
+            <span>GENEL SATIŞ TUTARI:</span>
+            <span style="color:#b45309; font-family:'JetBrains Mono', monospace;">₺${(breakdown.effectiveFinalPriceWithVat ?? 0).toLocaleString('tr-TR')}</span>
+          </div>
         </div>
       </div>
     </div>

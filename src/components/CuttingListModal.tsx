@@ -109,12 +109,12 @@ export function CuttingListModal({
           <div className="hidden print:block border-b-2 border-black pb-3 mb-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-bold font-mono uppercase">NAKKA DEKOR - ATÖLYE KESİM FİŞİ</h1>
-                <p className="text-xs text-gray-600">Tarih: {new Date().toLocaleDateString('tr-TR')}</p>
+                <h1 className="text-xl font-extrabold font-sans uppercase tracking-wide">NAKKA DEKOR - ATÖLYE KESİM FİŞİ</h1>
+                <p className="text-xs text-gray-600 font-sans mt-0.5">Tarih: {new Date().toLocaleDateString('tr-TR')}</p>
               </div>
-              <div className="text-right text-xs font-mono">
-                <p>Müşteri: {customerName || "Belirtilmedi"}</p>
-                <p>Teslim: {deliveryDate || "Normal"}</p>
+              <div className="text-right text-xs font-sans">
+                <p>Müşteri: <strong className="font-bold">{customerName || "Belirtilmedi"}</strong></p>
+                <p>Teslim: <span className="font-mono">{deliveryDate || "Normal"}</span></p>
               </div>
             </div>
           </div>
@@ -124,7 +124,7 @@ export function CuttingListModal({
             isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/20" : "bg-slate-50 border-slate-200"
           }`}>
             <div>
-              <span className={`text-[10px] font-mono uppercase print:text-gray-600 block ${
+              <span className={`text-[10px] font-sans font-bold uppercase tracking-wider print:text-gray-600 block ${
                 isDarkMode ? "text-neutral-400" : "text-slate-500"
               }`}>
                 ESER / TABLO ÖLÇÜSÜ
@@ -137,7 +137,7 @@ export function CuttingListModal({
             </div>
 
             <div>
-              <span className={`text-[10px] font-mono uppercase print:text-gray-600 block ${
+              <span className={`text-[10px] font-sans font-bold uppercase tracking-wider print:text-gray-600 block ${
                 isDarkMode ? "text-neutral-400" : "text-slate-500"
               }`}>
                 Dış Bitmiş Ölçü
@@ -150,12 +150,12 @@ export function CuttingListModal({
             </div>
 
             <div>
-              <span className={`text-[10px] font-mono uppercase print:text-gray-600 block ${
+              <span className={`text-[10px] font-sans font-bold uppercase tracking-wider print:text-gray-600 block ${
                 isDarkMode ? "text-neutral-400" : "text-slate-500"
               }`}>
                 Müşteri Adı
               </span>
-              <span className={`text-sm font-mono font-bold print:text-black truncate block ${
+              <span className={`text-sm font-sans font-bold print:text-black truncate block ${
                 isDarkMode ? "text-white" : "text-slate-900"
               }`}>
                 {customerName || "—"}
@@ -163,7 +163,7 @@ export function CuttingListModal({
             </div>
 
             <div>
-              <span className={`text-[10px] font-mono uppercase print:text-gray-600 block ${
+              <span className={`text-[10px] font-sans font-bold uppercase tracking-wider print:text-gray-600 block ${
                 isDarkMode ? "text-neutral-400" : "text-slate-500"
               }`}>
                 Teslim Tarihi
@@ -178,7 +178,7 @@ export function CuttingListModal({
 
           {/* Cut List Table */}
           <div className="space-y-3">
-            <h3 className={`text-xs font-mono font-bold print:text-black uppercase tracking-wider flex items-center gap-2 ${
+            <h3 className={`text-xs font-sans font-bold print:text-black uppercase tracking-wider flex items-center gap-2 ${
               isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
             }`}>
               <FileText className="w-4 h-4" /> Kesim Ölçüleri Tablosu
@@ -265,7 +265,7 @@ export function CuttingListModal({
           <div className={`border print:border-gray-300 print:bg-gray-50 p-4 rounded-md space-y-3 ${
             isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
           }`}>
-            <h3 className={`text-xs font-mono font-bold print:text-black uppercase tracking-wider flex items-center gap-2 ${
+            <h3 className={`text-xs font-sans font-bold print:text-black uppercase tracking-wider flex items-center gap-2 ${
               isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
             }`}>
               <CheckCircle2 className="w-4 h-4" /> Atölye Montaj & Çatma Adımları
@@ -288,7 +288,7 @@ export function CuttingListModal({
           </div>
 
           {/* Physical Signatures Block for Printout */}
-          <div className={`pt-4 border-t print:border-gray-400 grid grid-cols-2 gap-6 text-xs font-mono print:text-black ${
+          <div className={`pt-4 border-t print:border-gray-400 grid grid-cols-2 gap-6 text-xs font-sans print:text-black ${
             isDarkMode ? "border-neutral-800 text-neutral-400" : "border-slate-200 text-slate-600"
           }`}>
             <div>
@@ -314,14 +314,14 @@ export function CuttingListModal({
         <div className={`flex items-center justify-between px-6 py-4 border-t print:hidden ${
           isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/30" : "bg-slate-50 border-slate-200"
         }`}>
-          <div className={`text-xs font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
+          <div className={`text-xs font-sans ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
             Toplam Parça Sayısı: <span className={`font-bold ${isDarkMode ? "text-white" : "text-slate-900"}`}>{cutList.items.length} Kalem</span>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className={`px-4 py-2 text-xs font-mono rounded transition-colors cursor-pointer ${
+              className={`px-4 py-2 text-xs font-sans font-medium rounded transition-colors cursor-pointer ${
                 isDarkMode ? "bg-neutral-800 hover:bg-neutral-700 text-neutral-300" : "bg-slate-200 hover:bg-slate-300 text-slate-800"
               }`}
             >
@@ -330,7 +330,7 @@ export function CuttingListModal({
 
             <button
               onClick={handlePrint}
-              className={`flex items-center gap-2 px-5 py-2 font-mono font-bold text-xs rounded shadow-lg transition-colors cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2 font-sans font-bold text-xs rounded shadow-lg transition-colors cursor-pointer ${
                 isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
               }`}
             >
