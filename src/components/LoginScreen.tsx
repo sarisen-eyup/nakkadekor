@@ -140,7 +140,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const handleGoogleLogin = async () => {
     setErrorMessage(null);
     if (!agreeTerms) {
-      setErrorMessage("Lütfen devam etmek için Kullanıcı Sözleşmesi, Kurumsal Fatura ve KVKK Şartları'nı onaylayınız.");
+      setErrorMessage("Lütfen devam etmek için Kullanıcı ve Lisans Sözleşmesi, Kurumsal Fatura Şartları ve KVKK ve Gizlilik Şartları'nı onaylayınız.");
       return;
     }
 
