@@ -1553,7 +1553,6 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
           <div style="font-size:15px; font-weight:bold; text-transform:uppercase; letter-spacing:0.3px; line-height:1.15;">
             ${companyProfile?.companyName || 'NAKKA DEKOR'} - ATÖLYE İŞ EMRİ & KESİM FİŞİ
           </div>
-          <div style="font-size:9px; color:#555; margin-top:1px;">MARANGOZ / ÇERÇEVE USTA ÖLÇÜ BİLDİRİM FORMU</div>
         </div>
         <div style="text-align:right; font-family:monospace; line-height:1.2;">
           <div style="font-weight:bold; font-size:12px; color:#000;">SİPARİŞ NO: ${cutList.orderNumber}</div>
@@ -1564,7 +1563,7 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
       <!-- 2. Özet Bilgi Kartı (4 Kolon) -->
       <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; background:#f7f7f7; border:1px solid #ddd; padding:5px 8px; border-radius:3px; font-family:monospace; margin-bottom:6px;">
         <div>
-          <div style="font-size:8px; color:#666; text-transform:uppercase; line-height:1;">SANAT GÖRSELİ</div>
+          <div style="font-size:8px; color:#666; text-transform:uppercase; line-height:1;">ESER / TABLO ÖLÇÜSÜ</div>
           <div style="font-weight:bold; font-size:11px; margin-top:2px;">${artworkWidthCm} × ${artworkHeightCm} cm</div>
         </div>
         <div>
@@ -1581,9 +1580,9 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
         </div>
       </div>
 
-      <!-- 3. Katman Katman Kesim Ölçüleri Tablosu -->
+      <!-- 3. Kesim Ölçüleri Tablosu -->
       <h3 style="font-size:10px; font-family:monospace; margin-bottom:3px; text-transform:uppercase; border-left:3px solid #C5A059; padding-left:6px; line-height:1.2;">
-        Katman Katman Kesim Ölçüleri Tablosu
+        Kesim Ölçüleri Tablosu
       </h3>
       <table style="width:100%; border-collapse:collapse; margin-bottom:6px; font-family:monospace; font-size:9.5px;">
         <thead>
@@ -1742,7 +1741,7 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
           <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">₺${(breakdown.laborCost ?? 0).toFixed(2)}</td>
         </tr>
         <tr>
-          <td style="border:1px solid #ccc; padding:8px; color:#b45309;">Atölye Kesim / Atık File Payı (%${settings.wastePercentage})</td>
+          <td style="border:1px solid #ccc; padding:8px; color:#b45309;">Kesim Fire / Atık (%${settings.wastePercentage})</td>
           <td style="border:1px solid #ccc; padding:8px;">Dahil</td>
           <td style="border:1px solid #ccc; padding:8px;">Oransal</td>
           <td style="border:1px solid #ccc; padding:8px; text-align:right;">%${settings.wastePercentage}</td>

@@ -127,7 +127,7 @@ export function CuttingListModal({
               <span className={`text-[10px] font-mono uppercase print:text-gray-600 block ${
                 isDarkMode ? "text-neutral-400" : "text-slate-500"
               }`}>
-                Sanat Görseli
+                ESER / TABLO ÖLÇÜSÜ
               </span>
               <span className={`text-sm font-mono font-bold print:text-black ${
                 isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
@@ -181,7 +181,7 @@ export function CuttingListModal({
             <h3 className={`text-xs font-mono font-bold print:text-black uppercase tracking-wider flex items-center gap-2 ${
               isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
             }`}>
-              <FileText className="w-4 h-4" /> Katman Katman Profil & Karton Kesim Tablosu
+              <FileText className="w-4 h-4" /> Kesim Ölçüleri Tablosu
             </h3>
 
             <div 

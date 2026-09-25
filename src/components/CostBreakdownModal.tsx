@@ -697,7 +697,7 @@ export function CostBreakdownModal({
                       isDarkMode ? "bg-[#141618] text-amber-300" : "bg-amber-50/70 text-amber-900"
                     }`}>
                       <td className="py-2.5 px-4 font-medium">
-                        Atık / Kesim File Payı (%{settings.wastePercentage})
+                        Kesim Fire / Atık (%{settings.wastePercentage})
                       </td>
                       <td className="py-2.5 px-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono ${

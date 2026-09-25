@@ -628,10 +628,10 @@ export function generateCutList(params: {
 
   const items: CutListItem[] = [];
 
-  // 1. Sanat Eseri (Baskı & Tuval)
+  // 1. Eser / Tablo Ölçüsü (Baskı & Tuval)
   items.push({
-    layerName: "01. Sanat Eseri (Baskı / Canvas)",
-    materialInfo: "380gr Premium Tuval / Fine Art Kağıt",
+    layerName: "Eser / Tablo Ölçüsü",
+    materialInfo: flags.includeArtworkPrint ? "Kanvas / Tuval Baskı" : "Eser Ölçüsü",
     cutAngle: "90° Düz Giyotin Kesim",
     pieceWidthCm: artworkWidthCm,
     pieceHeightCm: artworkHeightCm,
@@ -639,7 +639,7 @@ export function generateCutList(params: {
     quantityHeightPieces: 1,
     totalMeterNeeded: (artworkWidthCm * artworkHeightCm) / 10000,
     unit: "m²",
-    notes: "Eser net görsel alanı.",
+    notes: "",
     included: flags.includeArtworkPrint
   });
 
@@ -653,18 +653,18 @@ export function generateCutList(params: {
     const isTransparent = innerMatColor === "transparent" || innerMatColor === "glass";
 
     items.push({
-      layerName: isTransparent ? "02. İç Paspartu (Şeffaf Akrilik / Cam)" : "02. İç Paspartu Kartonu",
+      layerName: isTransparent ? "İç Paspartu (Şeffaf Akrilik)" : "İç Paspartu Kartonu",
       materialInfo: isTransparent 
-        ? `1.5mm / 2mm Lazer Kesim Şeffaf Akrilik Paspartu (${colorName})`
-        : `Müze Kalite Asitsiz Paspartu Kartonu (${colorName})`,
-      cutAngle: isTransparent ? "Özel Lazer / CNC Kesim & 90° Dış Kenar" : "45° Eğik Pencere & 90° Dış Kenar",
+        ? `Şeffaf Akrilik Paspartu (${colorName})`
+        : `Paspartu Kartonu (${colorName})`,
+      cutAngle: isTransparent ? "Özel Lazer / CNC Kesim" : "45° Eğik Pencere Kesimi",
       pieceWidthCm: outerW,
       pieceHeightCm: outerH,
       quantityWidthPieces: 1,
       quantityHeightPieces: 1,
       totalMeterNeeded: (outerW * outerH) / 10000,
       unit: "m²",
-      notes: `Pencere Açıklığı: ${windowW.toFixed(1)} x ${windowH.toFixed(1)} cm. Paspartu Payı: 4 Kenar ${matWidthCm.toFixed(1)} cm. ${isTransparent ? 'Malzeme: Şeffaf Akrilik / Cam Levha.' : `Renk: ${colorName}.`}`,
+      notes: "",
       included: flags.includeInnerMat
     });
   }
@@ -678,9 +678,9 @@ export function generateCutList(params: {
   const innerTotalMeter = frameWidthCm > 0 ? (2 * (innerFrameMiterW + innerFrameMiterH)) / 100 : 0;
 
   items.push({
-    layerName: "03. İç Çerçeve Profil Kesimi",
+    layerName: "İç Çerçeve Profil Kesimi",
     profileCode: innerFrameCode || "Ana Profil",
-    materialInfo: `Genişlik: ${frameWidthCm.toFixed(1)} cm Profil (${innerRabbetDepth} mm Bini Paylı)`,
+    materialInfo: `Genişlik: ${frameWidthCm.toFixed(1)} cm`,
     cutAngle: "45° Çift Taraflı Gönye Kesim",
     pieceWidthCm: Number(innerFrameMiterW.toFixed(1)),
     pieceHeightCm: Number(innerFrameMiterH.toFixed(1)),
@@ -688,7 +688,7 @@ export function generateCutList(params: {
     quantityHeightPieces: 2,
     totalMeterNeeded: Number((innerTotalMeter * 1.15).toFixed(2)),
     unit: "mt",
-    notes: `Bini İç Oturma Ölçüsü: ${innerMatOuterW.toFixed(1)} x ${innerMatOuterH.toFixed(1)} cm. Bini Payı: ${innerRabbetDepth} mm. Dış Gönye Kesim Ölçüsü: 2x ${innerFrameMiterW.toFixed(1)} cm, 2x ${innerFrameMiterH.toFixed(1)} cm.`,
+    notes: innerRabbetDepth ? `Bini Payı: ${innerRabbetDepth} mm` : "",
     included: flags.includeInnerFrame
   });
 
@@ -700,18 +700,18 @@ export function generateCutList(params: {
     const isTransparent = outerMatColor === "transparent" || outerMatColor === "glass";
 
     items.push({
-      layerName: isTransparent ? "04. Ara Paspartu (Şeffaf Akrilik / Cam)" : "04. Ara Paspartu (3D Derinlik Mukavvası)",
+      layerName: isTransparent ? "Ara Paspartu (Şeffaf Akrilik)" : "Ara Paspartu (3D Derinlik)",
       materialInfo: isTransparent
-        ? `1.5mm / 2mm Şeffaf Akrilik Levha (${colorName})`
-        : `Kalın Derinlik Mukavvası / Bevel Mat Board (${colorName})`,
-      cutAngle: isTransparent ? "Özel Lazer / CNC Kesim" : "90° Düz / Bevel Pahlı Kesim",
+        ? `Şeffaf Akrilik Levha (${colorName})`
+        : `Ara Paspartu Mukavvası (${colorName})`,
+      cutAngle: isTransparent ? "Özel Lazer / CNC Kesim" : "90° Düz Kesim",
       pieceWidthCm: midOuterW,
       pieceHeightCm: midOuterH,
       quantityWidthPieces: 1,
       quantityHeightPieces: 1,
       totalMeterNeeded: (midOuterW * midOuterH) / 10000,
       unit: "m²",
-      notes: `İç Boşluk Ölçüsü: ${innerFrameMiterW.toFixed(1)} x ${innerFrameMiterH.toFixed(1)} cm. Dış Ölçü: ${midOuterW.toFixed(1)} x ${midOuterH.toFixed(1)} cm. ${isTransparent ? 'Malzeme: Şeffaf Akrilik / Cam Levha.' : `Renk: ${colorName}.`}`,
+      notes: "",
       included: flags.includeMiddleMat
     });
   }
@@ -726,9 +726,9 @@ export function generateCutList(params: {
     const outerTotalMeter = (2 * (outerFrameMiterW + outerFrameMiterH)) / 100;
 
     items.push({
-      layerName: "05. Dış Çerçeve Profil Kesimi",
+      layerName: "Dış Çerçeve Profil Kesimi",
       profileCode: outerFrameCode || "Dış Profil",
-      materialInfo: `Genişlik: ${outerFrameWidthCm.toFixed(1)} cm Dış Profil (${outerRabbetDepth} mm Bini Paylı)`,
+      materialInfo: `Genişlik: ${outerFrameWidthCm.toFixed(1)} cm`,
       cutAngle: "45° Çift Taraflı Gönye Kesim",
       pieceWidthCm: Number(outerFrameMiterW.toFixed(1)),
       pieceHeightCm: Number(outerFrameMiterH.toFixed(1)),
@@ -736,71 +736,73 @@ export function generateCutList(params: {
       quantityHeightPieces: 2,
       totalMeterNeeded: Number((outerTotalMeter * 1.15).toFixed(2)),
       unit: "mt",
-      notes: `Bini İç Oturma Ölçüsü: ${innerRebateW.toFixed(1)} x ${innerRebateH.toFixed(1)} cm. Bini Payı: ${outerRabbetDepth} mm. Dış Gönye Kesim Ölçüsü: 2x ${outerFrameMiterW.toFixed(1)} cm, 2x ${outerFrameMiterH.toFixed(1)} cm.`,
+      notes: outerRabbetDepth ? `Bini Payı: ${outerRabbetDepth} mm` : "",
       included: flags.includeOuterFrame
     });
   }
 
   // 6. Cam / Koruyucu Akrilik (Sits inside outermost frame rebate)
-  const glassW = outerFrameWidthCm > 0 ? (innerFrameMiterW + 2 * middleMatWidthCm) : innerMatOuterW;
-  const glassH = outerFrameWidthCm > 0 ? (innerFrameMiterH + 2 * middleMatWidthCm) : innerMatOuterH;
-  items.push({
-    layerName: "06. Koruyucu Cam / Akrilik Kesimi",
-    materialInfo: "2mm Dereceli Müze Camı / Akrilik",
-    cutAngle: "90° Elmas Cam Kesimi",
-    pieceWidthCm: glassW,
-    pieceHeightCm: glassH,
-    quantityWidthPieces: 1,
-    quantityHeightPieces: 1,
-    totalMeterNeeded: (glassW * glassH) / 10000,
-    unit: "m²",
-    notes: `Cam net levha ölçüsü: ${glassW.toFixed(1)} x ${glassH.toFixed(1)} cm.`,
-    included: flags.includeGlass
-  });
+  if (flags.includeGlass) {
+    const glassW = outerFrameWidthCm > 0 ? (innerFrameMiterW + 2 * middleMatWidthCm) : innerMatOuterW;
+    const glassH = outerFrameWidthCm > 0 ? (innerFrameMiterH + 2 * middleMatWidthCm) : innerMatOuterH;
+    items.push({
+      layerName: "Koruyucu Cam / Akrilik",
+      materialInfo: "Cam / Akrilik Levha",
+      cutAngle: "90° Elmas Cam Kesimi",
+      pieceWidthCm: glassW,
+      pieceHeightCm: glassH,
+      quantityWidthPieces: 1,
+      quantityHeightPieces: 1,
+      totalMeterNeeded: (glassW * glassH) / 10000,
+      unit: "m²",
+      notes: "",
+      included: true
+    });
+  }
 
-  // 7. MDF / Arkalık Kartonu
-  items.push({
-    layerName: "07. Arka Koruma (MDF / Arkalık)",
-    materialInfo: "3mm Ham MDF / Koruyucu Levha",
-    cutAngle: "90° Düz Kesim",
-    pieceWidthCm: glassW,
-    pieceHeightCm: glassH,
-    quantityWidthPieces: 1,
-    quantityHeightPieces: 1,
-    totalMeterNeeded: (glassW * glassH) / 10000,
-    unit: "m²",
-    notes: `MDF levha ölçüsü: ${glassW.toFixed(1)} x ${glassH.toFixed(1)} cm.`,
-    included: flags.includeBackingBoard
-  });
+  // 7. MDF / Arkalık
+  if (flags.includeBackingBoard) {
+    const glassW = outerFrameWidthCm > 0 ? (innerFrameMiterW + 2 * middleMatWidthCm) : innerMatOuterW;
+    const glassH = outerFrameWidthCm > 0 ? (innerFrameMiterH + 2 * middleMatWidthCm) : innerMatOuterH;
+    items.push({
+      layerName: "Arkalık (MDF)",
+      materialInfo: "3mm MDF Levha",
+      cutAngle: "90° Düz Kesim",
+      pieceWidthCm: glassW,
+      pieceHeightCm: glassH,
+      quantityWidthPieces: 1,
+      quantityHeightPieces: 1,
+      totalMeterNeeded: (glassW * glassH) / 10000,
+      unit: "m²",
+      notes: "",
+      included: true
+    });
+  }
 
   // 8. Arkalık Kapama Bezi (Toz & Nem Kapama)
-  items.push({
-    layerName: "08. Arkalık Kapama Bezi",
-    materialInfo: "Toz & Nem Geçirmez Arkalık Kapama Bezi",
-    cutAngle: "90° Düz Plaka Kesimi",
-    pieceWidthCm: glassW,
-    pieceHeightCm: glassH,
-    quantityWidthPieces: 1,
-    quantityHeightPieces: 1,
-    totalMeterNeeded: (glassW * glassH) / 10000,
-    unit: "m²",
-    notes: `Kapama bezi levha ölçüsü: ${glassW.toFixed(1)} x ${glassH.toFixed(1)} cm. MDF arkalık üzerine yapıştırılır.`,
-    included: Boolean(flags.includeBackingCloth || flags.includeBackingPaper)
-  });
+  if (flags.includeBackingCloth || flags.includeBackingPaper) {
+    const glassW = outerFrameWidthCm > 0 ? (innerFrameMiterW + 2 * middleMatWidthCm) : innerMatOuterW;
+    const glassH = outerFrameWidthCm > 0 ? (innerFrameMiterH + 2 * middleMatWidthCm) : innerMatOuterH;
+    items.push({
+      layerName: "Arkalık Kapama Bezi",
+      materialInfo: "Toz & Nem Koruma Bezi",
+      cutAngle: "90° Düz Plaka Kesimi",
+      pieceWidthCm: glassW,
+      pieceHeightCm: glassH,
+      quantityWidthPieces: 1,
+      quantityHeightPieces: 1,
+      totalMeterNeeded: (glassW * glassH) / 10000,
+      unit: "m²",
+      notes: "",
+      included: true
+    });
+  }
 
-  // 9. Kraft Bitiş Bandı (Çevre Bandı)
-  items.push({
-    layerName: "09. Kraft Bitiş / Islak Bandı",
-    materialInfo: "Asitsiz Koruyucu Bitiş / Islak Kraft Bant",
-    cutAngle: "4 Kenar Çevre Bandı",
-    pieceWidthCm: glassW,
-    pieceHeightCm: glassH,
-    quantityWidthPieces: 2,
-    quantityHeightPieces: 2,
-    totalMeterNeeded: Number(((2 * (glassW + glassH)) / 100).toFixed(2)),
-    unit: "mt",
-    notes: "Çerçeve arkasına 4 kenar boyunca toz izolasyonu ve estetik bitiş için yapıştırılır.",
-    included: Boolean(flags.includeKraftTape || flags.includeBackingPaper)
+  // Listenin numaralandırmasını 1'den başlayarak sırasıyla ve eksiksiz ata (01, 02, 03...)
+  items.forEach((item, index) => {
+    const num = String(index + 1).padStart(2, "0");
+    const cleanName = item.layerName.replace(/^\d+[\.\s]*/, "").trim();
+    item.layerName = `${num}. ${cleanName}`;
   });
 
   // Calculate final absolute outer dimensions
@@ -812,21 +814,35 @@ export function generateCutList(params: {
     ? (innerFrameMiterH + 2 * middleMatWidthCm + 2 * outerFrameWidthCm - 2 * outerRabbetCm)
     : (frameWidthCm > 0 ? innerFrameMiterH : (matWidthCm > 0 ? innerMatOuterH : artworkHeightCm));
 
+  // Dinamik Montaj Sıralaması Adımları
+  const assemblySteps: string[] = [];
+  assemblySteps.push("Tuval/baskı görselini hazırlayın ve sabitleyin.");
+  if (matWidthCm > 0) {
+    assemblySteps.push("İç paspartu kartonunu pencereli kesip görselin üzerine yerleştirin.");
+  }
+  assemblySteps.push("İç çerçeve profillerini 45° gönye ile çatıp birleştirin.");
+  if (middleMatWidthCm > 0) {
+    assemblySteps.push("3D ara paspartu mukavvasını iç çerçeveye uygulayın.");
+  }
+  if (outerFrameWidthCm > 0) {
+    assemblySteps.push("Dış kasayı 45° gönyeden çatarak monte edin.");
+  }
+  if (flags.includeGlass) {
+    assemblySteps.push("Cam/Akrilik temizlenip yerleştirilir.");
+  }
+  if (flags.includeBackingBoard) {
+    assemblySteps.push("Arka MDF levhası çakılır.");
+  }
+  if (flags.includeBackingCloth || flags.includeBackingPaper) {
+    assemblySteps.push("Toz geçirmez kapama bezi arka kenarlara çekilir.");
+  }
+
   return {
     orderNumber,
     artworkDimensions: `${artworkWidthCm.toFixed(1)} x ${artworkHeightCm.toFixed(1)} cm`,
     totalOuterDimensions: `${finalOuterW.toFixed(1)} x ${finalOuterH.toFixed(1)} cm`,
     items,
-    assemblyInstructions: [
-      "1. Önce tuval/baskı görselini hazırlayın ve asitsiz koruyucu ile sabitleyin.",
-      matWidthCm > 0 ? "2. İç paspartu kartonunu pencereli kesip görselin üzerine yerleştirin." : "2. Paspartusuz doğrudan çerçeve montajına geçin.",
-      "3. İç çerçeve profillerini 45° gönye zımba/çivisiz V-nail birleşimi ile çatıp birleştirin.",
-      middleMatWidthCm > 0 ? "4. Çerçevenin etrafına 3D ara paspartu mukavvasını hassas yapıştırın." : "4. Ara paspartu adımı atlandı.",
-      outerFrameWidthCm > 0 ? "5. Dış kasayı 45° gönyeden çatarak iç çerçeve ve ara paspartu kombinasyonuna giydirin." : "5. Dış çerçeve kullanılmadı.",
-      flags.includeGlass ? "6. Cam/Akrilik temizlenip yerleştirilir." : "6. Camsız uygulama.",
-      flags.includeBackingBoard ? "7. Arka MDF levhası çakılır." : "7. MDF takılmadı.",
-      flags.includeBackingPaper ? "8. Toz geçirmez kapama bezi/kraft bandı arka kenarlara çekilir." : "8. Kapama bezi uygulanmadı."
-    ]
+    assemblyInstructions: assemblySteps.map((step, idx) => `${idx + 1}. ${step}`)
   };
 }
 
