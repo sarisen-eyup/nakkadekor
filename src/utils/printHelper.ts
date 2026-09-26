@@ -265,6 +265,7 @@ export interface PrintDocumentDetails {
   };
   companyProfile?: CompanyProfile;
   authorUser?: string;
+  quantity?: number;
 }
 
 export function triggerImagePrintWindow(
@@ -790,10 +791,16 @@ export function triggerImagePrintWindow(
                   <td><span class="badge-active">TAM KESİM</span></td>
                 </tr>
 
-                <!-- 10. Toplam Sipariş Tutarı -->
+                <!-- 10. Sipariş Adedi & Toplam Tutar -->
                 <tr class="row-active">
-                  <td><strong>10. Toplam Sipariş Tutarı</strong></td>
-                  <td colspan="2"><strong>₺${details.effectivePrice.toLocaleString('tr-TR')}</strong> (KDV Dahil)</td>
+                  <td><strong>10. Sipariş Adedi &amp; Genel Toplam</strong></td>
+                  <td colspan="2">
+                    ${(details.quantity || 1) > 1 ? `
+                      <strong>${details.quantity} Adet</strong> • Birim: ₺${details.effectivePrice.toLocaleString('tr-TR')} • <strong style="color:#b45309; font-size:11px;">Genel Toplam: ₺${(details.effectivePrice * (details.quantity || 1)).toLocaleString('tr-TR')}</strong> (KDV Dahil)
+                    ` : `
+                      <strong>1 Adet</strong> • <strong style="font-size:11px;">Genel Toplam: ₺${details.effectivePrice.toLocaleString('tr-TR')}</strong> (KDV Dahil)
+                    `}
+                  </td>
                   <td><span class="badge-active">ONAYLI FİYAT</span></td>
                 </tr>
 
@@ -976,6 +983,7 @@ export interface BackLabelDetails {
   qrDataUrl?: string;
   isPro?: boolean;
   authorUser?: string;
+  quantity?: number;
 }
 
 export async function triggerBackLabelPrintWindow(details: BackLabelDetails) {
@@ -983,6 +991,7 @@ export async function triggerBackLabelPrintWindow(details: BackLabelDetails) {
   const hasProLogo = Boolean(details.isPro && details.companyProfile?.logoUrl);
   const currentDate = new Date().toLocaleDateString("tr-TR");
   const displayDate = details.deliveryDate || details.createdAt || currentDate;
+  const totalQuantity = Math.max(1, details.quantity || 1);
 
   const safeArtW = details.artworkWidthCm ?? details.artworkWidth ?? 0;
   const safeArtH = details.artworkHeightCm ?? details.artworkHeight ?? 0;
@@ -1015,9 +1024,12 @@ FİRMA: ${companyName}`;
     }
   }
 
-  // 60x30 mm Tekli Termal Etiket HTML Tasarımı (Sol: Logo + Karekod, Sağ: Sipariş No + Bilgi Kartı)
-  const singleLabelHtml = `
+  // 60x30 mm Termal Etiket Oluşturucu (Her bir etiket için 1/n, 2/n ... n/n formatında sıra numarası)
+  const renderSingleSticker = (seq: number, total: number) => `
     <div class="sticker-60x30">
+      <!-- Dinamik Sıra Numarası Rozeti (Örn: 1/3, 2/3, 3/3) -->
+      <div class="sticker-seq-badge" title="Sıra Numarası / Toplam Adet">${seq}/${total}</div>
+
       <div class="sticker-inner">
         <!-- SOL KOLON: Üstte Logo + Altta Karekod -->
         <div class="sticker-left-col">
@@ -1072,10 +1084,18 @@ FİRMA: ${companyName}`;
     </div>
   `;
 
-  // A4 Sayfada Çoklu Basım İçin (3 Sütun x 8 Satır = 24 Etiket)
+  // Sipariş adedi kadar döngü ile termal etiketleri oluştur
+  let thermalLabelsHtml = "";
+  for (let i = 1; i <= totalQuantity; i++) {
+    thermalLabelsHtml += renderSingleSticker(i, totalQuantity);
+  }
+
+  // A4 Sayfada Çoklu Basım İçin (3 Sütun x 8 Satır = 24 Etiket Izgarası)
   let multiGridHtml = "";
-  for (let i = 0; i < 24; i++) {
-    multiGridHtml += singleLabelHtml;
+  const multiCount = Math.max(24, totalQuantity);
+  for (let i = 0; i < multiCount; i++) {
+    const seq = (i % totalQuantity) + 1;
+    multiGridHtml += renderSingleSticker(seq, totalQuantity);
   }
 
   const fullHtml = `
@@ -1202,6 +1222,23 @@ FİRMA: ${companyName}`;
             page-break-inside: avoid;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+          }
+
+          .sticker-seq-badge {
+            position: absolute;
+            top: 1.2mm;
+            right: 1.5mm;
+            background: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "JetBrains Mono", monospace;
+            font-size: 7.5px;
+            font-weight: 800;
+            padding: 0.5px 3.5px;
+            border-radius: 1.5px;
+            line-height: 1.2;
+            z-index: 10;
+            border: 0.5px solid #ffffff;
+            letter-spacing: 0.3px;
           }
 
           .sticker-inner {
@@ -1428,6 +1465,20 @@ FİRMA: ${companyName}`;
               page-break-inside: avoid !important;
               break-inside: avoid !important;
             }
+            .single-preview {
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 0 !important;
+              padding: 0 !important;
+            }
+            .single-preview .sticker-60x30 {
+              page-break-after: always !important;
+              break-after: page !important;
+            }
+            .single-preview .sticker-60x30:last-child {
+              page-break-after: auto !important;
+              break-after: auto !important;
+            }
             body.show-multi .multi-grid-container {
               display: grid !important;
               padding: 8mm 6mm !important;
@@ -1458,16 +1509,16 @@ FİRMA: ${companyName}`;
         <div class="no-print-bar">
           <div class="bar-left">
             <span class="bar-brand">NAKKA DEKOR</span>
-            <span class="bar-sub">• 60x30 mm Tablo Arka Termal Etiketi</span>
+            <span class="bar-sub">• 60x30 mm Tablo Arka Termal Etiketi (${totalQuantity} Adet)</span>
           </div>
           <button class="print-btn" onclick="window.print()">
-            🖨️ ETİKETİ YAZDIR (PDF / TERMAL)
+            🖨️ ${totalQuantity > 1 ? `${totalQuantity} ADET ETİKETİ YAZDIR` : 'ETİKETİ YAZDIR'} (PDF / TERMAL)
           </button>
         </div>
 
         <div class="print-mode-tabs">
           <button id="btn-single" class="mode-btn active" onclick="toggleMode('single')">
-            60x30 mm Tekli Termal Etiket
+            ${totalQuantity > 1 ? `60x30 mm Termal Rulo (${totalQuantity} Etiket)` : '60x30 mm Tekli Termal Etiket'}
           </button>
           <button id="btn-multi" class="mode-btn" onclick="toggleMode('multi')">
             A4 Sayfada Çoklu Basım (24'lü Izgara)
@@ -1476,12 +1527,12 @@ FİRMA: ${companyName}`;
 
         <div class="preview-stage">
           <div class="preview-label-tag">
-            30mm × 60mm rulo termal etiket veya standart kağıt için hazır format.
+            ${totalQuantity > 1 ? `Sipariş Adedi: ${totalQuantity} Adet. Her bir etiket için 1/${totalQuantity} ... ${totalQuantity}/${totalQuantity} sıra numarası oluşturulmuştur.` : '30mm × 60mm rulo termal etiket veya standart kağıt için hazır format.'}
           </div>
 
-          <!-- Tekli Görünüm -->
-          <div class="single-preview">
-            ${singleLabelHtml}
+          <!-- Tekli / Rulo Görünüm (Sipariş Adedi Kadar) -->
+          <div class="single-preview" style="display:flex; flex-direction:column; gap:12px; align-items:center;">
+            ${thermalLabelsHtml}
           </div>
 
           <!-- A4 Çoklu Görünüm -->
@@ -1506,14 +1557,29 @@ export interface CuttingListPrintDetails {
   artworkWidthCm: number;
   artworkHeightCm: number;
   companyProfile?: CompanyProfile;
+  quantity?: number;
 }
 
 export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) {
   const { cutList, customerName, deliveryDate, artworkWidthCm, artworkHeightCm, companyProfile } = details;
+  const qty = Math.max(1, details.quantity || 1);
 
   const itemsRows = cutList.items
     .map(
-      (item) => `
+      (item) => {
+        const multWidthPieces = (item.quantityWidthPieces || 1) * qty;
+        const multHeightPieces = (item.quantityHeightPieces || 1) * qty;
+        const multTotalNeeded = (item.totalMeterNeeded || 0) * qty;
+
+        const widthPiecesLabel = item.quantityWidthPieces > 1 
+          ? `(${multWidthPieces} Adet)` 
+          : `(${qty > 1 ? `${qty} Plaka` : '1 Plaka'})`;
+
+        const heightPiecesLabel = item.quantityHeightPieces > 1 
+          ? `(${multHeightPieces} Adet)` 
+          : `(${qty > 1 ? `${qty} Plaka` : '1 Plaka'})`;
+
+        return `
       <tr style="${!item.included ? 'opacity:0.45; background:#f8fafc; font-style:italic;' : ''}">
         <td style="border:1px solid #cbd5e1; padding:4px 7px; vertical-align:middle;">
           <div style="font-weight:700; color:#0f172a; font-size:11px; line-height:1.25;">${item.layerName}</div>
@@ -1530,17 +1596,18 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
         </td>
         <td style="border:1px solid #cbd5e1; padding:4px 7px; text-align:center; vertical-align:middle;">
           <span style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:11.5px; color:#0f172a;">${item.pieceWidthCm.toFixed(2)} cm</span>
-          <span style="font-size:9px; font-weight:normal; color:#64748b; margin-left:3px;">(${item.quantityWidthPieces > 1 ? `${item.quantityWidthPieces} Adet` : '1 Plaka'})</span>
+          <span style="font-size:9px; font-weight:normal; color:#64748b; margin-left:3px;">${widthPiecesLabel}</span>
         </td>
         <td style="border:1px solid #cbd5e1; padding:4px 7px; text-align:center; vertical-align:middle;">
           <span style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:11.5px; color:#0f172a;">${item.pieceHeightCm.toFixed(2)} cm</span>
-          <span style="font-size:9px; font-weight:normal; color:#64748b; margin-left:3px;">(${item.quantityHeightPieces > 1 ? `${item.quantityHeightPieces} Adet` : '1 Plaka'})</span>
+          <span style="font-size:9px; font-weight:normal; color:#64748b; margin-left:3px;">${heightPiecesLabel}</span>
         </td>
         <td style="border:1px solid #cbd5e1; padding:4px 7px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace; font-size:11px; color:#0f172a; vertical-align:middle;">
-          ${item.totalMeterNeeded.toFixed(2)} ${item.unit || 'm²'}
+          ${multTotalNeeded.toFixed(2)} ${item.unit || 'm²'}
         </td>
       </tr>
-    `
+    `;
+      }
     )
     .join("");
 
@@ -1569,8 +1636,8 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
         </div>
       </div>
 
-      <!-- 2. Özet Bilgi Kartı (4 Kolon) -->
-      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; background:#f8fafc; border:1px solid #cbd5e1; padding:6px 10px; border-radius:4px; margin-bottom:7px;">
+      <!-- 2. Özet Bilgi Kartı (5 Kolon - Eser Ölçüsü, Dış Ölçü, Sipariş Adedi, Müşteri Adı, Teslim Tarihi) -->
+      <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; background:#f8fafc; border:1px solid #cbd5e1; padding:6px 10px; border-radius:4px; margin-bottom:7px;">
         <div>
           <div style="font-size:8.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; line-height:1;">ESER / TABLO ÖLÇÜSÜ</div>
           <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:12px; color:#0f172a; margin-top:2px;">${artworkWidthCm} × ${artworkHeightCm} cm</div>
@@ -1578,6 +1645,10 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
         <div>
           <div style="font-size:8.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; line-height:1;">BİTMİŞ DIŞ ÖLÇÜ</div>
           <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:12px; color:#b45309; margin-top:2px;">${cutList.totalOuterDimensions}</div>
+        </div>
+        <div>
+          <div style="font-size:8.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; line-height:1;">SİPARİŞ ADEDİ</div>
+          <div style="font-family:'JetBrains Mono', monospace; font-weight:800; font-size:12px; color:#b45309; margin-top:2px;">${qty} Adet</div>
         </div>
         <div>
           <div style="font-size:8.5px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; line-height:1;">MÜŞTERİ ADI</div>
@@ -1591,7 +1662,7 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
 
       <!-- 3. Kesim Ölçüleri Tablosu -->
       <h3 style="font-size:11px; font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.4px; border-left:3px solid #C5A059; padding-left:6px; line-height:1.2; color:#0f172a;">
-        Kesim Ölçüleri Tablosu
+        Kesim Ölçüleri Tablosu ${qty > 1 ? `(${qty} Adet Sipariş Sarfiyat ve Parça Çarpanı Dahil)` : ''}
       </h3>
       <table style="width:100%; border-collapse:collapse; margin-bottom:7px; font-size:9.5px;">
         <thead>
@@ -1647,10 +1718,14 @@ export interface CostBreakdownPrintDetails {
   deliveryDate: string;
   flags: MaterialInclusionFlags;
   companyProfile?: CompanyProfile;
+  quantity?: number;
 }
 
 export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetails) {
   const { breakdown, settings, artworkWidthCm, artworkHeightCm, orderNumber, customerName, deliveryDate, flags, companyProfile } = details;
+  const qty = Math.max(1, details.quantity || 1);
+  const singlePrice = breakdown.effectiveFinalPriceWithVat ?? 0;
+  const grandTotal = singlePrice * qty;
 
   const contentHtml = `
     <div style="font-family:'Roboto', system-ui, -apple-system, sans-serif;">
@@ -1667,8 +1742,9 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
         </div>
       </div>
 
-      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; background:#f8fafc; padding:12px; border:1px solid #cbd5e1; border-radius:4px; font-size:12px; margin-bottom:18px;">
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; background:#f8fafc; padding:12px; border:1px solid #cbd5e1; border-radius:4px; font-size:12px; margin-bottom:18px;">
         <div><strong>Müşteri Adı:</strong> ${customerName || "Belirtilmedi"}</div>
+        <div><strong>Sipariş Adedi:</strong> <span style="font-family:'JetBrains Mono', monospace; font-weight:700; color:#b45309;">${qty} Adet</span></div>
         <div><strong>Teslim Tarihi:</strong> <span style="font-family:'JetBrains Mono', monospace;">${deliveryDate || "Normal"}</span></div>
         <div><strong>Eser Ölçüsü:</strong> <span style="font-family:'JetBrains Mono', monospace; font-weight:600;">${artworkWidthCm} × ${artworkHeightCm} cm</span></div>
       </div>
@@ -1785,8 +1861,12 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
           </div>` : ''}
           <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:800; border-top:2px solid #0f172a; padding-top:8px; color:#0f172a;">
             <span>GENEL SATIŞ TUTARI:</span>
-            <span style="color:#b45309; font-family:'JetBrains Mono', monospace;">₺${(breakdown.effectiveFinalPriceWithVat ?? 0).toLocaleString('tr-TR')}</span>
+            <span style="color:#b45309; font-family:'JetBrains Mono', monospace;">₺${grandTotal.toLocaleString('tr-TR')}</span>
           </div>
+          ${qty > 1 ? `
+          <div style="font-size:10px; color:#64748b; text-align:right; margin-top:3px; font-family:'JetBrains Mono', monospace;">
+            (${qty} Adet × ₺${singlePrice.toLocaleString('tr-TR')})
+          </div>` : ''}
         </div>
       </div>
     </div>

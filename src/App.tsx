@@ -316,6 +316,24 @@ function SimulatorMain() {
 
   const isDarkMode = themeMode === "dark";
 
+  // Tarihleri PostgreSQL / HTML5 uyumlu ISO (YYYY-MM-DD) formatına normalize eden yardımcı
+  const normalizeDateToIso = (dStr?: string | null): string => {
+    if (!dStr) return "";
+    const trimmed = dStr.trim();
+    if (trimmed.includes('.')) {
+      const parts = trimmed.split('.');
+      if (parts.length === 3) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    } else if (trimmed.includes('-')) {
+      const parts = trimmed.split('-');
+      if (parts.length === 3 && parts[0].length <= 2) {
+        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+      }
+    }
+    return trimmed;
+  };
+
   // Çalışma alanı taslağını (sekme değişimi veya arka plan belleğe alma durumları için) oku
   const initialDraft = loadWorkspaceDraft();
 
@@ -345,6 +363,7 @@ function SimulatorMain() {
   const [customerName, setCustomerName] = useState<string>(() => initialDraft?.customerName ?? "");
   const [customerPhone, setCustomerPhone] = useState<string>(() => initialDraft?.customerPhone ?? "");
   const [deliveryDate, setDeliveryDate] = useState<string>(() => initialDraft?.deliveryDate ?? "");
+  const [orderQuantity, setOrderQuantity] = useState<number>(() => Math.max(1, (initialDraft as any)?.quantity || 1));
   const [customerNameError, setCustomerNameError] = useState<boolean>(false);
   const [customerPhoneError, setCustomerPhoneError] = useState<boolean>(false);
   const [deliveryDateError, setDeliveryDateError] = useState<boolean>(false);
@@ -457,6 +476,7 @@ function SimulatorMain() {
         customerName,
         customerPhone,
         deliveryDate,
+        quantity: orderQuantity,
         selectedInnerProfileId,
         selectedOuterProfileId,
         inclusionFlags,
@@ -488,6 +508,7 @@ function SimulatorMain() {
     customerName,
     customerPhone,
     deliveryDate,
+    orderQuantity,
     selectedInnerProfileId,
     selectedOuterProfileId,
     inclusionFlags,
@@ -1093,8 +1114,9 @@ function SimulatorMain() {
     if (order.customerName) setCustomerName(order.customerName);
     if (order.customerPhone) setCustomerPhone(order.customerPhone);
     if (order.deliveryDate) {
-      setDeliveryDate(order.deliveryDate);
-      setLoadedOrderOriginalDeliveryDate(order.deliveryDate);
+      const isoDate = normalizeDateToIso(order.deliveryDate);
+      setDeliveryDate(isoDate || order.deliveryDate);
+      setLoadedOrderOriginalDeliveryDate(isoDate || order.deliveryDate);
     } else {
       setDeliveryDate("");
       setLoadedOrderOriginalDeliveryDate(null);
@@ -1104,6 +1126,10 @@ function SimulatorMain() {
     if (order.deliveryMethod) {
       setDeliveryMethod(order.deliveryMethod === "pickup" ? "store" : order.deliveryMethod);
     }
+
+    // Sipariş Adedini yükle (Varsayılan 1)
+    const loadedQty = order.quantity || order.simulatorConfig?.quantity || 1;
+    setOrderQuantity(Math.max(1, Number(loadedQty) || 1));
 
     // 3. Eser Ölçülerini yükle
     if (order.artworkWidthCm) setWidthInput(String(order.artworkWidthCm));
@@ -2314,7 +2340,8 @@ Durum: Onaylandi / Uretime Hazir`;
           ...companyProfile,
           logoUrl: isProPlan(subscriptionData) ? companyProfile.logoUrl : ""
         } : undefined,
-        authorUser: activeUser?.fullName
+        authorUser: activeUser?.fullName,
+        quantity: orderQuantity
       }
     );
 
@@ -2331,7 +2358,8 @@ Durum: Onaylandi / Uretime Hazir`;
       innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : customFrameFile,
       outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
       matInfo: matWidth > 0 ? `${matWidth} cm ${getPaspartuColorName(innerMatColor)}` : "Paspartusuz",
-      totalAmount: costBreakdown.effectiveFinalPriceWithVat,
+      totalAmount: costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity),
+      quantity: Math.max(1, orderQuantity),
       currency: "₺",
       status: "quote",
       deliveryMethod: deliveryMethod,
@@ -2488,24 +2516,13 @@ Durum: Onaylandi / Uretime Hazir`;
     const isNameEmpty = !customerName || !customerName.trim();
     const isPhoneEmpty = !customerPhone || !customerPhone.trim();
     const isDateEmpty = !deliveryDate || !deliveryDate.trim();
-
-    const normDelivery = normalizeDateToIso(deliveryDate);
-    const normOriginal = normalizeDateToIso(loadedOrderOriginalDeliveryDate);
-
-    const isDateInPast = normDelivery !== "" && normDelivery < todayIso;
-    const isDateUnchangedFromLoaded = Boolean(normOriginal && normDelivery === normOriginal);
-    const isDateInvalid = isDateEmpty || isDateInPast || isDateUnchangedFromLoaded;
+    const isDateInvalid = isDateEmpty;
 
     if (isNameEmpty || isPhoneEmpty || isDateInvalid) {
       if (isNameEmpty) setCustomerNameError(true);
       if (isPhoneEmpty) setCustomerPhoneError(true);
 
-      let dateErrMsg = "Lütfen teslim tarihini güncelleyin.";
-      if (isDateEmpty) {
-        dateErrMsg = "Lütfen teslim tarihini belirleyiniz.";
-      } else if (isDateInPast || isDateUnchangedFromLoaded) {
-        dateErrMsg = "Lütfen teslim tarihini güncelleyin.";
-      }
+      const dateErrMsg = "Lütfen teslim tarihini belirleyiniz.";
 
       if (isDateInvalid) {
         setDeliveryDateError(true);
@@ -2533,7 +2550,7 @@ Durum: Onaylandi / Uretime Hazir`;
       : `+90 ${customerPhone.trim()}`;
 
     // Standardize ISO date (YYYY-MM-DD) for PostgreSQL
-    const isoDeliveryDate = normDelivery;
+    const isoDeliveryDate = normalizeDateToIso(deliveryDate);
 
     const asNewOrder = options?.asNewOrder === true;
     let currentOrderNum = orderNumber;
@@ -2581,7 +2598,8 @@ Durum: Onaylandi / Uretime Hazir`;
       innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : (customFrameFile || "Standart Profil"),
       outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
       matInfo: matWidth > 0 ? `${matWidth} cm ${getPaspartuColorName(innerMatColor)}` : "Paspartusuz",
-      totalAmount: costBreakdown.effectiveFinalPriceWithVat,
+      totalAmount: costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity),
+      quantity: Math.max(1, orderQuantity),
       currency: "₺",
       status: (!asNewOrder && existingOrder?.status) || "confirmed",
       deliveryMethod: deliveryMethod,
@@ -2617,7 +2635,8 @@ Durum: Onaylandi / Uretime Hazir`;
         customPaintingUrl: customPaintingUrl,
         customPaintingFile: customPaintingFile,
         flags: effectiveInclusionFlags,
-        customOverridePrice: customOverridePrice
+        customOverridePrice: customOverridePrice,
+        quantity: Math.max(1, orderQuantity)
       }
     };
 
@@ -2715,7 +2734,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         logoUrl: isProPlan(subscriptionData) ? companyProfile.logoUrl : ""
       },
       qrDataUrl,
-      isPro: isProPlan(subscriptionData)
+      isPro: isProPlan(subscriptionData),
+      quantity: orderQuantity
     });
   };
 
@@ -2737,7 +2757,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
       companyProfile: {
         ...companyProfile,
         logoUrl: isProPlan(subscriptionData) ? companyProfile.logoUrl : ""
-      }
+      },
+      quantity: orderQuantity
     });
   };
 
@@ -2762,7 +2783,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
       companyProfile: {
         ...companyProfile,
         logoUrl: isProPlan(subscriptionData) ? companyProfile.logoUrl : ""
-      }
+      },
+      quantity: orderQuantity
     });
   };
 
@@ -3452,6 +3474,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 onCreateNewOrder={() => handleCreateOrderFromSimulator({ asNewOrder: true })}
                 onPrevStep={activeSidebarTab === "materials" ? () => setActiveSidebarTab("framing") : undefined}
                 isExistingOrder={Boolean(activeOrderId || archiveOrders.some(o => o.orderNumber === orderNumber))}
+                quantity={orderQuantity}
+                onQuantityChange={setOrderQuantity}
               />
             )}
           </aside>
@@ -3802,6 +3826,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         isDarkMode={isDarkMode}
         isShopMode={isShopMode}
         isOrderCreated={isOrderCreated}
+        quantity={orderQuantity}
+        onQuantityChange={setOrderQuantity}
       />
 
       <CuttingListModal
@@ -3814,6 +3840,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         artworkHeightCm={artworkHeight}
         isDarkMode={isDarkMode}
         isOrderCreated={isOrderCreated}
+        quantity={orderQuantity}
       />
 
       <PrintCenterModal
@@ -3832,8 +3859,9 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         companyProfile={companyProfile}
         isPro={isProPlan(subscriptionData)}
         isDarkMode={isDarkMode}
-        totalPriceWithVat={costBreakdown.effectiveFinalPriceWithVat}
+        totalPriceWithVat={costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)}
         isOrderCreated={isOrderCreated}
+        quantity={orderQuantity}
         onCreateOrder={handleCreateOrderFromSimulator}
         onPrintOrderForm={downloadCompositedImage}
         onPrintJobOrder={downloadCompositedImage}

@@ -56,6 +56,8 @@ interface OrderStepProps {
   onCreateNewOrder?: () => void;
   onPrevStep?: () => void;
   isExistingOrder?: boolean;
+  quantity?: number;
+  onQuantityChange?: (qty: number) => void;
 }
 
 export const OrderStep: React.FC<OrderStepProps> = ({
@@ -97,10 +99,25 @@ export const OrderStep: React.FC<OrderStepProps> = ({
   onCreateNewOrder,
   onPrevStep,
   isExistingOrder = false,
+  quantity = 1,
+  onQuantityChange
 }) => {
   const getTodayIso = () => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  };
+
+  const toInputDateValue = (d?: string | null): string => {
+    if (!d) return "";
+    const trimmed = d.trim();
+    if (trimmed.includes('.')) {
+      const parts = trimmed.split('.');
+      if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    } else if (trimmed.includes('-')) {
+      const parts = trimmed.split('-');
+      if (parts.length === 3 && parts[0].length <= 2) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+    return trimmed;
   };
 
   const normalizeDate = (d?: string | null) => {
@@ -130,21 +147,12 @@ export const OrderStep: React.FC<OrderStepProps> = ({
       hasError = true;
     }
 
-    const normDelivery = normalizeDate(deliveryDate);
-    const normOriginal = normalizeDate(loadedOrderOriginalDeliveryDate);
-
     let dateIssue = false;
     let dateIssueMsg = "";
 
     if (!deliveryDate || !deliveryDate.trim()) {
       dateIssue = true;
       dateIssueMsg = "Lütfen teslim tarihini belirleyiniz.";
-    } else if (normDelivery < todayIso) {
-      dateIssue = true;
-      dateIssueMsg = "Lütfen teslim tarihini güncelleyin.";
-    } else if (normOriginal && normDelivery === normOriginal) {
-      dateIssue = true;
-      dateIssueMsg = "Lütfen teslim tarihini güncelleyin.";
     }
 
     if (dateIssue) {
@@ -419,7 +427,7 @@ export const OrderStep: React.FC<OrderStepProps> = ({
               </label>
               {deliveryDateError && (
                 <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider flex items-center gap-1 animate-pulse">
-                  <AlertCircle className="w-3 h-3" /> {deliveryDateErrorMessage || "Lütfen tarihi güncelleyin"}
+                  <AlertCircle className="w-3 h-3" /> {deliveryDateErrorMessage || "Lütfen teslim tarihini belirleyiniz"}
                 </span>
               )}
             </div>
@@ -427,14 +435,11 @@ export const OrderStep: React.FC<OrderStepProps> = ({
               id="delivery-date-input"
               type="date"
               required
-              min={todayIso}
-              value={deliveryDate}
+              value={toInputDateValue(deliveryDate)}
               onChange={(e) => {
                 const val = e.target.value;
                 setDeliveryDate(val);
-                const normVal = normalizeDate(val);
-                const normOrig = normalizeDate(loadedOrderOriginalDeliveryDate);
-                if (normVal && normVal >= todayIso && (!normOrig || normVal !== normOrig)) {
+                if (val && val.trim()) {
                   setDeliveryDateError(false);
                   if (setDeliveryDateErrorMessage) setDeliveryDateErrorMessage(null);
                 }
@@ -448,9 +453,75 @@ export const OrderStep: React.FC<OrderStepProps> = ({
             {deliveryDateError && (
               <p className="mt-1 text-[11px] font-bold text-red-500 flex items-center gap-1">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{deliveryDateErrorMessage || "Lütfen teslim tarihini güncelleyin."}</span>
+                <span>{deliveryDateErrorMessage || "Lütfen teslim tarihini belirleyiniz."}</span>
               </p>
             )}
+          </div>
+
+          {/* Sipariş Adedi (quantity) */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="order-quantity-input" className={`text-[10px] font-bold uppercase tracking-wider ${
+                isDarkMode ? "text-neutral-300" : "text-slate-700"
+              }`}>
+                Sipariş Adedi <span className="text-red-500 font-bold">*</span>
+              </label>
+              <span className={`text-[10px] font-mono font-bold ${
+                isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+              }`}>
+                {quantity || 1} Adet
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onQuantityChange && onQuantityChange(Math.max(1, (quantity || 1) - 1))}
+                className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-sm transition-all cursor-pointer active:scale-95 ${
+                  isDarkMode 
+                    ? "bg-[#101216] border-white/10 text-white hover:border-[#C5A059]" 
+                    : "bg-white border-slate-300 text-slate-800 hover:border-[#B88E3A]"
+                }`}
+                title="Adedi Azalt"
+              >
+                -
+              </button>
+              <div className="relative flex-1">
+                <input
+                  id="order-quantity-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  value={quantity || 1}
+                  onChange={(e) => {
+                    const parsed = parseInt(e.target.value);
+                    if (onQuantityChange) {
+                      onQuantityChange(isNaN(parsed) || parsed < 1 ? 1 : parsed);
+                    }
+                  }}
+                  className={`w-full px-3 py-2 text-center text-xs font-mono font-bold rounded-xl border transition-all ${
+                    isDarkMode ? "bg-[#101216] border-white/10 text-white focus:border-[#C5A059] focus:outline-none" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:outline-none"
+                  }`}
+                />
+                <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold pointer-events-none ${
+                  isDarkMode ? "text-neutral-400" : "text-slate-500"
+                }`}>
+                  Adet
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onQuantityChange && onQuantityChange((quantity || 1) + 1)}
+                className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-sm transition-all cursor-pointer active:scale-95 ${
+                  isDarkMode 
+                    ? "bg-[#101216] border-white/10 text-white hover:border-[#C5A059]" 
+                    : "bg-white border-slate-300 text-slate-800 hover:border-[#B88E3A]"
+                }`}
+                title="Adedi Artır"
+              >
+                +
+              </button>
+            </div>
           </div>
 
           {/* Zorunlu Alanlar Hata Bildirim Çubuğu */}
@@ -503,6 +574,10 @@ export const OrderStep: React.FC<OrderStepProps> = ({
               <span className="font-mono font-bold">{finalOuterWidthCm.toFixed(1)} × {finalOuterHeightCm.toFixed(1)} cm</span>
             </div>
             <div className="flex justify-between">
+              <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Sipariş Adedi:</span>
+              <span className="font-mono font-bold text-[#C5A059]">{quantity || 1} Adet</span>
+            </div>
+            <div className="flex justify-between">
               <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Teslimat:</span>
               <span className="font-medium">{deliveryMethod === "store" ? "Mağaza Teslim" : "Kargo"}</span>
             </div>
@@ -517,17 +592,24 @@ export const OrderStep: React.FC<OrderStepProps> = ({
             <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block">
               Genel Toplam (KDV Dahil)
             </span>
-            <div className="flex items-baseline gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
               <span className="text-xl font-mono font-extrabold text-[#C5A059]">
-                ₺{costBreakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}
+                ₺{(costBreakdown.effectiveFinalPriceWithVat * Math.max(1, quantity || 1)).toLocaleString("tr-TR")}
               </span>
-              <button
-                type="button"
-                onClick={onOpenCostModal}
-                className="text-[10px] underline cursor-pointer text-neutral-400 hover:text-white"
-              >
-                Döküm
-              </button>
+              <div className="flex items-center gap-2">
+                {(quantity || 1) > 1 && (
+                  <span className="text-[10px] font-mono text-neutral-300">
+                    ({quantity} Adet × ₺{costBreakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")})
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={onOpenCostModal}
+                  className="text-[10px] underline cursor-pointer text-neutral-400 hover:text-white"
+                >
+                  Döküm
+                </button>
+              </div>
             </div>
           </div>
 

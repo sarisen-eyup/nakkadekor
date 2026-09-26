@@ -20,6 +20,7 @@ export interface WorkspaceDraft {
   customerName: string;
   customerPhone: string;
   deliveryDate: string;
+  quantity?: number;
   selectedInnerProfileId: string;
   selectedOuterProfileId: string;
   inclusionFlags: MaterialInclusionFlags;

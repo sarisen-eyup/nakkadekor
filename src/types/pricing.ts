@@ -438,6 +438,7 @@ export interface OrderArchiveItem {
   status: OrderStatus;
   deliveryMethod: "store" | "shipping";
   authorUser?: string;
+  quantity?: number; // Sipariş Adedi (Varsayılan 1)
 
   // Genişletilmiş Simülatör Konfigürasyonu (Düzenleme ve Simülatöre Aktarma için)
   innerProfileId?: string;

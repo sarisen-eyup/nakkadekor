@@ -272,7 +272,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                     {/* Sipariş No, Tarih & Müşteri Bilgisi (3 Kolon) */}
                     <div className="md:col-span-3 min-w-0">
                       {/* Sipariş No */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg font-mono font-bold text-xs ${
                           isDarkMode 
                             ? "bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30" 
@@ -281,6 +281,13 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                           <FileText className="w-3.5 h-3.5 shrink-0" />
                           <span>{order.orderNumber}</span>
                         </div>
+                        {(order.quantity || 1) > 1 && (
+                          <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] ${
+                            isDarkMode ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-amber-100 text-amber-800 border border-amber-200"
+                          }`}>
+                            {order.quantity} Adet
+                          </span>
+                        )}
                       </div>
 
                       {/* Sipariş Tarihi */}
@@ -427,6 +434,11 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                         }`}>
                           {order.currency}{order.totalAmount.toLocaleString("tr-TR")}
                         </div>
+                        {(order.quantity || 1) > 1 && (
+                          <div className={`text-[10px] font-mono mt-0.5 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                            ({order.quantity} Adet Toplamı)
+                          </div>
+                        )}
                         <div className={`text-[10px] font-medium flex items-center justify-end gap-1 mt-1 ${
                           isDarkMode ? "text-neutral-400" : "text-slate-500"
                         }`}>

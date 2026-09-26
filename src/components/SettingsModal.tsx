@@ -1185,7 +1185,7 @@ export function SettingsModal({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
                   <div>
                     <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Profil Adı</label>
                     <input
@@ -1215,27 +1215,7 @@ export function SettingsModal({
                   </div>
 
                   <div>
-                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Metre Tül Maliyeti</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="5"
-                        placeholder="60"
-                        value={newProfile.unitCostPerMeter ?? 0}
-                        onChange={(e) => setNewProfile({ ...newProfile, unitCostPerMeter: parseFloat(e.target.value) || 0 })}
-                        className={`w-full border rounded-lg pl-3 pr-12 py-2 text-xs font-mono focus:outline-none transition-colors ${
-                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
-                        }`}
-                      />
-                      <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
-                        isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
-                      }`}>₺/m</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Metre Tül Satış Fiyatı</label>
+                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Metre Tül Fiyatı</label>
                     <div className="relative">
                       <input
                         type="number"

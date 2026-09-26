@@ -13,6 +13,7 @@ interface CuttingListModalProps {
   artworkHeightCm: number;
   isDarkMode?: boolean;
   isOrderCreated?: boolean;
+  quantity?: number;
 }
 
 export function CuttingListModal({
@@ -24,9 +25,11 @@ export function CuttingListModal({
   artworkWidthCm,
   artworkHeightCm,
   isDarkMode = true,
-  isOrderCreated = false
+  isOrderCreated = false,
+  quantity = 1
 }: CuttingListModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const qty = Math.max(1, quantity || 1);
 
   if (!isOpen) return null;
 
@@ -40,7 +43,8 @@ export function CuttingListModal({
       customerName,
       deliveryDate,
       artworkWidthCm,
-      artworkHeightCm
+      artworkHeightCm,
+      quantity: qty
     });
   };
 
@@ -119,8 +123,8 @@ export function CuttingListModal({
             </div>
           </div>
 
-          {/* Top Info Banner */}
-          <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 p-4 border rounded-md print:bg-gray-100 print:border-gray-300 ${
+          {/* Top Info Banner (5 Kolon) */}
+          <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 p-4 border rounded-md print:bg-gray-100 print:border-gray-300 ${
             isDarkMode ? "bg-[#1a1d1f] border-[#C5A059]/20" : "bg-slate-50 border-slate-200"
           }`}>
             <div>
@@ -146,6 +150,19 @@ export function CuttingListModal({
                 isDarkMode ? "text-white" : "text-slate-900"
               }`}>
                 {cutList.totalOuterDimensions}
+              </span>
+            </div>
+
+            <div>
+              <span className={`text-[10px] font-sans font-bold uppercase tracking-wider print:text-gray-600 block ${
+                isDarkMode ? "text-neutral-400" : "text-slate-500"
+              }`}>
+                SİPARİŞ ADEDİ
+              </span>
+              <span className={`text-sm font-mono font-bold print:text-black ${
+                isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+              }`}>
+                {qty} Adet
               </span>
             </div>
 
@@ -234,7 +251,7 @@ export function CuttingListModal({
                           {item.pieceWidthCm.toFixed(2)} cm
                         </span>
                         <span className={`block text-[10px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                          ({item.quantityWidthPieces > 1 ? `${item.quantityWidthPieces} Adet` : '1 Plaka'})
+                          ({item.quantityWidthPieces > 1 ? `${item.quantityWidthPieces * qty} Adet` : (qty > 1 ? `${qty} Plaka` : '1 Plaka')})
                         </span>
                       </td>
 
@@ -245,14 +262,14 @@ export function CuttingListModal({
                           {item.pieceHeightCm.toFixed(2)} cm
                         </span>
                         <span className={`block text-[10px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                          ({item.quantityHeightPieces > 1 ? `${item.quantityHeightPieces} Adet` : '1 Plaka'})
+                          ({item.quantityHeightPieces > 1 ? `${item.quantityHeightPieces * qty} Adet` : (qty > 1 ? `${qty} Plaka` : '1 Plaka')})
                         </span>
                       </td>
 
                       <td className={`py-3 px-4 text-right font-mono font-bold text-xs print:text-black ${
                         isDarkMode ? "text-white" : "text-slate-900"
                       }`}>
-                        {item.totalMeterNeeded.toFixed(2)} {item.unit || "m²"}
+                        {(item.totalMeterNeeded * qty).toFixed(2)} {item.unit || "m²"}
                       </td>
                     </tr>
                   ))}

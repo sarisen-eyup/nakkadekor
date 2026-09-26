@@ -20,6 +20,8 @@ interface CostBreakdownModalProps {
   isDarkMode?: boolean;
   isShopMode?: boolean;
   isOrderCreated?: boolean;
+  quantity?: number;
+  onQuantityChange?: (qty: number) => void;
 }
 
 export function CostBreakdownModal({
@@ -38,7 +40,9 @@ export function CostBreakdownModal({
   onToggleFlag,
   isDarkMode = true,
   isShopMode = false,
-  isOrderCreated = false
+  isOrderCreated = false,
+  quantity = 1,
+  onQuantityChange
 }: CostBreakdownModalProps) {
   const [overrideInput, setOverrideInput] = useState<string>(
     customOverridePrice ? customOverridePrice.toString() : ""
@@ -75,7 +79,8 @@ export function CostBreakdownModal({
       orderNumber,
       customerName,
       deliveryDate,
-      flags
+      flags,
+      quantity
     });
   };
 
@@ -851,11 +856,38 @@ export function CostBreakdownModal({
         <div className={`flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-3.5 sm:px-6 py-3 sm:py-4 border-t shrink-0 print:hidden pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
           isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-[#fdfbf8] border-[#e8dfcf]"
         }`}>
-          <div className={`text-xs font-mono flex items-center justify-between sm:justify-start gap-2.5 ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-            <span className="text-[11px] sm:text-xs">Toplam Tutar:</span>
-            <span className={`font-black text-lg sm:text-xl font-mono ${isDarkMode ? "text-[#C5A059]" : "text-[#7A5A19]"}`}>
-              ₺{breakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}
-            </span>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Sipariş Adedi Inputu (Maliyet Tabloları Bölümü) */}
+            <div className="flex items-center gap-2">
+              <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>
+                Sipariş Adedi:
+              </span>
+              <div className="relative flex items-center">
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={quantity || 1}
+                  onChange={(e) => onQuantityChange && onQuantityChange(Math.max(1, parseInt(e.target.value) || 1))}
+                  className={`w-16 px-2 py-1 text-xs font-mono font-bold rounded-lg border text-center focus:outline-none ${
+                    isDarkMode ? "bg-[#101216] border-white/20 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A]"
+                  }`}
+                />
+                <span className={`ml-1 text-[11px] font-bold ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>Adet</span>
+              </div>
+            </div>
+
+            <div className={`text-xs font-mono flex items-center gap-2 ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
+              <span className="text-[11px] sm:text-xs">{(quantity || 1) > 1 ? `Genel Toplam (${quantity} Adet):` : "Genel Toplam:"}</span>
+              <span className={`font-black text-lg sm:text-xl font-mono ${isDarkMode ? "text-[#C5A059]" : "text-[#7A5A19]"}`}>
+                ₺{(breakdown.effectiveFinalPriceWithVat * Math.max(1, quantity || 1)).toLocaleString("tr-TR")}
+              </span>
+              {(quantity || 1) > 1 && (
+                <span className="text-[10px] opacity-75">
+                  (Tekil: ₺{breakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")})
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">

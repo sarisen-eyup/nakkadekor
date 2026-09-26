@@ -31,6 +31,7 @@ interface PrintCenterModalProps {
   isDarkMode?: boolean;
   totalPriceWithVat: number;
   isOrderCreated?: boolean;
+  quantity?: number;
   onCreateOrder?: () => void;
   onPrintOrderForm?: () => void;
   onPrintJobOrder?: () => void;
@@ -59,6 +60,7 @@ export function PrintCenterModal({
   isDarkMode = true,
   totalPriceWithVat,
   isOrderCreated = false,
+  quantity = 1,
   onCreateOrder,
   onPrintOrderForm,
   onPrintJobOrder,
@@ -114,7 +116,7 @@ export function PrintCenterModal({
                 )}
               </div>
               <p className={`text-xs mt-0.5 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                #{orderNumber} • {customerName || "İsimsiz Müşteri"} • {artworkWidthCm}×{artworkHeightCm} cm
+                #{orderNumber} • {customerName || "İsimsiz Müşteri"} • {artworkWidthCm}×{artworkHeightCm} cm • {quantity} Adet
               </p>
             </div>
           </div>
