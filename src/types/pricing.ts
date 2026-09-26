@@ -6,6 +6,7 @@ export interface FrameProfileItem {
   textureUrl?: string; // Alternatif profil doku linki
   widthCm: number;
   unitPricePerMeter: number; // ₺ per linear meter
+  unitCostPerMeter?: number; // ₺ per linear meter (Maliyet)
   materialType: "wood" | "polystyrene" | "aluminum" | "composite";
   category: "inner" | "outer" | "both";
   isRepeatingPattern?: boolean; // Tekrarlayan Desen kaplaması mı (true = Repeat Pattern, false = Miter-Stretch)

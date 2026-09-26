@@ -498,7 +498,9 @@ export async function seedDefaultFrameProfiles(tenantId: string): Promise<FrameP
   return DEFAULT_FRAME_PROFILES;
 }
 
-export async function fetchFrameProfilesFromSupabase(): Promise<{ 
+export async function fetchFrameProfilesFromSupabase(
+  customTenantId?: string
+): Promise<{ 
   data: FrameProfileItem[] | null; 
   error: any;
   isSchemaMissing?: boolean;
@@ -507,11 +509,14 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{
     return { data: [], error: null };
   }
 
-  const tenantId = await getAuthUserIdOrTenantId();
+  const tenantId = (customTenantId && customTenantId.trim()) || (await getAuthUserIdOrTenantId());
+
+  if (!tenantId) {
+    return { data: [], error: new Error("Tenant ID tespit edilemedi") };
+  }
 
   try {
-    // Sadece mevcut oturum açmış kullanıcıya (tenantId) ait profilleri getir
-    // tenant_id.is.null sorgulanmaz; böylece veritabanındaki örnek/varsayılan çıtalar asla gelmez
+    // Sadece mevcut atölyeye (tenantId) ait profilleri getir (RLS & Atölye İzolasyonu)
     const { data, error } = await supabase
       .from("frame_profiles")
       .select("*")
@@ -530,7 +535,6 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{
     }
 
     if (!data || data.length === 0) {
-      // Kullanıcının henüz kayıtlı profili yoksa boş dizi döndür (asla otomatik seed veya mock çıta ekleme)
       return { data: [], error: null };
     }
 
@@ -547,7 +551,6 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{
     );
 
     if (hasLegacyMock) {
-      // Arka planda veritabanından bu eski otomatik seed kayıtlarını temizle
       supabase
         .from("frame_profiles")
         .delete()
@@ -580,6 +583,7 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{
       rabbetDepthMm: row.rabbet_depth != null ? Number(row.rabbet_depth) : (row.rabbet_depth_cm != null ? Number(row.rabbet_depth_cm) * 10 : 6),
       rabbet_depth: row.rabbet_depth != null ? Number(row.rabbet_depth) : (row.rabbet_depth_cm != null ? Number(row.rabbet_depth_cm) * 10 : 6),
       unitPricePerMeter: Number(row.unit_price_per_meter || 120),
+      unitCostPerMeter: Number(row.unit_cost_per_meter || 0),
       imageUrl: row.image_url || "",
       textureUrl: row.texture_url || row.image_url || "",
       isRepeatingPattern: row.is_repeating_pattern ?? true,
@@ -595,47 +599,63 @@ export async function fetchFrameProfilesFromSupabase(): Promise<{
   }
 }
 
+// Standart takma adlar (Alias)
+export const fetchProfiles = fetchFrameProfilesFromSupabase;
+export const fetchProfilesFromSupabase = fetchFrameProfilesFromSupabase;
+
 export async function createFrameProfileInSupabase(
-  profile: Omit<FrameProfileItem, "id"> & { id?: string }
+  profile: Omit<FrameProfileItem, "id"> & { id?: string; unitCostPerMeter?: number },
+  customTenantId?: string
 ): Promise<{ data: FrameProfileItem | null; error: any }> {
   if (!isSupabaseConfigured()) {
     return { data: null, error: new Error("Supabase is not configured") };
   }
 
-  const tenantId = await getAuthUserIdOrTenantId();
+  const tenantId = (customTenantId && customTenantId.trim()) || (await getAuthUserIdOrTenantId());
   await ensureTenantRecord(tenantId);
 
+  // 1. Base64 / Blob görsel koruması: Önce Supabase Storage'a yükle ve kesinlikle Public URL al
+  let finalImageUrl = profile.imageUrl || "";
+  let finalTextureUrl = profile.textureUrl || profile.imageUrl || "";
+  const cleanCode = (profile.code || "P-" + Date.now().toString().slice(-4)).toUpperCase();
+
+  if (finalImageUrl && (finalImageUrl.startsWith("data:") || finalImageUrl.startsWith("blob:"))) {
+    try {
+      const uploadRes = await uploadImageToSupabaseStorage(finalImageUrl, "profiles", `profile_${cleanCode}_${Date.now()}`);
+      if (uploadRes.publicUrl) {
+        finalImageUrl = uploadRes.publicUrl;
+        finalTextureUrl = uploadRes.publicUrl;
+      }
+    } catch (uploadErr) {
+      console.warn("createFrameProfile Storage yükleme uyarısı:", uploadErr);
+    }
+  }
+
+  // 2. Veritabanı frame_profiles tablosu ile birebir örtüşen INSERT payload'ı
+  // (isim: name, maliyet: unit_cost_per_meter, fiyat: unit_price_per_meter, genislik: width_cm, bini_payi: rabbet_depth, gorsel_url: image_url, tenant_id: tenant_id)
   const insertPayload: any = {
     tenant_id: tenantId,
-    code: (profile.code || "P-" + Date.now().toString().slice(-4)).toUpperCase(),
+    code: cleanCode,
     name: profile.name || "Yeni Profil",
     material_type: profile.materialType || "wood",
     width_cm: Number(profile.widthCm || 4),
-    rabbet_depth: profile.rabbetDepthMm != null ? Number(profile.rabbetDepthMm) : (profile.rabbet_depth != null ? Number(profile.rabbet_depth) : 6),
-    rabbet_depth_cm: (profile.rabbetDepthMm != null ? Number(profile.rabbetDepthMm) : (profile.rabbet_depth != null ? Number(profile.rabbet_depth) : 6)) / 10,
+    depth_cm: 3.0,
+    rabbet_depth: Number(profile.rabbetDepthMm != null ? profile.rabbetDepthMm : (profile.rabbet_depth != null ? profile.rabbet_depth : 6)),
     unit_price_per_meter: Number(profile.unitPricePerMeter || 120),
-    unit_cost_per_meter: (profile as any).unitCostPerMeter || 0,
-    image_url: profile.imageUrl || "",
-    texture_url: profile.textureUrl || profile.imageUrl || "",
+    unit_cost_per_meter: Number(profile.unitCostPerMeter || (profile as any).unit_cost_per_meter || 0),
+    image_url: finalImageUrl,
+    texture_url: finalTextureUrl,
     is_repeating_pattern: profile.isRepeatingPattern ?? true,
     layout_mode: profile.layoutMode || (profile.isRepeatingPattern ? "repeat" : "miter-stretch"),
     category: profile.category || "both",
-    is_active: profile.inStock ?? true
+    is_active: profile.inStock ?? true,
+    in_stock: profile.inStock ?? true
   };
 
-  // Sadece valid UUID ise id gönder, yoksa PostgreSQL otomatik gen_random_uuid() üretsin
+  // Sadece geçerli UUID ise id gönder, yoksa PostgreSQL otomatik gen_random_uuid() üretsin
   const isUuid = profile.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profile.id);
   if (isUuid) {
     insertPayload.id = profile.id;
-  }
-
-  // Base64 görsel koruması: Storage'a yükle ve sadece public URL sakla
-  if (insertPayload.image_url && (insertPayload.image_url.startsWith("data:") || insertPayload.image_url.startsWith("blob:"))) {
-    const uploadRes = await uploadImageToSupabaseStorage(insertPayload.image_url, "profiles", insertPayload.code);
-    if (uploadRes.publicUrl) {
-      insertPayload.image_url = uploadRes.publicUrl;
-      insertPayload.texture_url = uploadRes.publicUrl;
-    }
   }
 
   try {
@@ -645,21 +665,21 @@ export async function createFrameProfileInSupabase(
       .select()
       .single();
 
-    // If PostgreSQL schema cache complains of missing column (PGRST204)
-    if (res.error && res.error.code === "PGRST204") {
+    // Sütun bulunamadı (PGRST204 veya 42703) durumunda çekirdek sütunlarla retry
+    if (res.error && (res.error.code === "PGRST204" || res.error.code === "42703")) {
       console.warn("Retrying frame_profile creation with minimal core columns:", res.error.message);
       const minimalPayload: any = {
         tenant_id: tenantId,
         code: insertPayload.code,
         name: insertPayload.name,
-        material_type: insertPayload.material_type,
         width_cm: insertPayload.width_cm,
         rabbet_depth: insertPayload.rabbet_depth,
-        rabbet_depth_cm: insertPayload.rabbet_depth_cm,
         unit_price_per_meter: insertPayload.unit_price_per_meter,
+        unit_cost_per_meter: insertPayload.unit_cost_per_meter,
         image_url: insertPayload.image_url,
         texture_url: insertPayload.texture_url,
-        is_active: true
+        is_active: true,
+        in_stock: true
       };
       if (isUuid) minimalPayload.id = profile.id;
       res = await supabase.from("frame_profiles").insert([minimalPayload]).select().single();
@@ -668,7 +688,7 @@ export async function createFrameProfileInSupabase(
     if (res.error) {
       if (res.error.code === "23505" || String(res.error.message || "").toLowerCase().includes("unique") || String(res.error.message || "").toLowerCase().includes("duplicate")) {
         console.log("[Supabase] Profil zaten mevcut, updateFrameProfileInSupabase fallback yapılıyor:", insertPayload.code);
-        const updateRes = await updateFrameProfileInSupabase(profile.id || insertPayload.code, profile);
+        const updateRes = await updateFrameProfileInSupabase(profile.id || insertPayload.code, profile, tenantId);
         if (updateRes.success) {
           return { data: profile as FrameProfileItem, error: null };
         }
@@ -689,11 +709,12 @@ export async function createFrameProfileInSupabase(
       name: data.name,
       materialType: data.material_type || "wood",
       widthCm: Number(data.width_cm || 4),
-      rabbetDepthMm: data.rabbet_depth != null ? Number(data.rabbet_depth) : (data.rabbet_depth_cm != null ? Number(data.rabbet_depth_cm) * 10 : (insertPayload.rabbet_depth || 6)),
-      rabbet_depth: data.rabbet_depth != null ? Number(data.rabbet_depth) : (data.rabbet_depth_cm != null ? Number(data.rabbet_depth_cm) * 10 : (insertPayload.rabbet_depth || 6)),
+      rabbetDepthMm: data.rabbet_depth != null ? Number(data.rabbet_depth) : (insertPayload.rabbet_depth || 6),
+      rabbet_depth: data.rabbet_depth != null ? Number(data.rabbet_depth) : (insertPayload.rabbet_depth || 6),
       unitPricePerMeter: Number(data.unit_price_per_meter || 120),
-      imageUrl: data.image_url || "",
-      textureUrl: data.texture_url || data.image_url || "",
+      unitCostPerMeter: Number(data.unit_cost_per_meter || 0),
+      imageUrl: data.image_url || finalImageUrl,
+      textureUrl: data.texture_url || finalTextureUrl || finalImageUrl,
       isRepeatingPattern: data.is_repeating_pattern ?? true,
       layoutMode: data.layout_mode || "miter-stretch",
       category: data.category || "both",
@@ -709,13 +730,14 @@ export async function createFrameProfileInSupabase(
 
 export async function updateFrameProfileInSupabase(
   id: string,
-  updates: Partial<FrameProfileItem>
+  updates: Partial<FrameProfileItem> & { unitCostPerMeter?: number },
+  customTenantId?: string
 ): Promise<{ success: boolean; error: any }> {
   if (!isSupabaseConfigured()) {
     return { success: false, error: new Error("Supabase is not configured") };
   }
 
-  const tenantId = await getAuthUserIdOrTenantId();
+  const tenantId = (customTenantId && customTenantId.trim()) || (await getAuthUserIdOrTenantId());
 
   const payload: any = {
     updated_at: new Date().toISOString()
@@ -727,12 +749,13 @@ export async function updateFrameProfileInSupabase(
   if (updates.widthCm !== undefined) payload.width_cm = updates.widthCm;
   if (updates.rabbetDepthMm !== undefined) {
     payload.rabbet_depth = Number(updates.rabbetDepthMm);
-    payload.rabbet_depth_cm = Number(updates.rabbetDepthMm) / 10;
   } else if (updates.rabbet_depth !== undefined) {
     payload.rabbet_depth = Number(updates.rabbet_depth);
-    payload.rabbet_depth_cm = Number(updates.rabbet_depth) / 10;
   }
   if (updates.unitPricePerMeter !== undefined) payload.unit_price_per_meter = updates.unitPricePerMeter;
+  if (updates.unitCostPerMeter !== undefined || (updates as any).unit_cost_per_meter !== undefined) {
+    payload.unit_cost_per_meter = Number(updates.unitCostPerMeter ?? (updates as any).unit_cost_per_meter ?? 0);
+  }
   if (updates.imageUrl !== undefined) {
     if (updates.imageUrl && (updates.imageUrl.startsWith("data:") || updates.imageUrl.startsWith("blob:"))) {
       const uploadRes = await uploadImageToSupabaseStorage(updates.imageUrl, "profiles", id);
@@ -752,6 +775,7 @@ export async function updateFrameProfileInSupabase(
   if (updates.category !== undefined) payload.category = updates.category;
   if (updates.inStock !== undefined) {
     payload.is_active = updates.inStock;
+    payload.in_stock = updates.inStock;
   }
 
   try {
@@ -782,11 +806,12 @@ export async function updateFrameProfileInSupabase(
         rabbetDepthMm: updates.rabbetDepthMm ?? 6.0,
         rabbet_depth: updates.rabbetDepthMm ?? 6.0,
         unitPricePerMeter: updates.unitPricePerMeter || 120,
+        unitCostPerMeter: updates.unitCostPerMeter || 0,
         materialType: updates.materialType || "wood",
         category: updates.category || "both",
         isRepeatingPattern: updates.isRepeatingPattern ?? true,
         inStock: updates.inStock ?? true
-      });
+      }, tenantId);
       return { success: !createRes.error, error: createRes.error };
     }
 
@@ -797,12 +822,15 @@ export async function updateFrameProfileInSupabase(
   }
 }
 
-export async function deleteFrameProfileFromSupabase(id: string): Promise<{ success: boolean; error: any }> {
+export async function deleteFrameProfileFromSupabase(
+  id: string,
+  customTenantId?: string
+): Promise<{ success: boolean; error: any }> {
   if (!isSupabaseConfigured()) {
     return { success: false, error: new Error("Supabase is not configured") };
   }
 
-  const tenantId = await getAuthUserIdOrTenantId();
+  const tenantId = (customTenantId && customTenantId.trim()) || (await getAuthUserIdOrTenantId());
 
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);

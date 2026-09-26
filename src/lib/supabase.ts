@@ -270,6 +270,9 @@ export async function ensureTenantAndUserExist(user: any) {
 
 // Çerçeve profilleri yardımcı fonksiyonları (standart dışa aktarım)
 export {
+  fetchProfiles,
+  fetchProfilesFromSupabase,
+  fetchFrameProfilesFromSupabase,
   createFrameProfileInSupabase,
   updateFrameProfileInSupabase,
   deleteFrameProfileFromSupabase

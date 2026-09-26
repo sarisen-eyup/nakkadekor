@@ -24,6 +24,8 @@ import {
   createFrameProfileInSupabase,
   updateFrameProfileInSupabase,
   deleteFrameProfileFromSupabase,
+  fetchFrameProfilesFromSupabase,
+  fetchProfiles,
   fetchCompanyProfileFromSupabase,
   saveCompanyProfileToSupabase,
   fetchTenantSettingsFromSupabase,
@@ -31,7 +33,7 @@ import {
   uploadImageToSupabaseStorage
 } from "../services/supabaseService";
 import { compressImage } from "../utils/imageCompressor";
-import { isSupabaseConfigured } from "../lib/supabase";
+import { isSupabaseConfigured, getTenantId } from "../lib/supabase";
 import { useToast } from "../context/ToastContext";
 
 interface SettingsModalProps {
@@ -52,6 +54,7 @@ interface SettingsModalProps {
   onOpenSubscriptionModal?: () => void;
   activeUser?: UserAccount;
   onLogout?: () => void;
+  tenantId?: string;
 }
 
 export function SettingsModal({
@@ -71,7 +74,8 @@ export function SettingsModal({
   subscription,
   onOpenSubscriptionModal,
   activeUser,
-  onLogout
+  onLogout,
+  tenantId
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<"prices" | "profiles" | "privacy">(initialTab);
   
@@ -90,13 +94,27 @@ export function SettingsModal({
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatusMsg, setSaveStatusMsg] = useState<{ text: string; isError?: boolean } | null>(null);
 
-  // Modal açıldığında firma profilini ve atölye ayarlarını Supabase'den çek
+  // Modal açıldığında firma profilini, atölye ayarlarını ve çerçeve profillerini Supabase'den çek
   useEffect(() => {
     if (isOpen) {
       setLocalSettings(sanitizeUnitPricesSettings(settings));
       setLocalProfiles(profiles);
       setSavedSuccess(false);
       setSaveStatusMsg(null);
+
+      const currentTenantId = tenantId || getTenantId();
+
+      // Supabase'den güncel çerçeve profillerini anında çek
+      if (isSupabaseConfigured() && currentTenantId) {
+        fetchFrameProfilesFromSupabase(currentTenantId).then(({ data, error }) => {
+          if (data && data.length > 0) {
+            setLocalProfiles(data);
+            onSaveProfiles(data);
+          }
+        }).catch(err => {
+          console.warn("Profil listesi yükleme uyarısı:", err);
+        });
+      }
 
       (async () => {
         try {
@@ -124,7 +142,22 @@ export function SettingsModal({
         }
       })();
     }
-  }, [isOpen]);
+  }, [isOpen, tenantId]);
+
+  // Profiller sekmesine geçildiğinde Supabase'den listeyi tazele
+  useEffect(() => {
+    if (isOpen && activeTab === "profiles" && isSupabaseConfigured()) {
+      const currentTenantId = tenantId || getTenantId();
+      if (currentTenantId) {
+        fetchFrameProfilesFromSupabase(currentTenantId).then(({ data }) => {
+          if (data && data.length > 0) {
+            setLocalProfiles(data);
+            onSaveProfiles(data);
+          }
+        }).catch(err => console.warn("Sekme geçişinde profil refetch hatası:", err));
+      }
+    }
+  }, [isOpen, activeTab, tenantId]);
 
   useEffect(() => {
     if (companyProfile) {
@@ -155,7 +188,7 @@ export function SettingsModal({
   };
 
   // New profile form state
-  const [newProfile, setNewProfile] = useState<Partial<FrameProfileItem>>({
+  const [newProfile, setNewProfile] = useState<Partial<FrameProfileItem> & { unitCostPerMeter?: number }>({
     name: "",
     code: "",
     imageUrl: "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=300&auto=format&fit=crop",
@@ -163,10 +196,13 @@ export function SettingsModal({
     rabbetDepthMm: 6.0,
     rabbet_depth: 6.0,
     unitPricePerMeter: 150,
+    unitCostPerMeter: 60,
     materialType: "wood",
     category: "both",
     isRepeatingPattern: true
   });
+
+  const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false);
 
   // Profile Image Cropping Modal State
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
@@ -302,6 +338,7 @@ export function SettingsModal({
       rabbetDepthMm: prof.rabbetDepthMm ?? prof.rabbet_depth ?? 6.0,
       rabbet_depth: prof.rabbetDepthMm ?? prof.rabbet_depth ?? 6.0,
       unitPricePerMeter: prof.unitPricePerMeter,
+      unitCostPerMeter: (prof as any).unitCostPerMeter ?? 0,
       materialType: prof.materialType || "wood",
       category: prof.category || "both",
       isRepeatingPattern: prof.isRepeatingPattern ?? true
@@ -318,6 +355,7 @@ export function SettingsModal({
       rabbetDepthMm: 6.0,
       rabbet_depth: 6.0,
       unitPricePerMeter: 150,
+      unitCostPerMeter: 60,
       materialType: "wood",
       category: "both",
       isRepeatingPattern: true
@@ -326,10 +364,38 @@ export function SettingsModal({
 
   const handleSaveProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProfile.name || !newProfile.code) return;
+    if (!newProfile.name?.trim() || !newProfile.code?.trim()) {
+      toast.warning("Lütfen profil adı ve profil kodunu eksiksiz doldurunuz.");
+      return;
+    }
+
+    setIsSavingProfile(true);
 
     try {
       const codeClean = newProfile.code.trim().toUpperCase();
+      const currentTenantId = tenantId || getTenantId();
+
+      // ADIM 1 (Tam Akış Zinciri): Önce görseli Supabase Storage'a yükle ve kesinlikle Public URL al
+      let finalImageUrl = newProfile.imageUrl || "";
+      let finalTextureUrl = newProfile.textureUrl || newProfile.imageUrl || "";
+
+      if (finalImageUrl && (finalImageUrl.startsWith("data:") || finalImageUrl.startsWith("blob:"))) {
+        try {
+          const compressed = await compressImage(finalImageUrl, { maxWidth: 1080, quality: 0.82 });
+          const uploadRes = await uploadImageToSupabaseStorage(
+            compressed.blob, 
+            "profiles", 
+            `profile_${codeClean}_${Date.now()}`
+          );
+          if (uploadRes.publicUrl) {
+            finalImageUrl = uploadRes.publicUrl;
+            finalTextureUrl = uploadRes.publicUrl;
+          }
+        } catch (uploadErr) {
+          console.warn("Storage profil görseli yükleme uyarısı:", uploadErr);
+        }
+      }
+
       const existingProfile = editingProfileId 
         ? localProfiles.find(p => p.id === editingProfileId)
         : localProfiles.find(p => p.code.toUpperCase() === codeClean);
@@ -341,58 +407,64 @@ export function SettingsModal({
         id: targetId,
         name: newProfile.name.trim(),
         code: codeClean,
-        imageUrl: newProfile.imageUrl || "",
-        textureUrl: newProfile.textureUrl || newProfile.imageUrl || "",
+        imageUrl: finalImageUrl,
+        textureUrl: finalTextureUrl,
         widthCm: newProfile.widthCm || 4.0,
         rabbetDepthMm: newProfile.rabbetDepthMm != null ? Number(newProfile.rabbetDepthMm) : (newProfile.rabbet_depth != null ? Number(newProfile.rabbet_depth) : 6.0),
         rabbet_depth: newProfile.rabbetDepthMm != null ? Number(newProfile.rabbetDepthMm) : (newProfile.rabbet_depth != null ? Number(newProfile.rabbet_depth) : 6.0),
         unitPricePerMeter: newProfile.unitPricePerMeter || 120,
+        unitCostPerMeter: (newProfile as any).unitCostPerMeter || 0,
         materialType: (newProfile.materialType as any) || "wood",
         category: (newProfile.category as any) || "both",
         isRepeatingPattern: newProfile.isRepeatingPattern ?? true
       };
 
-      // 1. Local state güncellemesi (Form anında yenilenir)
-      if (isUpdate) {
-        setLocalProfiles((prev) => prev.map((p) => (p.id === targetId || p.code.toUpperCase() === codeClean ? profileItem : p)));
-      } else {
-        setLocalProfiles((prev) => [profileItem, ...prev]);
-      }
-
-      // 2. Supabase Senkronizasyonu - Eksiksiz Çift Yönlü Fallback Kontrolü
+      // ADIM 2 (Veritabanı INSERT / UPDATE): Supabase'e await ile kesin kayıt
+      let savedDbItem: FrameProfileItem = profileItem;
       if (isSupabaseConfigured()) {
-        (async () => {
-          try {
-            if (isUpdate) {
-              // Önce güncelle (update), bulunamaz veya başarısız olursa ekle (insert)
-              const updateRes = await updateFrameProfileInSupabase(targetId, profileItem);
-              if (!updateRes.success) {
-                console.warn("[Supabase] Profil güncelleme fallback'e geçti (createFrameProfileInSupabase):", updateRes.error);
-                await createFrameProfileInSupabase(profileItem);
-              }
-            } else {
-              // Önce ekle (insert), çakışma veya hata olursa güncelle (update)
-              const createRes = await createFrameProfileInSupabase(profileItem);
-              if (createRes.error) {
-                console.warn("[Supabase] Profil oluşturma fallback'e geçti (updateFrameProfileInSupabase):", createRes.error);
-                await updateFrameProfileInSupabase(targetId, profileItem);
-              }
-            }
-          } catch (syncErr) {
-            console.warn("[Supabase] Profil eşitleme hatası, acil fallback tetikleniyor:", syncErr);
-            try {
-              if (isUpdate) {
-                await createFrameProfileInSupabase(profileItem);
-              } else {
-                await updateFrameProfileInSupabase(targetId, profileItem);
-              }
-            } catch (err2) {
-              console.warn("[Supabase] Çerçeve profili son fallback hatası:", err2);
-            }
+        if (isUpdate) {
+          const updateRes = await updateFrameProfileInSupabase(targetId, profileItem, currentTenantId);
+          if (!updateRes.success) {
+            console.warn("[Supabase] Güncelleme fallback'e geçti (createFrameProfileInSupabase):", updateRes.error);
+            const createRes = await createFrameProfileInSupabase(profileItem, currentTenantId);
+            if (createRes.data) savedDbItem = createRes.data;
           }
-        })();
+        } else {
+          const createRes = await createFrameProfileInSupabase(profileItem, currentTenantId);
+          if (createRes.error) {
+            console.warn("[Supabase] Ekleme fallback'e geçti (updateFrameProfileInSupabase):", createRes.error);
+            await updateFrameProfileInSupabase(targetId, profileItem, currentTenantId);
+          } else if (createRes.data) {
+            savedDbItem = createRes.data;
+          }
+        }
       }
 
+      // ADIM 3 (UI State Senkronizasyonu & Anında Refetch):
+      // 1. Önce lokal state'e ekle/güncelle (anında ekranda görünmesi için)
+      let nextProfiles: FrameProfileItem[];
+      if (isUpdate) {
+        nextProfiles = localProfiles.map((p) => (p.id === targetId || p.code.toUpperCase() === codeClean ? savedDbItem : p));
+      } else {
+        nextProfiles = [savedDbItem, ...localProfiles.filter(p => p.id !== savedDbItem.id && p.code.toUpperCase() !== codeClean)];
+      }
+      setLocalProfiles(nextProfiles);
+      onSaveProfiles(nextProfiles);
+
+      // 2. Ardından Supabase'den güncel profil listesini refetch et (veritabanı ile tam senkronizasyon)
+      if (isSupabaseConfigured() && currentTenantId) {
+        try {
+          const { data: remoteProfiles } = await fetchFrameProfilesFromSupabase(currentTenantId);
+          if (remoteProfiles && remoteProfiles.length > 0) {
+            setLocalProfiles(remoteProfiles);
+            onSaveProfiles(remoteProfiles);
+          }
+        } catch (fetchErr) {
+          console.warn("Profil listesi refetch uyarısı:", fetchErr);
+        }
+      }
+
+      // Formu sıfırla
       setEditingProfileId(null);
       setNewProfile({
         name: "",
@@ -402,35 +474,38 @@ export function SettingsModal({
         rabbetDepthMm: 6.0,
         rabbet_depth: 6.0,
         unitPricePerMeter: 150,
+        unitCostPerMeter: 60,
         materialType: "wood",
         category: "both",
         isRepeatingPattern: true
       });
 
-      toast.success(isUpdate ? "Çerçeve profili başarıyla güncellendi." : "Yeni çerçeve profili başarıyla eklendi.");
+      toast.success(isUpdate ? "Çerçeve profili başarıyla güncellendi." : "Profil veritabanına eklendi ve listenize kaydedildi.");
     } catch (err: any) {
-      console.warn("Çerçeve kaydetme/güncelleme hatası:", err);
-      toast.error(`Çerçeve profili kaydedilirken hata oluştu: ${err?.message || "Lütfen tekrar deneyiniz."}`);
+      console.warn("Çerçeve profili kaydetme hatası:", err);
+      toast.error(`Profil kaydedilirken hata oluştu: ${err?.message || "Lütfen tekrar deneyiniz."}`);
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
   // handleAddProfile geriye dönük uyumluluk takma adı
   const handleAddProfile = handleSaveProfileSubmit;
 
-  const handleDeleteProfile = (id: string) => {
+  const handleDeleteProfile = async (id: string) => {
     try {
-      setLocalProfiles((prev) => prev.filter((p) => p.id !== id));
+      const updated = localProfiles.filter((p) => p.id !== id);
+      setLocalProfiles(updated);
+      onSaveProfiles(updated);
       if (isSupabaseConfigured()) {
-        (async () => {
-          try {
-            const { error } = await deleteFrameProfileFromSupabase(id);
-            if (error) {
-              console.warn("Supabase delete profile error:", error);
-            }
-          } catch (err) {
-            console.warn("Supabase delete profile exception:", err);
-          }
-        })();
+        const currentTenantId = tenantId || getTenantId();
+        await deleteFrameProfileFromSupabase(id, currentTenantId);
+        // Supabase ile tam senkronize liste çek
+        const { data: remoteProfiles } = await fetchFrameProfilesFromSupabase(currentTenantId);
+        if (remoteProfiles) {
+          setLocalProfiles(remoteProfiles);
+          onSaveProfiles(remoteProfiles);
+        }
       }
       toast.success("Çerçeve başarıyla silindi.");
     } catch (err: any) {
@@ -1110,7 +1185,7 @@ export function SettingsModal({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs">
                   <div>
                     <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Profil Adı</label>
                     <input
@@ -1140,7 +1215,27 @@ export function SettingsModal({
                   </div>
 
                   <div>
-                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Metre Tül Fiyatı</label>
+                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Metre Tül Maliyeti</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="5"
+                        placeholder="60"
+                        value={newProfile.unitCostPerMeter ?? 0}
+                        onChange={(e) => setNewProfile({ ...newProfile, unitCostPerMeter: parseFloat(e.target.value) || 0 })}
+                        className={`w-full border rounded-lg pl-3 pr-12 py-2 text-xs font-mono focus:outline-none transition-colors ${
+                          isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
+                        }`}
+                      />
+                      <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 font-mono text-[11px] font-semibold px-1 py-0.5 rounded pointer-events-none ${
+                        isDarkMode ? "bg-neutral-800 text-neutral-300" : "bg-slate-200/80 text-slate-600"
+                      }`}>₺/m</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={`block font-medium mb-1 truncate ${isDarkMode ? "text-neutral-300" : "text-slate-700"}`}>Metre Tül Satış Fiyatı</label>
                     <div className="relative">
                       <input
                         type="number"
@@ -1148,7 +1243,7 @@ export function SettingsModal({
                         step="5"
                         placeholder="150"
                         value={newProfile.unitPricePerMeter}
-                        onChange={(e) => setNewProfile({ ...newProfile, unitPricePerMeter: parseFloat(e.target.value) })}
+                        onChange={(e) => setNewProfile({ ...newProfile, unitPricePerMeter: parseFloat(e.target.value) || 0 })}
                         className={`w-full border rounded-lg pl-3 pr-12 py-2 text-xs font-mono focus:outline-none transition-colors ${
                           isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                         }`}
@@ -1169,7 +1264,7 @@ export function SettingsModal({
                         step="0.01"
                         placeholder="5.00"
                         value={newProfile.widthCm}
-                        onChange={(e) => setNewProfile({ ...newProfile, widthCm: parseFloat(e.target.value) })}
+                        onChange={(e) => setNewProfile({ ...newProfile, widthCm: parseFloat(e.target.value) || 0.1 })}
                         className={`w-full border rounded-lg pl-3 pr-10 py-2 text-xs font-mono focus:outline-none transition-colors ${
                           isDarkMode ? "bg-[#121415] border-neutral-700 text-white focus:border-[#C5A059]" : "bg-slate-50 border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:bg-white"
                         }`}
@@ -1352,11 +1447,17 @@ export function SettingsModal({
                   )}
                   <button
                     type="submit"
-                    className={`flex items-center gap-1.5 px-4 py-2 font-mono font-bold text-xs rounded transition-colors shadow-sm cursor-pointer ${
+                    disabled={isSavingProfile}
+                    className={`flex items-center gap-1.5 px-4 py-2 font-mono font-bold text-xs rounded transition-colors shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                       isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
                     }`}
                   >
-                    {editingProfileId ? (
+                    {isSavingProfile ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>KAYDEDİLİYOR...</span>
+                      </>
+                    ) : editingProfileId ? (
                       <>
                         <Check className="w-4 h-4" /> PROFİLİ GÜNCELLE
                       </>

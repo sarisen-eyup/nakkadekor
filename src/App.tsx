@@ -3746,6 +3746,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         }}
         activeUser={activeUser}
         onLogout={handleLogout}
+        tenantId={authGuardTenant?.id || activeUser?.id}
       />
 
       <AccountModal
