@@ -4,7 +4,7 @@ import {
   Tag, Image as ImageIcon, Lock, Unlock, KeyRound, ShieldCheck, 
   Eye, EyeOff, Upload, AlertCircle, Users, Shield, Building2, Phone, Mail, MapPin, Globe, CreditCard,
   Camera, Scan, Crop as CropIcon, Sparkles, TrendingUp, RotateCcw, CheckCircle2, Coins, LogOut, User,
-  Truck, Percent
+  Truck, Percent, Edit3, Pencil
 } from "lucide-react";
 import { 
   UnitPricesSettings, 
@@ -22,6 +22,7 @@ import {
 import { ImageCropModal } from "./ImageCropModal";
 import { 
   createFrameProfileInSupabase,
+  updateFrameProfileInSupabase,
   deleteFrameProfileFromSupabase,
   fetchCompanyProfileFromSupabase,
   saveCompanyProfileToSupabase,
@@ -168,6 +169,7 @@ export function SettingsModal({
   });
 
   // Profile Image Cropping Modal State
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
   const [cropSourceImage, setCropSourceImage] = useState<string>("");
   const [cropTargetProfileId, setCropTargetProfileId] = useState<string | null>(null); // null = newProfile, string = existing profile id
@@ -288,16 +290,59 @@ export function SettingsModal({
     setLocalSettings((prev) => ({ ...prev, [field]: val }));
   };
 
-  const handleAddProfile = (e: React.FormEvent) => {
+  const handleEditProfile = (prof: FrameProfileItem) => {
+    setEditingProfileId(prof.id);
+    setNewProfile({
+      id: prof.id,
+      name: prof.name,
+      code: prof.code,
+      imageUrl: prof.imageUrl,
+      textureUrl: prof.textureUrl,
+      widthCm: prof.widthCm,
+      rabbetDepthMm: prof.rabbetDepthMm ?? prof.rabbet_depth ?? 6.0,
+      rabbet_depth: prof.rabbetDepthMm ?? prof.rabbet_depth ?? 6.0,
+      unitPricePerMeter: prof.unitPricePerMeter,
+      materialType: prof.materialType || "wood",
+      category: prof.category || "both",
+      isRepeatingPattern: prof.isRepeatingPattern ?? true
+    });
+  };
+
+  const handleCancelEditProfile = () => {
+    setEditingProfileId(null);
+    setNewProfile({
+      name: "",
+      code: "",
+      imageUrl: "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=300&auto=format&fit=crop",
+      widthCm: 5.0,
+      rabbetDepthMm: 6.0,
+      rabbet_depth: 6.0,
+      unitPricePerMeter: 150,
+      materialType: "wood",
+      category: "both",
+      isRepeatingPattern: true
+    });
+  };
+
+  const handleSaveProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProfile.name || !newProfile.code) return;
 
     try {
-      const created: FrameProfileItem = {
-        id: generateUUID(),
-        name: newProfile.name,
-        code: newProfile.code.toUpperCase(),
+      const codeClean = newProfile.code.trim().toUpperCase();
+      const existingProfile = editingProfileId 
+        ? localProfiles.find(p => p.id === editingProfileId)
+        : localProfiles.find(p => p.code.toUpperCase() === codeClean);
+
+      const targetId = editingProfileId || existingProfile?.id || generateUUID();
+      const isUpdate = Boolean(editingProfileId || existingProfile);
+
+      const profileItem: FrameProfileItem = {
+        id: targetId,
+        name: newProfile.name.trim(),
+        code: codeClean,
         imageUrl: newProfile.imageUrl || "",
+        textureUrl: newProfile.textureUrl || newProfile.imageUrl || "",
         widthCm: newProfile.widthCm || 4.0,
         rabbetDepthMm: newProfile.rabbetDepthMm != null ? Number(newProfile.rabbetDepthMm) : (newProfile.rabbet_depth != null ? Number(newProfile.rabbet_depth) : 6.0),
         rabbet_depth: newProfile.rabbetDepthMm != null ? Number(newProfile.rabbetDepthMm) : (newProfile.rabbet_depth != null ? Number(newProfile.rabbet_depth) : 6.0),
@@ -307,23 +352,52 @@ export function SettingsModal({
         isRepeatingPattern: newProfile.isRepeatingPattern ?? true
       };
 
-      setLocalProfiles((prev) => [created, ...prev]);
+      // 1. Local state güncellemesi (Form anında yenilenir)
+      if (isUpdate) {
+        setLocalProfiles((prev) => prev.map((p) => (p.id === targetId || p.code.toUpperCase() === codeClean ? profileItem : p)));
+      } else {
+        setLocalProfiles((prev) => [profileItem, ...prev]);
+      }
+
+      // 2. Supabase Senkronizasyonu - Eksiksiz Çift Yönlü Fallback Kontrolü
       if (isSupabaseConfigured()) {
         (async () => {
           try {
-            const { error } = await createFrameProfileInSupabase(created);
-            if (error) {
-              console.warn("Supabase create profile error:", error);
+            if (isUpdate) {
+              // Önce güncelle (update), bulunamaz veya başarısız olursa ekle (insert)
+              const updateRes = await updateFrameProfileInSupabase(targetId, profileItem);
+              if (!updateRes.success) {
+                console.warn("[Supabase] Profil güncelleme fallback'e geçti (createFrameProfileInSupabase):", updateRes.error);
+                await createFrameProfileInSupabase(profileItem);
+              }
+            } else {
+              // Önce ekle (insert), çakışma veya hata olursa güncelle (update)
+              const createRes = await createFrameProfileInSupabase(profileItem);
+              if (createRes.error) {
+                console.warn("[Supabase] Profil oluşturma fallback'e geçti (updateFrameProfileInSupabase):", createRes.error);
+                await updateFrameProfileInSupabase(targetId, profileItem);
+              }
             }
-          } catch (err) {
-            console.warn("Supabase create profile exception:", err);
+          } catch (syncErr) {
+            console.warn("[Supabase] Profil eşitleme hatası, acil fallback tetikleniyor:", syncErr);
+            try {
+              if (isUpdate) {
+                await createFrameProfileInSupabase(profileItem);
+              } else {
+                await updateFrameProfileInSupabase(targetId, profileItem);
+              }
+            } catch (err2) {
+              console.warn("[Supabase] Çerçeve profili son fallback hatası:", err2);
+            }
           }
         })();
       }
+
+      setEditingProfileId(null);
       setNewProfile({
         name: "",
         code: "",
-        imageUrl: "",
+        imageUrl: "https://images.unsplash.com/photo-1540932239986-30128078f3c5?q=80&w=300&auto=format&fit=crop",
         widthCm: 5.0,
         rabbetDepthMm: 6.0,
         rabbet_depth: 6.0,
@@ -332,12 +406,16 @@ export function SettingsModal({
         category: "both",
         isRepeatingPattern: true
       });
-      toast.success("Çerçeve başarıyla eklendi.");
+
+      toast.success(isUpdate ? "Çerçeve profili başarıyla güncellendi." : "Yeni çerçeve profili başarıyla eklendi.");
     } catch (err: any) {
-      console.warn("Çerçeve ekleme hatası:", err);
-      toast.error(`Çerçeve eklenirken hata oluştu: ${err?.message || "Lütfen tekrar deneyiniz."}`);
+      console.warn("Çerçeve kaydetme/güncelleme hatası:", err);
+      toast.error(`Çerçeve profili kaydedilirken hata oluştu: ${err?.message || "Lütfen tekrar deneyiniz."}`);
     }
   };
+
+  // handleAddProfile geriye dönük uyumluluk takma adı
+  const handleAddProfile = handleSaveProfileSubmit;
 
   const handleDeleteProfile = (id: string) => {
     try {
@@ -493,11 +571,26 @@ export function SettingsModal({
       // 4. Firma profilini de kaydet
       await saveCompanyProfileToSupabase(localCompany);
 
-      // 5. Profiller düzenlendiyse Supabase'e kaydet
+      // 5. Profiller düzenlendiyse Supabase'e kaydet (Önce Güncelle, Bulunamazsa Ekle - Fallback)
       if (isSupabaseConfigured() && localProfiles.length > 0) {
-        for (const prof of localProfiles) {
-          updateFrameProfileInSupabase(prof.id, prof).catch(() => {});
-        }
+        await Promise.allSettled(
+          localProfiles.map(async (prof) => {
+            try {
+              const res = await updateFrameProfileInSupabase(prof.id, prof);
+              if (!res.success) {
+                // Güncellenemeyen profili veritabanına ekle
+                await createFrameProfileInSupabase(prof);
+              }
+            } catch (pErr) {
+              console.warn("Profil güncelleme fallback tetikleniyor:", prof.code, pErr);
+              try {
+                await createFrameProfileInSupabase(prof);
+              } catch (createErr) {
+                console.warn("Profil oluşturma hatası:", prof.code, createErr);
+              }
+            }
+          })
+        );
       }
 
       setSavedSuccess(true);
@@ -989,11 +1082,32 @@ export function SettingsModal({
                   <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
                     isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
                   }`}>
-                    <Plus className="w-4 h-4" /> Yeni Çerçeve Profili Ekle
+                    {editingProfileId ? (
+                      <>
+                        <Edit3 className="w-4 h-4" /> Çerçeve Profilini Düzenle
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" /> Yeni Çerçeve Profili Ekle
+                      </>
+                    )}
                   </h3>
-                  <span className={`text-[11px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                    Özel çıta ve doku tanımlama
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {editingProfileId && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditProfile}
+                        className={`text-[11px] font-medium px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                          isDarkMode ? "bg-neutral-800 text-neutral-300 border-neutral-700 hover:bg-neutral-700" : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+                        }`}
+                      >
+                        Düzenlemeden Vazgeç
+                      </button>
+                    )}
+                    <span className={`text-[11px] font-mono ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                      {editingProfileId ? "Değişiklikleri yapıp güncelleyin" : "Özel çıta ve doku tanımlama"}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
@@ -1224,14 +1338,33 @@ export function SettingsModal({
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-end gap-2 pt-2">
+                  {editingProfileId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEditProfile}
+                      className={`flex items-center gap-1.5 px-3 py-2 font-mono font-medium text-xs rounded border transition-colors cursor-pointer ${
+                        isDarkMode ? "border-neutral-700 text-neutral-300 hover:bg-neutral-800" : "border-slate-300 text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      VAZGEÇ
+                    </button>
+                  )}
                   <button
                     type="submit"
                     className={`flex items-center gap-1.5 px-4 py-2 font-mono font-bold text-xs rounded transition-colors shadow-sm cursor-pointer ${
                       isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
                     }`}
                   >
-                    <Plus className="w-4 h-4" /> PROFİLİ VERİTABANINA EKLE
+                    {editingProfileId ? (
+                      <>
+                        <Check className="w-4 h-4" /> PROFİLİ GÜNCELLE
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" /> PROFİLİ VERİTABANINA EKLE
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -1289,13 +1422,33 @@ export function SettingsModal({
 
                       {/* Bilgiler, Girişler & Alt Butonlar */}
                       <div className="flex-1 min-w-0 space-y-2">
-                        {/* Üst Satır: Profil Adı, Tekrarlayan/Sünek Butonu ve Sil İkonu */}
+                        {/* Üst Satır: Profil Adı, Düzenle, Tekrarlayan/Sünek Butonu ve Sil İkonu */}
                         <div className="flex items-center justify-between gap-2">
                           <h4 className={`font-bold text-sm truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}>
                             {prof.name}
                           </h4>
 
                           <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Düzenle Butonu */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleEditProfile(prof);
+                                const formEl = document.querySelector("form");
+                                formEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+                              }}
+                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                editingProfileId === prof.id
+                                  ? (isDarkMode ? "bg-[#C5A059]/25 text-[#C5A059]" : "bg-[#B88E3A]/25 text-[#B88E3A]")
+                                  : (isDarkMode 
+                                      ? "text-neutral-400 hover:text-[#C5A059] hover:bg-white/5" 
+                                      : "text-slate-500 hover:text-[#B88E3A] hover:bg-slate-100")
+                              }`}
+                              title="Profili Düzenle"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+
                             {/* Desen Tipi Butonu */}
                             <button
                               type="button"

@@ -283,7 +283,14 @@ const PaspartuColorPicker = ({
 };
 
 function SimulatorMain() {
-  const { user: authGuardUser, tenant: authGuardTenant, signOut: authGuardSignOut, refreshTenant } = useAuthGuard();
+  const { 
+    user: authGuardUser, 
+    tenant: authGuardTenant, 
+    signOut: authGuardSignOut, 
+    refreshTenant,
+    decrementCredit,
+    incrementCredit
+  } = useAuthGuard();
   const navigate = useNavigate();
 
   // Theme Mode State (AI Studio Dark default & Light mode toggle)
@@ -2387,6 +2394,7 @@ Durum: Onaylandi / Uretime Hazir`;
     if (!subscriptionData.isUnlimited && subscriptionData.subscriptionTier !== "unlimited") {
       const updatedSub = deductSubscriptionCredit();
       setSubscriptionData(updatedSub);
+      decrementCredit(1);
       if (isSupabaseConfigured()) {
         deductTenantCreditInSupabase(authGuardTenant?.id || activeUser?.id);
       }
@@ -2654,6 +2662,7 @@ Durum: Onaylandi / Uretime Hazir`;
       if (!subscriptionData.isUnlimited && subscriptionData.subscriptionTier !== "unlimited") {
         const updatedSub = deductSubscriptionCredit();
         setSubscriptionData(updatedSub);
+        decrementCredit(1);
         if (isSupabaseConfigured()) {
           deductTenantCreditInSupabase(authGuardTenant?.id || activeUser?.id);
         }
@@ -3047,6 +3056,9 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
             <CreditIndicator
               variant="mobile"
               isDarkMode={isDarkMode}
+              remainingCredits={subscriptionData.remainingCredits}
+              totalCredits={subscriptionData.totalCredits}
+              isUnlimited={subscriptionData.isUnlimited || subscriptionData.subscriptionTier === "unlimited"}
               onClick={() => {
                 setAccountModalInitialTab("company");
                 setIsAccountModalOpen(true);
@@ -3178,6 +3190,9 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
             <CreditIndicator
               variant="desktop"
               isDarkMode={isDarkMode}
+              remainingCredits={subscriptionData.remainingCredits}
+              totalCredits={subscriptionData.totalCredits}
+              isUnlimited={subscriptionData.isUnlimited || subscriptionData.subscriptionTier === "unlimited"}
               onClick={() => {
                 setAccountModalInitialTab("company");
                 setIsAccountModalOpen(true);

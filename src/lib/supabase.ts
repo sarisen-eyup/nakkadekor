@@ -267,3 +267,10 @@ export async function ensureTenantAndUserExist(user: any) {
     console.warn("Tenant/User upsert bilgisi:", err);
   }
 }
+
+// Çerçeve profilleri yardımcı fonksiyonları (standart dışa aktarım)
+export {
+  createFrameProfileInSupabase,
+  updateFrameProfileInSupabase,
+  deleteFrameProfileFromSupabase
+} from "../services/supabaseService";

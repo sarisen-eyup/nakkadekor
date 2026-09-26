@@ -19,6 +19,9 @@ interface AuthGuardContextType {
   exitDevMode: () => void;
   isDevMode: boolean;
   setManualTenantStatus?: (status: TenantStatus) => void;
+  decrementCredit: (amount?: number) => void;
+  incrementCredit: (amount: number) => void;
+  setCredit: (credits: number) => void;
 }
 
 const AuthGuardContext = createContext<AuthGuardContextType | undefined>(undefined);
@@ -149,6 +152,41 @@ export const AuthGuardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setTenant(null);
     setTenantStatus("unauthenticated");
     setIsLoading(false);
+  }, []);
+
+  const decrementCredit = useCallback((amount: number = 1) => {
+    setTenant(prev => {
+      if (!prev) return prev;
+      const current = Number(prev.remaining_credits ?? 0);
+      const nextRemaining = Math.max(0, current - amount);
+      return {
+        ...prev,
+        remaining_credits: nextRemaining
+      };
+    });
+  }, []);
+
+  const incrementCredit = useCallback((amount: number) => {
+    setTenant(prev => {
+      if (!prev) return prev;
+      const current = Number(prev.remaining_credits ?? 0);
+      const currentTotal = Number(prev.total_credits ?? 0);
+      return {
+        ...prev,
+        remaining_credits: current + amount,
+        total_credits: currentTotal + amount
+      };
+    });
+  }, []);
+
+  const setCredit = useCallback((credits: number) => {
+    setTenant(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        remaining_credits: Math.max(0, credits)
+      };
+    });
   }, []);
 
   useEffect(() => {
@@ -326,7 +364,10 @@ export const AuthGuardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         signOut,
         enterDevMode,
         exitDevMode,
-        isDevMode
+        isDevMode,
+        decrementCredit,
+        incrementCredit,
+        setCredit
       }}
     >
       {children}

@@ -666,6 +666,14 @@ export async function createFrameProfileInSupabase(
     }
 
     if (res.error) {
+      if (res.error.code === "23505" || String(res.error.message || "").toLowerCase().includes("unique") || String(res.error.message || "").toLowerCase().includes("duplicate")) {
+        console.log("[Supabase] Profil zaten mevcut, updateFrameProfileInSupabase fallback yapılıyor:", insertPayload.code);
+        const updateRes = await updateFrameProfileInSupabase(profile.id || insertPayload.code, profile);
+        if (updateRes.success) {
+          return { data: profile as FrameProfileItem, error: null };
+        }
+      }
+
       if (isSchemaMissingError(res.error)) {
         console.warn("[Supabase] 'frame_profiles' tablosu henüz mevcut değil. Lütfen schema_update.sql çalıştırın.");
       } else {
@@ -756,11 +764,30 @@ export async function updateFrameProfileInSupabase(
       query = query.eq("code", code);
     }
 
-    const { error } = await query;
+    const { data, error } = await query.select();
 
     if (error) {
       console.warn("Supabase update frame profile warning:", error.message || error);
       return { success: false, error };
+    }
+
+    // Eğer güncellenen satır yoksa (henüz veritabanına eklenmemişse), otomatik create/insert fallback yap
+    if (!data || data.length === 0) {
+      const createRes = await createFrameProfileInSupabase({
+        id,
+        name: updates.name || "Standart Profil",
+        code: updates.code || (id.startsWith("prof_") || id.startsWith("default-") ? id.replace("default-", "").replace("prof_", "").toUpperCase() : "P1"),
+        imageUrl: updates.imageUrl || "",
+        widthCm: updates.widthCm || 4.0,
+        rabbetDepthMm: updates.rabbetDepthMm ?? 6.0,
+        rabbet_depth: updates.rabbetDepthMm ?? 6.0,
+        unitPricePerMeter: updates.unitPricePerMeter || 120,
+        materialType: updates.materialType || "wood",
+        category: updates.category || "both",
+        isRepeatingPattern: updates.isRepeatingPattern ?? true,
+        inStock: updates.inStock ?? true
+      });
+      return { success: !createRes.error, error: createRes.error };
     }
 
     return { success: true, error: null };

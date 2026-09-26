@@ -10,6 +10,9 @@ interface CreditIndicatorProps {
   variant?: "desktop" | "mobile" | "standalone";
   onClick?: () => void;
   onCreditUpdate?: (info: TenantCreditsResult) => void;
+  remainingCredits?: number;
+  totalCredits?: number;
+  isUnlimited?: boolean;
 }
 
 export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
@@ -17,15 +20,18 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
   isDarkMode,
   variant = "desktop",
   onClick,
-  onCreditUpdate
+  onCreditUpdate,
+  remainingCredits: propRemainingCredits,
+  totalCredits: propTotalCredits,
+  isUnlimited: propIsUnlimited
 }) => {
   const { user: authUser, tenant: authTenant } = useAuthGuard();
-  const [loading, setLoading] = useState<boolean>(true);
-  const [remainingCredits, setRemainingCredits] = useState<number>(0);
-  const [totalCredits, setTotalCredits] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(propRemainingCredits === undefined && !authTenant);
+  const [remainingCredits, setRemainingCredits] = useState<number>(propRemainingCredits ?? 0);
+  const [totalCredits, setTotalCredits] = useState<number>(propTotalCredits ?? 0);
   const [pendingCredits, setPendingCredits] = useState<number>(0);
   const [subscriptionTier, setSubscriptionTier] = useState<string>("pay_as_you_go");
-  const [isUnlimited, setIsUnlimited] = useState<boolean>(false);
+  const [isUnlimited, setIsUnlimited] = useState<boolean>(propIsUnlimited ?? false);
 
   const effectiveTenantId = propTenantId || authUser?.id || authTenant?.id;
 
@@ -61,73 +67,38 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
     }
   }, [applyCreditData]);
 
+  // İlk açılışta veritabanından mevcut kredileri yükle (Realtime ve global refetch kullanılmaz)
   useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
-
-    loadCredits(effectiveTenantId);
-
-    // Supabase Realtime bağlantısı: Atölyenin kredisi güncellendiğinde anında ekrana yansıt
-    if (effectiveTenantId && effectiveTenantId !== "dev_admin" && isSupabaseConfigured()) {
-      let channel: any = null;
-      try {
-        const uniqueChannelId = `rt-cr-${effectiveTenantId}-${Math.random().toString(36).slice(2, 9)}`;
-        channel = supabase
-          .channel(uniqueChannelId)
-          .on(
-            "postgres_changes",
-            {
-              event: "UPDATE",
-              schema: "public",
-              table: "tenants",
-              filter: `id=eq.${effectiveTenantId}`
-            },
-            (payload) => {
-              if (!isMounted || !payload.new) return;
-              const updatedRow = payload.new as any;
-              const tier = String(updatedRow.subscription_tier || "").toLowerCase().trim();
-              const unl = tier === "unlimited" || tier.includes("unlimited") || tier === "unlimited_enterprise";
-              const rem = Number(updatedRow.remaining_credits ?? 0);
-              const tot = Number(updatedRow.total_credits ?? 0);
-              const pend = Number(updatedRow.pending_credits ?? 0);
-
-              applyCreditData({
-                remainingCredits: rem,
-                totalCredits: tot,
-                pendingCredits: pend,
-                subscriptionTier: updatedRow.subscription_tier || "pay_as_you_go",
-                subscriptionStatus: updatedRow.subscription_status || "active",
-                isUnlimited: unl,
-                status: updatedRow.status || "active",
-                name: updatedRow.name
-              });
-            }
-          )
-          .subscribe();
-      } catch (err) {
-        console.warn("CreditIndicator realtime subscription warning:", err);
-      }
-
-      return () => {
-        isMounted = false;
-        if (channel) {
-          try {
-            supabase.removeChannel(channel);
-          } catch {
-            // ignore
-          }
-        }
-      };
+    if (propRemainingCredits === undefined && !authTenant) {
+      loadCredits(effectiveTenantId);
+    } else {
+      setLoading(false);
     }
+  }, [effectiveTenantId, loadCredits, propRemainingCredits, authTenant]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [effectiveTenantId, loadCredits]);
+  // Props güncellendiğinde anında yerel state'e yansıt
+  useEffect(() => {
+    if (propRemainingCredits !== undefined) {
+      setRemainingCredits(propRemainingCredits);
+      setLoading(false);
+    }
+  }, [propRemainingCredits]);
+
+  useEffect(() => {
+    if (propTotalCredits !== undefined) {
+      setTotalCredits(propTotalCredits);
+    }
+  }, [propTotalCredits]);
+
+  useEffect(() => {
+    if (propIsUnlimited !== undefined) {
+      setIsUnlimited(propIsUnlimited);
+    }
+  }, [propIsUnlimited]);
 
   // Auth context tenant verisi güncellendiğinde senkronize et
   useEffect(() => {
-    if (authTenant) {
+    if (authTenant && propRemainingCredits === undefined) {
       const tier = String(authTenant.subscription_tier || "").toLowerCase().trim();
       const unl = tier === "unlimited" || tier.includes("unlimited") || tier === "unlimited_enterprise";
       const rem = authTenant.remaining_credits !== undefined ? Number(authTenant.remaining_credits ?? 0) : 0;
@@ -147,10 +118,14 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
     authTenant?.remaining_credits,
     authTenant?.total_credits,
     authTenant?.pending_credits,
-    authTenant?.subscription_tier
+    authTenant?.subscription_tier,
+    propRemainingCredits
   ]);
 
-  const isLowCredits = !isUnlimited && remainingCredits < 15;
+  const activeRemaining = propRemainingCredits !== undefined ? propRemainingCredits : remainingCredits;
+  const activeTotal = propTotalCredits !== undefined ? propTotalCredits : totalCredits;
+  const activeUnlimited = propIsUnlimited !== undefined ? propIsUnlimited : isUnlimited;
+  const isLowCredits = !activeUnlimited && activeRemaining < 15;
 
   // Mobil Görünüm
   if (variant === "mobile") {
@@ -168,21 +143,21 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
               : "bg-white border-amber-200/90 hover:border-[#B88E3A] text-slate-800"
         }`}
         title={
-          isUnlimited 
+          activeUnlimited 
             ? "Sınırsız Kredi Paketi" 
-            : `Kalan Kredi: ${remainingCredits} / Toplam: ${totalCredits}${pendingCredits > 0 ? ` (Onay Bekleyen: ${pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`})` : ""}`
+            : `Kalan Kredi: ${activeRemaining} / Toplam: ${activeTotal}${pendingCredits > 0 ? ` (Onay Bekleyen: ${pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`})` : ""}`
         }
       >
         <User className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
         {loading ? (
           <Loader2 className="w-3 h-3 animate-spin text-[#C5A059]" />
-        ) : isUnlimited ? (
+        ) : activeUnlimited ? (
           <span className={`flex items-center gap-0.5 font-bold ${isDarkMode ? "text-emerald-400" : "text-emerald-700"}`}>
             <Infinity className="w-3.5 h-3.5" />
           </span>
         ) : (
           <span className="font-mono text-[9px] font-black">
-            {remainingCredits}/{totalCredits}
+            {activeRemaining}/{activeTotal}
           </span>
         )}
 
@@ -222,12 +197,12 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
                 Atölye Kredi Bakiyesi
               </span>
               <span className="text-[10px] text-neutral-400">
-                {isUnlimited ? "Sınırsız Abonelik" : `${subscriptionTier} Paketi`}
+                {activeUnlimited ? "Sınırsız Abonelik" : `${subscriptionTier} Paketi`}
               </span>
             </div>
           </div>
 
-          {isUnlimited ? (
+          {activeUnlimited ? (
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 ${
               isDarkMode 
                 ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" 
@@ -252,7 +227,7 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
               <Loader2 className="w-5 h-5 animate-spin text-[#C5A059]" />
               <span className="text-xs text-neutral-400 font-medium">Krediler yükleniyor...</span>
             </div>
-          ) : isUnlimited ? (
+          ) : activeUnlimited ? (
             <div className="flex items-center gap-2">
               <Infinity className="w-7 h-7 text-emerald-400" />
               <span className="text-2xl font-black font-mono text-emerald-400">Sınırsız</span>
@@ -261,10 +236,10 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
           ) : (
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-black font-mono text-[#C5A059]">
-                {remainingCredits}
+                {activeRemaining}
               </span>
               <span className="text-base font-bold text-neutral-400">
-                / {totalCredits}
+                / {activeTotal}
               </span>
               <span className="text-xs font-bold text-neutral-400 ml-1">
                 Kalan Kredi
@@ -308,9 +283,9 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
             : "bg-white border-amber-200/90 hover:border-[#B88E3A] hover:bg-amber-50/40 text-slate-800 shadow-xs"
       }`}
       title={
-        isUnlimited 
+        activeUnlimited 
           ? "Sınırsız Atölye Paketi: Sınırsız Sipariş & PDF İhracı" 
-          : `Atölye Kredisi: ${remainingCredits} Kalan / ${totalCredits} Toplam Kota${pendingCredits > 0 ? ` (Onay Bekleyen: ${pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`})` : ""}`
+          : `Atölye Kredisi: ${activeRemaining} Kalan / ${activeTotal} Toplam Kota${pendingCredits > 0 ? ` (Onay Bekleyen: ${pendingCredits >= 999999 ? "Sınırsız" : `${pendingCredits} Kredi`})` : ""}`
       }
     >
       <User className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
@@ -323,7 +298,7 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
           <Loader2 className={`w-2.5 h-2.5 animate-spin ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
           <span>...</span>
         </span>
-      ) : isUnlimited ? (
+      ) : activeUnlimited ? (
         <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-black ${
           isDarkMode 
             ? "bg-emerald-950/60 text-emerald-400 border border-emerald-500/40" 
@@ -340,7 +315,7 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
               ? "bg-[#C5A059]/15 text-[#E5C158] border border-[#C5A059]/30" 
               : "bg-amber-50 text-amber-900 border border-amber-200"
         }`}>
-          {remainingCredits} / {totalCredits} Kr.
+          {activeRemaining} / {activeTotal} Kr.
         </span>
       )}
 

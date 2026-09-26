@@ -84,6 +84,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   const [saveStatusMsg, setSaveStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [creditNotice, setCreditNotice] = useState<string | null>(null);
   const { toast } = useToast();
+  const { incrementCredit } = useAuthGuard();
   const [purchasingPackage, setPurchasingPackage] = useState<"credits_50" | "credits_150" | "unlimited" | null>(null);
   const [paymentToast, setPaymentToast] = useState<{ text: string; subText?: string } | null>(null);
   const [isLegalModalOpen, setIsLegalModalOpen] = useState<boolean>(false);
@@ -262,15 +263,6 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           text: "Talep Alındı (Ödeme Bekleniyor)",
           subText: "Havale/EFT dekontunuz iletildiğinde kredileriniz aktif bakiyenize tanımlanacaktır."
         });
-
-        // Güncelleme biter bitmez ekrandaki mevcut kredi göstergesini yeniden fetch et ve UI'ı anında tazele
-        if (onRefreshTenant) {
-          try {
-            await onRefreshTenant();
-          } catch (fetchErr) {
-            console.warn("Tenant yeniden fetch uyarısı:", fetchErr);
-          }
-        }
       } else {
         const errorMsg = res.message || "Lütfen tekrar deneyiniz.";
         toast.error(`Kredi talebi alınamadı: ${errorMsg}`);
@@ -335,6 +327,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   const handlePurchasePackage = handleInitiatePurchase;
 
   const handleAddCredits = (amount: number) => {
+    incrementCredit(amount);
     const updated: SubscriptionData = {
       ...subscription,
       remainingCredits: subscription.remainingCredits + amount,
@@ -358,6 +351,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
       ? "1 Ay Sonra (Aylık Dönem)" 
       : "Dönemsiz (Kredi Bakiyesi)";
 
+    incrementCredit(credits);
     const updated: SubscriptionData = {
       ...subscription,
       planId: planId,
@@ -1389,9 +1383,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           pendingCreditsAmount={pendingPaymentInfo.amount}
           companyName={localCompany.companyName || companyProfile.companyName || authTenant?.name || activeUser?.fullName || "Atölyemiz"}
           onReceiptSent={() => {
-            if (onRefreshTenant) {
-              onRefreshTenant();
-            }
+            toast.success("Dekont bildiriminiz alındı. Ödemeniz teyit edildiğinde krediniz bakiyenize yansıyacaktır.");
           }}
         />
 
