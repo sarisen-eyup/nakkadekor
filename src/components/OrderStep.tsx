@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { 
   Shield, 
   Truck, 
@@ -135,6 +135,14 @@ export const OrderStep: React.FC<OrderStepProps> = ({
 
   const todayIso = getTodayIso();
 
+  // 2. Initial State (İlk Yükleme): Form component'i ilk yüklendiğinde veya arşivden boş bir forma geçildiğinde
+  // quantity değerinin hafızada kalan eski sayıyı değil, her zaman varsayılan 1'i almasını sağla.
+  useEffect(() => {
+    if (!isExistingOrder && onQuantityChange && quantity !== 1) {
+      onQuantityChange(1);
+    }
+  }, [isExistingOrder]);
+
   const handleCreateOrderClick = (asNewOrder: boolean = false) => {
     let hasError = false;
 
@@ -179,6 +187,9 @@ export const OrderStep: React.FC<OrderStepProps> = ({
         onCreateNewOrder();
       } else if (onCreateOrder) {
         onCreateOrder({ asNewOrder: true });
+      }
+      if (onQuantityChange) {
+        onQuantityChange(1);
       }
     } else {
       if (onCreateOrder) {

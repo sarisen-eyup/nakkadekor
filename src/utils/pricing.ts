@@ -65,11 +65,17 @@ export function clearAllUserTenantCache(): void {
       "nakka_order_archive_v1",
       AUTH_SESSION_KEY,
       "nakka_tenant_id",
-      "nakka_auth_user_id"
+      "nakka_auth_user_id",
+      "nakka_active_workspace_draft",
+      "nakka_order_quantity",
+      "nakka_simulator_draft"
     ];
-    keysToRemove.forEach(k => localStorage.removeItem(k));
+    keysToRemove.forEach(k => {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    });
 
-    // Belirli bir tenant id ile etiketlenmiş tüm localStorage anahtarlarını sil
+    // Belirli bir tenant id ile etiketlenmiş tüm localStorage ve sessionStorage anahtarlarını sil
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
       if (
@@ -80,6 +86,13 @@ export function clearAllUserTenantCache(): void {
         key !== "nakka_supabase_key"
       ) {
         localStorage.removeItem(key);
+      }
+    }
+
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith("nakka_")) {
+        sessionStorage.removeItem(key);
       }
     }
   } catch (e) {

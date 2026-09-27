@@ -363,7 +363,8 @@ function SimulatorMain() {
   const [customerName, setCustomerName] = useState<string>(() => initialDraft?.customerName ?? "");
   const [customerPhone, setCustomerPhone] = useState<string>(() => initialDraft?.customerPhone ?? "");
   const [deliveryDate, setDeliveryDate] = useState<string>(() => initialDraft?.deliveryDate ?? "");
-  const [orderQuantity, setOrderQuantity] = useState<number>(() => Math.max(1, (initialDraft as any)?.quantity || 1));
+  // Sipariş Adedi: Her zaman temiz varsayılan olarak 1 ile başlar, tarayıcıda asılı kalmaz.
+  const [orderQuantity, setOrderQuantity] = useState<number>(1);
   const [customerNameError, setCustomerNameError] = useState<boolean>(false);
   const [customerPhoneError, setCustomerPhoneError] = useState<boolean>(false);
   const [deliveryDateError, setDeliveryDateError] = useState<boolean>(false);
@@ -476,7 +477,6 @@ function SimulatorMain() {
         customerName,
         customerPhone,
         deliveryDate,
-        quantity: orderQuantity,
         selectedInnerProfileId,
         selectedOuterProfileId,
         inclusionFlags,
@@ -508,7 +508,6 @@ function SimulatorMain() {
     customerName,
     customerPhone,
     deliveryDate,
-    orderQuantity,
     selectedInnerProfileId,
     selectedOuterProfileId,
     inclusionFlags,
@@ -676,12 +675,15 @@ function SimulatorMain() {
     await authGuardSignOut();
     clearAuthSession();
     clearAllUserTenantCache();
+    clearWorkspaceDraft();
+    setOrderQuantity(1);
     setAuthSession(null);
     setFrameProfiles([]);
     setCompanyProfile(EMPTY_COMPANY_PROFILE);
     setArchiveOrders([]);
     setCustomPaintingUrl(null);
     setCustomPaintingFile("Henüz görsel seçilmedi");
+    handleResetSimulator();
     navigate("/login");
   };
 
@@ -1312,11 +1314,12 @@ function SimulatorMain() {
     handleSelectOuterProfile("");
     setMiddleMatWidthInput("0.0");
 
-    // 5. Müşteri ve teslimat bilgilerini temizle
+    // 5. Müşteri ve teslimat bilgilerini temizle, sipariş adedini varsayılan 1'e sıfırla
     setCustomerName("");
     setCustomerPhone("");
     setDeliveryDate("");
     setDeliveryMethod("store");
+    setOrderQuantity(1); // 1. Form Sıfırlama: Sipariş Adedi her zaman açıkça 1'e eşitlenir
     setCustomerNameError(false);
     setCustomerPhoneError(false);
     setDeliveryDateError(false);
@@ -1367,6 +1370,12 @@ function SimulatorMain() {
     });
   };
 
+  // 1. Form Sıfırlama (Reset) / Yeni Sipariş Fonksiyonu
+  const resetForm = () => {
+    handleResetSimulator();
+    setOrderQuantity(1);
+  };
+
   // Header "YENİ" butonuna tıklandığında kontrol
   const handleNewOrderClick = () => {
     // 1. Simülatör halihazırda boş/varsayılan durumda mı?
@@ -1375,6 +1384,7 @@ function SimulatorMain() {
       !customerName?.trim() &&
       !customerPhone?.trim() &&
       !deliveryDate?.trim() &&
+      orderQuantity === 1 &&
       widthInput === "50" &&
       heightInput === "70" &&
       matWidthInput === "0" &&
@@ -1403,6 +1413,7 @@ function SimulatorMain() {
       savedItem.artworkHeightCm !== artworkHeight ||
       (savedItem.innerProfileId && savedItem.innerProfileId !== selectedInnerProfileId) ||
       (savedItem.matWidthCm !== undefined && Number(savedItem.matWidthCm) !== matWidth) ||
+      (savedItem.quantity !== undefined && Number(savedItem.quantity) !== orderQuantity) ||
       (savedItem.customPaintingUrl !== customPaintingUrl);
 
     if (isModified) {
@@ -1571,26 +1582,101 @@ function SimulatorMain() {
   const [frameLayoutMode, setFrameLayoutMode] = useState<string>("miter-stretch"); // "miter-stretch" veya "repeat"
   const [frameSlice] = useState<number>(40);
 
-  // Dynamic preview measurement refs
-  const [stageWidth, setStageWidth] = useState<number>(600);
-  const [stageHeight, setStageHeight] = useState<number>(600);
-  const stageRef = useRef<HTMLDivElement | null>(null);
+  // Dynamic preview measurement refs - Mobil, tablet ve masaüstü ilk açılışta anında gerçek boyut alma
+  const getInitialStageDimensions = () => {
+    if (typeof window !== "undefined") {
+      const isMobileOrTablet = window.innerWidth < 1024;
+      const padding = window.innerWidth < 640 ? 24 : window.innerWidth < 1024 ? 40 : 64;
+      const w = isMobileOrTablet 
+        ? Math.max(260, window.innerWidth - padding) 
+        : Math.min(Math.max(400, (window.innerWidth - 460) * 0.95), 900);
+      const h = window.innerWidth < 640 ? 460 : window.innerWidth < 1024 ? 540 : Math.min(window.innerHeight * 0.72, 720);
+      return { w, h };
+    }
+    return { w: 600, h: 600 };
+  };
 
-  useEffect(() => {
-    if (!stageRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        if (entry.contentRect.width > 0) {
-          setStageWidth(entry.contentRect.width);
-        }
-        if (entry.contentRect.height > 0) {
-          setStageHeight(entry.contentRect.height);
-        }
+  const [stageWidth, setStageWidth] = useState<number>(() => getInitialStageDimensions().w);
+  const [stageHeight, setStageHeight] = useState<number>(() => getInitialStageDimensions().h);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const stageResizeObserverRef = useRef<ResizeObserver | null>(null);
+
+  // Callback Ref: DOM elemanı bağlandığı anda anında gerçek genişlik ve yüksekliği ölçer (F5 beklemeden)
+  const setStageRef = useCallback((node: HTMLDivElement | null) => {
+    if (stageResizeObserverRef.current) {
+      stageResizeObserverRef.current.disconnect();
+      stageResizeObserverRef.current = null;
+    }
+    stageRef.current = node;
+
+    if (node) {
+      // 1. DOM'a bağlanır bağlanmaz anında içerik boyutunu al
+      const w = node.clientWidth || node.getBoundingClientRect().width;
+      const h = node.clientHeight || node.getBoundingClientRect().height;
+      if (w > 0) {
+        setStageWidth(w);
       }
-    });
-    observer.observe(stageRef.current);
-    return () => observer.disconnect();
+      if (h > 0) {
+        setStageHeight(h);
+      }
+
+      // 2. Dinamik boyut değişiklikleri için ResizeObserver dinleyicisini bağla
+      const observer = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+          const cr = entry.contentRect;
+          if (cr.width > 0) {
+            setStageWidth(cr.width);
+          }
+          if (cr.height > 0) {
+            setStageHeight(cr.height);
+          }
+        }
+      });
+      observer.observe(node);
+      stageResizeObserverRef.current = observer;
+    }
   }, []);
+
+  // Pencere boyutu ve cihaz yön değişimi (orientationchange) dinleyicisi
+  useEffect(() => {
+    const handleWindowResize = () => {
+      if (stageRef.current) {
+        const rect = stageRef.current.getBoundingClientRect();
+        if (rect.width > 0) setStageWidth(rect.width);
+        if (rect.height > 0) setStageHeight(rect.height);
+      } else if (typeof window !== "undefined") {
+        const dims = getInitialStageDimensions();
+        setStageWidth(dims.w);
+        setStageHeight(dims.h);
+      }
+    };
+
+    window.addEventListener("resize", handleWindowResize, { passive: true });
+    window.addEventListener("orientationchange", handleWindowResize, { passive: true });
+
+    return () => {
+      window.removeEventListener("resize", handleWindowResize);
+      window.removeEventListener("orientationchange", handleWindowResize);
+      if (stageResizeObserverRef.current) {
+        stageResizeObserverRef.current.disconnect();
+        stageResizeObserverRef.current = null;
+      }
+    };
+  }, []);
+
+  // Oturum açılışında veya sekme geçişlerinde sahne ölçüsünü hemen tazele
+  useEffect(() => {
+    if (authSession?.isLoggedIn) {
+      const timer = setTimeout(() => {
+        if (stageRef.current) {
+          const rect = stageRef.current.getBoundingClientRect();
+          if (rect.width > 0) setStageWidth(rect.width);
+          if (rect.height > 0) setStageHeight(rect.height);
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [authSession?.isLoggedIn]);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1711,8 +1797,10 @@ function SimulatorMain() {
   const finalOuterHeightCm = totalH;
   const totalAspect = totalW / totalH;
 
-  // Sanal duvar sahnesinin 4 etrafından en az 30px içerde kalacak şekilde hassas ölçeklendirme
-  const minPaddingPx = 30;
+  // Sanal duvar sahnesinin 4 etrafından mobilde 16px, tablette 20px, masaüstünde 28px içerde kalacak şekilde hassas ölçeklendirme
+  const minPaddingPx = typeof window !== "undefined" 
+    ? (window.innerWidth < 640 ? 16 : window.innerWidth < 1024 ? 20 : 28) 
+    : 20;
   const maxAvailableW = Math.max(100, stageWidth - (minPaddingPx * 2));
   const maxAvailableH = Math.max(100, stageHeight - (minPaddingPx * 2));
 
@@ -2653,6 +2741,7 @@ Durum: Onaylandi / Uretime Hazir`;
       toast.success(`${currentOrderNum} numaralı sipariş başarıyla güncellendi.`);
     } else if (asNewOrder) {
       toast.success(`${currentOrderNum} numaralı yeni sipariş başarıyla oluşturuldu. Önceki sipariş arşivde korundu.`);
+      setOrderQuantity(1); // 1. Form Sıfırlama: Yeni sipariş oluşturulduğunda quantity varsayılan 1'e sıfırlanır
     } else {
       toast.success("Sipariş başarıyla oluşturuldu.");
     }
@@ -2953,6 +3042,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
       style={{
         width: `${totalWidthPx * scaleMultiplier}px`,
         height: `${totalHeightPx * scaleMultiplier}px`,
+        maxWidth: "100%",
+        maxHeight: "100%",
         position: "relative",
       }}
       className="h-auto flex items-center justify-center select-none"
@@ -3051,20 +3142,20 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
     }`}>
       
       {/* 1. Header with AI Studio styling & Gold Highlights */}
-      <header className={`h-auto md:h-18 py-2.5 md:py-0 border-b flex flex-col md:flex-row items-center justify-between px-3.5 sm:px-5 md:px-8 flex-shrink-0 z-20 shadow-sm gap-2.5 md:gap-3 transition-colors duration-200 rounded-b-2xl md:rounded-b-3xl ${
+      <header className={`w-full h-auto lg:h-18 py-2.5 sm:py-3 lg:py-0 border-b flex flex-col lg:flex-row items-center justify-between px-3 sm:px-5 lg:px-7 flex-shrink-0 z-20 shadow-sm gap-2.5 lg:gap-3 transition-colors duration-200 rounded-b-2xl md:rounded-b-3xl ${
         isDarkMode ? "bg-[#14171e] border-white/10" : "bg-white border-slate-200"
       }`}>
-        {/* Top bar on Mobile / Left Branding on Desktop */}
-        <div className="flex items-center justify-between w-full md:w-auto gap-2.5">
-          <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* Top bar on Mobile & Tablet / Left Branding on Desktop */}
+        <div className="flex items-center justify-between w-full lg:w-auto gap-2.5 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 select-none">
             <NakkaLogo size={34} />
-            <div>
-              <h1 className={`text-base md:text-lg font-black tracking-widest uppercase ${
+            <div className="shrink-0 min-w-0">
+              <h1 className={`text-base sm:text-lg font-black tracking-widest uppercase whitespace-nowrap leading-none ${
                 isDarkMode ? "text-white" : "text-slate-900"
               }`}>
                 NAKKA <span className={isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}>DEKOR</span>
               </h1>
-              <p className={`text-[9px] md:text-[10px] uppercase tracking-[0.18em] font-bold -mt-0.5 hidden sm:block ${
+              <p className={`text-[9px] sm:text-[10px] uppercase tracking-[0.14em] font-bold whitespace-nowrap hidden sm:block lg:hidden xl:block mt-1 leading-none ${
                 isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
               }`}>
                 B2B Sanat & Çerçeve Atölye Portalı
@@ -3072,8 +3163,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
             </div>
           </div>
 
-          {/* Mobile-Only Quick System Bar (Aligned to the right on top row) */}
-          <div className="flex md:hidden items-center gap-1">
+          {/* Mobile & Tablet Quick System Bar (Aligned to the right on top row) */}
+          <div className="flex lg:hidden items-center gap-1.5 shrink-0">
             {/* Account & Credit Indicator */}
             <CreditIndicator
               variant="mobile"
@@ -3130,13 +3221,13 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         </div>
         
         {/* Core Actions & Desktop Utilities */}
-        <div className="w-full md:w-auto flex flex-col md:flex-row items-center gap-2 shrink-0">
-          {/* Primary Operations Cluster - Grid on mobile, flex row on desktop */}
-          <div className="grid grid-cols-4 sm:flex items-center gap-1.5 w-full md:w-auto">
+        <div className="w-full lg:w-auto flex flex-col sm:flex-row items-center gap-2 shrink-0">
+          {/* Primary Operations Cluster - Grid on mobile, flex row on tablet and desktop */}
+          <div className="grid grid-cols-4 sm:flex items-center gap-1.5 w-full lg:w-auto">
             {/* 1. New Frame / Reset Simulator Button (YENİ) */}
             <button
               onClick={handleNewOrderClick}
-              className={`flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-xl border transition-all uppercase text-[10px] sm:text-[11px] font-extrabold tracking-wider shadow-sm cursor-pointer active:scale-95 ${
+              className={`flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-xl border transition-all uppercase text-[10px] sm:text-[11px] font-extrabold tracking-wider shadow-sm cursor-pointer active:scale-95 whitespace-nowrap ${
                 isDarkMode
                   ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25 hover:border-emerald-500/60"
                   : "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100 shadow-2xs"
@@ -3150,7 +3241,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
             {/* 2. Order Archive Button */}
             <button
               onClick={() => setIsArchiveModalOpen(true)}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-xl border transition-all uppercase text-[10px] sm:text-[11px] font-bold tracking-wider shadow-sm cursor-pointer ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-xl border transition-all uppercase text-[10px] sm:text-[11px] font-bold tracking-wider shadow-sm cursor-pointer whitespace-nowrap ${
                 isDarkMode
                   ? "bg-[#101216] border-white/10 text-neutral-300 hover:text-white"
                   : "bg-white border-slate-200 text-slate-700 hover:text-slate-900"
@@ -3169,7 +3260,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
             {/* 3. Live Price Calculator Button */}
             <button 
               onClick={() => setIsCostModalOpen(true)}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 rounded-xl border transition-all uppercase text-[10px] sm:text-[11px] font-bold tracking-wider shadow-sm cursor-pointer ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 rounded-xl border transition-all uppercase text-[10px] sm:text-[11px] font-bold tracking-wider shadow-sm cursor-pointer whitespace-nowrap ${
                 isDarkMode
                   ? "bg-[#101216] border-white/10 hover:border-[#C5A059]/50 text-white"
                   : "bg-white border-slate-200 hover:border-[#B88E3A]/50 text-slate-900"
@@ -3177,7 +3268,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               title="Maliyet Dökümü & Kalem Kalem Fiyat Analizi"
             >
               <Calculator className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
-              <span className="hidden md:inline text-neutral-400">TUTAR:</span>
+              <span className="hidden xl:inline text-neutral-400">TUTAR:</span>
               <strong className={`text-[10px] sm:text-xs font-mono truncate ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
                 ₺{costBreakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}
               </strong>
@@ -3186,7 +3277,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
             {/* 4. Consolidated Unified Print Center Button (Belge Yazdır) */}
             <button 
               onClick={() => setIsPrintCenterModalOpen(true)}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 font-extrabold px-2 sm:px-3.5 py-2 sm:py-1.5 transition-all duration-200 uppercase text-[10px] sm:text-[11px] tracking-wider shadow-md active:scale-95 cursor-pointer rounded-xl border ${
+              className={`flex items-center justify-center gap-1 sm:gap-1.5 font-extrabold px-2 sm:px-3.5 py-2 sm:py-1.5 transition-all duration-200 uppercase text-[10px] sm:text-[11px] tracking-wider shadow-md active:scale-95 cursor-pointer rounded-xl border whitespace-nowrap ${
                 isDarkMode
                   ? "bg-[#C5A059] text-black border-[#d6b169] hover:bg-[#b5924d]"
                   : "bg-[#B88E3A] text-white border-[#a67e2f] hover:bg-[#a67e2f]"
@@ -3204,10 +3295,10 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
           </div>
 
           {/* Subtle Vertical Divider (Desktop only) */}
-          <div className={`hidden md:block h-5 w-px ${isDarkMode ? "bg-white/15" : "bg-slate-300"}`} />
+          <div className={`hidden lg:block h-5 w-px ${isDarkMode ? "bg-white/15" : "bg-slate-300"}`} />
 
           {/* Desktop System & Configuration Cluster */}
-          <div className="hidden md:flex items-center gap-1.5">
+          <div className="hidden lg:flex items-center gap-1.5 shrink-0">
             {/* Account & Credit Management Button */}
             <CreditIndicator
               variant="desktop"
@@ -3225,7 +3316,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
             {/* Settings Button */}
             <button 
               onClick={() => setIsSettingsOpen(true)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer whitespace-nowrap ${
                 isDarkMode
                   ? "bg-[#101216] border-white/10 text-neutral-300 hover:text-white"
                   : "bg-white border-slate-200 text-slate-700 hover:text-slate-900"
@@ -3233,13 +3324,13 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               title="Birim Fiyat Ayarları & Çerçeve Veritabanı"
             >
               <Settings className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
-              <span className="hidden sm:inline">AYARLAR</span>
+              <span className="hidden xl:inline">AYARLAR</span>
             </button>
 
             {/* Light / Dark Mode Switcher Button */}
             <button
               onClick={() => setThemeMode(isDarkMode ? "light" : "dark")}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm whitespace-nowrap ${
                 isDarkMode
                   ? "bg-[#101216] border-white/10 text-[#C5A059] hover:bg-[#1a1e26]"
                   : "bg-slate-100 border-slate-200 text-[#B88E3A] hover:bg-slate-200"
@@ -3483,7 +3574,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
           {/* Central High-Resolution Wide Virtual Wall Canvas Visualizer & Bottom Actions Bar */}
           <div className="flex-1 flex flex-col min-w-0 order-first lg:order-none overflow-hidden relative">
             <section 
-              ref={stageRef} 
+              ref={setStageRef} 
               data-no-drag-scroll="true"
               onWheel={(e) => {
                 if (wallMode === "room") {
@@ -3496,7 +3587,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                   }
                 }
               }}
-              className="w-full flex-grow h-[460px] sm:h-[580px] lg:h-auto relative flex items-center justify-center p-4 sm:p-6 overflow-hidden z-0 transition-all duration-500 shadow-inner rounded-none border border-black/10 select-none min-h-[380px]"
+              className="w-full flex-grow h-[460px] sm:h-[580px] lg:h-auto relative flex items-center justify-center p-3 sm:p-6 overflow-hidden z-0 transition-colors duration-300 shadow-inner rounded-none border border-black/10 select-none min-h-[380px]"
               style={{ 
                 backgroundColor: wallMode === "room" ? "#0a0c0f" : wallColor,
               }}
@@ -3628,6 +3719,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 style={{
                   width: `${totalWidthPx}px`,
                   height: `${totalHeightPx}px`,
+                  maxWidth: wallMode === "room" ? undefined : "100%",
+                  maxHeight: wallMode === "room" ? undefined : "100%",
                   position: "relative",
                   transform: wallMode === "room" 
                     ? `translate3d(${roomFramePos.x}px, ${roomFramePos.y}px, 0) scale(${roomFrameScale})` 

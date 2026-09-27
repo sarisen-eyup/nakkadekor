@@ -38,6 +38,10 @@ export function loadWorkspaceDraft(): WorkspaceDraft | null {
     const raw = sessionStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
+    if (parsed) {
+      // Sipariş adedi asla eski oturum/sayfa yenilemesinden yüklenmemeli, her zaman varsayılan 1 olmalıdır.
+      delete parsed.quantity;
+    }
     return parsed as WorkspaceDraft;
   } catch (err) {
     console.warn("Could not load workspace draft:", err);
@@ -48,7 +52,10 @@ export function loadWorkspaceDraft(): WorkspaceDraft | null {
 export function saveWorkspaceDraft(draft: WorkspaceDraft): void {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    // Adet (quantity) geçici form durumudur, tarayıcıda kalıcı taslağa yazılmaz.
+    const cleanDraft = { ...draft };
+    delete cleanDraft.quantity;
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(cleanDraft));
   } catch {
     // ignore quota errors
   }
@@ -58,6 +65,8 @@ export function clearWorkspaceDraft(): void {
   if (typeof window === "undefined") return;
   try {
     sessionStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem("nakka_active_workspace_draft");
+    localStorage.removeItem("nakka_order_quantity");
   } catch {
     // ignore
   }
