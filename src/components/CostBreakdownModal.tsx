@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { X, DollarSign, Calculator, Percent, Check, Tag, Info, ArrowRight, Printer, CheckSquare, Square, Lock, Unlock, ShieldCheck } from "lucide-react";
 import { CostCalculationBreakdown, UnitPricesSettings, MaterialInclusionFlags } from "../types/pricing";
 import { triggerCostBreakdownPrintWindow } from "../utils/printHelper";
+import { toast } from "../context/ToastContext";
 
 interface CostBreakdownModalProps {
   isOpen: boolean;
@@ -68,7 +69,7 @@ export function CostBreakdownModal({
 
   const handlePrint = () => {
     if (!isOrderCreated) {
-      alert("⚠️ Maliyet tablosunu yazdırmak için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.");
+      toast.error("⚠️ Maliyet tablosunu yazdırmak için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.");
       return;
     }
     triggerCostBreakdownPrintWindow({

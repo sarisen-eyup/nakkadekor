@@ -460,7 +460,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </div>
 
             <p className="text-xs text-neutral-300 leading-relaxed mb-4">
-              Sistemimiz çerçeve atölyelerine özel lisans ve kredi modeliyle sunulmaktadır. Kendi firma logonuz, özel maliyet çarpanlarınız ve personel hesaplarınız ile kurulum desteği almak için bize ulaşabilirsiniz.
+              Sistemimiz çerçeve ve sanat atölyelerine özel kredi ve yıllık abonelik modeliyle sunulmaktadır. Kendi firma logonuz, özel maliyet çarpanlarınız ile kurulum desteği almak için bize ulaşabilirsiniz.
             </p>
 
             <div className="space-y-2.5 mb-6 text-xs font-mono">
@@ -468,19 +468,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 isDarkMode ? "bg-[#0e1014] border-white/10" : "bg-slate-50 border-slate-200"
               }`}>
                 <span className="text-neutral-400">Telefon / WhatsApp:</span>
-                <span className="font-bold text-[#C5A059]">+90 (212) 245 88 90</span>
+                <a 
+                  href="https://wa.me/905424710686" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="font-bold text-[#C5A059] hover:underline"
+                >
+                  +90 542 471 0686
+                </a>
               </div>
               <div className={`p-3 rounded-xl border flex items-center justify-between ${
                 isDarkMode ? "bg-[#0e1014] border-white/10" : "bg-slate-50 border-slate-200"
               }`}>
                 <span className="text-neutral-400">Doğrudan İletişim:</span>
-                <span className="font-bold text-[#C5A059]">kurumsal@nakkadekor.com</span>
+                <a 
+                  href="mailto:info@sarisen.com.tr"
+                  className="font-bold text-[#C5A059] hover:underline"
+                >
+                  info@sarisen.com.tr
+                </a>
               </div>
               <div className={`p-3 rounded-xl border flex items-center justify-between ${
                 isDarkMode ? "bg-[#0e1014] border-white/10" : "bg-slate-50 border-slate-200"
               }`}>
                 <span className="text-neutral-400">Lisans Tipi:</span>
-                <span className="text-emerald-400 font-bold">Özel White-Label &amp; Bulut</span>
+                <span className="text-emerald-400 font-bold">B2B Bayi Paketi</span>
               </div>
             </div>
 

@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 import { X, Printer, Scissors, Layers, CheckCircle2, FileText, Download, Lock } from "lucide-react";
 import { CompleteCutList } from "../types/pricing";
 import { triggerCuttingListPrintWindow } from "../utils/printHelper";
+import { toast } from "../context/ToastContext";
 
 interface CuttingListModalProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export function CuttingListModal({
 
   const handlePrint = () => {
     if (!isOrderCreated) {
-      alert("⚠️ Üretim emri ve kesim listesini yazdırmak için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.");
+      toast.error("⚠️ Üretim emri ve kesim listesini yazdırmak için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.");
       return;
     }
     triggerCuttingListPrintWindow({
