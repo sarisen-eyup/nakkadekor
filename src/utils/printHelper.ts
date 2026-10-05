@@ -247,6 +247,7 @@ export interface PrintDocumentDetails {
   customFrameFile: string;
   customOuterFrameFile: string;
   effectivePrice: number;
+  totalPrice?: number;
   deliveryMethod?: "store" | "shipping";
   shippingCost?: number;
   qrDataUrl?: string;
@@ -312,6 +313,14 @@ export function triggerImagePrintWindow(
   const isBackingBoardActive = hasExplicitFlags && flags?.includeBackingBoard !== undefined
     ? Boolean(flags.includeBackingBoard)
     : (isFrameActive || details.frameWidth > 0);
+
+  const printQty = Math.max(1, details.quantity || 1);
+  const printGrandTotal = details.totalPrice !== undefined 
+    ? details.totalPrice 
+    : Math.round(details.effectivePrice * printQty);
+  const printUnitPrice = details.totalPrice !== undefined && printQty > 0
+    ? details.totalPrice / printQty
+    : details.effectivePrice;
 
   const firmName = details.companyProfile?.tradeTitle?.trim() 
     || details.companyProfile?.companyName?.trim() 
@@ -795,10 +804,10 @@ export function triggerImagePrintWindow(
                 <tr class="row-active">
                   <td><strong>10. Sipariş Adedi &amp; Genel Toplam</strong></td>
                   <td colspan="2">
-                    ${(details.quantity || 1) > 1 ? `
-                      <strong>${details.quantity} Adet</strong> • Birim: ₺${details.effectivePrice.toLocaleString('tr-TR')} • <strong style="color:#b45309; font-size:11px;">Genel Toplam: ₺${(details.effectivePrice * (details.quantity || 1)).toLocaleString('tr-TR')}</strong> (KDV Dahil)
+                    ${printQty > 1 ? `
+                      <strong>${printQty} Adet</strong> • Birim: ₺${Number(printUnitPrice.toFixed(2)).toLocaleString('tr-TR')} • <strong style="color:#b45309; font-size:11px;">Genel Toplam: ₺${printGrandTotal.toLocaleString('tr-TR')}</strong> (KDV Dahil)
                     ` : `
-                      <strong>1 Adet</strong> • <strong style="font-size:11px;">Genel Toplam: ₺${details.effectivePrice.toLocaleString('tr-TR')}</strong> (KDV Dahil)
+                      <strong>1 Adet</strong> • <strong style="font-size:11px;">Genel Toplam: ₺${printGrandTotal.toLocaleString('tr-TR')}</strong> (KDV Dahil)
                     `}
                   </td>
                   <td><span class="badge-active">ONAYLI FİYAT</span></td>
@@ -1662,7 +1671,14 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
   const { breakdown, settings, artworkWidthCm, artworkHeightCm, orderNumber, customerName, deliveryDate, flags, companyProfile } = details;
   const qty = Math.max(1, details.quantity || 1);
   const singlePrice = breakdown.effectiveFinalPriceWithVat ?? 0;
-  const grandTotal = singlePrice * qty;
+  const grandTotal = Math.round(singlePrice * qty);
+
+  // Doğal (İskontosuz) Birim ve Genel Toplam
+  const naturalUnitPrice = Math.ceil(breakdown.calculatedPriceWithVat) + (breakdown.shippingCost || 0);
+  const naturalGrandTotal = naturalUnitPrice * qty;
+  const totalDiscount = Math.max(0, naturalGrandTotal - grandTotal);
+  const hasDiscount = totalDiscount > 0;
+  const discountPercent = naturalGrandTotal > 0 ? Math.round((totalDiscount / naturalGrandTotal) * 100) : 0;
 
   const contentHtml = `
     <div style="font-family:'Roboto', system-ui, -apple-system, sans-serif;">
@@ -1692,8 +1708,8 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
             <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:left; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">MALZEME / HİZMET</th>
             <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:left; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">DURUM</th>
             <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:left; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">MİKTAR</th>
-            <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">BİRİM FİYAT</th>
-            <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">TUTAR (₺)</th>
+            <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">BİRİM MALİYET</th>
+            <th style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-size:9.5px; font-weight:700; letter-spacing:0.3px;">TUTAR (₺) ${qty > 1 ? `(${qty} Adet)` : ''}</th>
           </tr>
         </thead>
         <tbody>
@@ -1702,7 +1718,10 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
             <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeArtworkPrint ? "Dahil" : "Müşteriden (Hariç)"}</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.artworkSqm ?? 0).toFixed(3)} m²</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${settings.canvasPrintPricePerSqm}/m²</td>
-            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.artworkCost ?? 0).toFixed(2)}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">
+              ₺${((breakdown.artworkCost ?? 0) * qty).toFixed(2)}
+              ${qty > 1 ? `<div style="font-size:9px; color:#64748b; font-weight:normal;">(Birim: ₺${(breakdown.artworkCost ?? 0).toFixed(2)})</div>` : ''}
+            </td>
           </tr>
           ${(breakdown.innerMatSqm ?? 0) > 0 ? `
           <tr>
@@ -1710,14 +1729,20 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
             <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeInnerMat ? "Dahil" : "Hariç"}</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.innerMatSqm ?? 0).toFixed(3)} m²</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${breakdown.innerMatUnitPrice ?? settings.matBoardPricePerSqm}/m²</td>
-            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.innerMatCost ?? 0).toFixed(2)}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">
+              ₺${((breakdown.innerMatCost ?? 0) * qty).toFixed(2)}
+              ${qty > 1 ? `<div style="font-size:9px; color:#64748b; font-weight:normal;">(Birim: ₺${(breakdown.innerMatCost ?? 0).toFixed(2)})</div>` : ''}
+            </td>
           </tr>` : ''}
           <tr>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">Ana Çerçeve Profili</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeInnerFrame ? "Dahil" : "Hariç"}</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.innerFrameMeter ?? 0).toFixed(2)} mt</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">Metre Tül</td>
-            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.innerFrameCost ?? 0).toFixed(2)}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">
+              ₺${((breakdown.innerFrameCost ?? 0) * qty).toFixed(2)}
+              ${qty > 1 ? `<div style="font-size:9px; color:#64748b; font-weight:normal;">(Birim: ₺${(breakdown.innerFrameCost ?? 0).toFixed(2)})</div>` : ''}
+            </td>
           </tr>
           ${(breakdown.middleMatSqm ?? 0) > 0 ? `
           <tr>
@@ -1725,7 +1750,10 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
             <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeMiddleMat ? "Dahil" : "Hariç"}</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.middleMatSqm ?? 0).toFixed(3)} m²</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${breakdown.middleMatUnitPrice ?? settings.middleMatBoardPricePerSqm}/m²</td>
-            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.middleMatCost ?? 0).toFixed(2)}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">
+              ₺${((breakdown.middleMatCost ?? 0) * qty).toFixed(2)}
+              ${qty > 1 ? `<div style="font-size:9px; color:#64748b; font-weight:normal;">(Birim: ₺${(breakdown.middleMatCost ?? 0).toFixed(2)})</div>` : ''}
+            </td>
           </tr>` : ''}
           ${(breakdown.outerFrameMeter ?? 0) > 0 ? `
           <tr>
@@ -1733,77 +1761,125 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
             <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeOuterFrame ? "Dahil" : "Hariç"}</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.outerFrameMeter ?? 0).toFixed(2)} mt</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">Metre Tül</td>
-            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.outerFrameCost ?? 0).toFixed(2)}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">
+              ₺${((breakdown.outerFrameCost ?? 0) * qty).toFixed(2)}
+              ${qty > 1 ? `<div style="font-size:9px; color:#64748b; font-weight:normal;">(Birim: ₺${(breakdown.outerFrameCost ?? 0).toFixed(2)})</div>` : ''}
+            </td>
           </tr>` : ''}
           <tr>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">Koruyucu Cam / Pleksi</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeGlass ? "Dahil" : "Hariç"}</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.glassBackingSqm ?? 0).toFixed(3)} m²</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${settings.glassPricePerSqm}/m²</td>
-            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.glassCost ?? 0).toFixed(2)}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">
+              ₺${((breakdown.glassCost ?? 0) * qty).toFixed(2)}
+              ${qty > 1 ? `<div style="font-size:9px; color:#64748b; font-weight:normal;">(Birim: ₺${(breakdown.glassCost ?? 0).toFixed(2)})</div>` : ''}
+            </td>
           </tr>
           <tr>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">3mm MDF Arka Kapama</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeBackingBoard ? "Dahil" : "Hariç"}</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.glassBackingSqm ?? 0).toFixed(3)} m²</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${settings.backingBoardPricePerSqm}/m²</td>
-            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.backingBoardCost ?? 0).toFixed(2)}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">
+              ₺${((breakdown.backingBoardCost ?? 0) * qty).toFixed(2)}
+              ${qty > 1 ? `<div style="font-size:9px; color:#64748b; font-weight:normal;">(Birim: ₺${(breakdown.backingBoardCost ?? 0).toFixed(2)})</div>` : ''}
+            </td>
           </tr>
           <tr>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">Arkalık Koruma Bezi</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeBackingCloth || flags.includeBackingPaper ? "Dahil" : "Hariç"}</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${(breakdown.backingClothSqm ?? 0).toFixed(3)} m²</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${settings.backingClothPricePerSqm ?? 90}/m²</td>
-            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.backingClothCost ?? 0).toFixed(2)}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">
+              ₺${((breakdown.backingClothCost ?? 0) * qty).toFixed(2)}
+              ${qty > 1 ? `<div style="font-size:9px; color:#64748b; font-weight:normal;">(Birim: ₺${(breakdown.backingClothCost ?? 0).toFixed(2)})</div>` : ''}
+            </td>
           </tr>
           <tr>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600;">Atölye Sabit El İşçiliği</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">${flags.includeLaborCost ? "Dahil" : "Hariç"}</td>
-            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">1 Adet</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">${qty} Adet</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">₺${settings.laborFixedCost}</td>
-            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">₺${(breakdown.laborCost ?? 0).toFixed(2)}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace;">
+              ₺${((breakdown.laborCost ?? 0) * qty).toFixed(2)}
+              ${qty > 1 ? `<div style="font-size:9px; color:#64748b; font-weight:normal;">(Birim: ₺${(breakdown.laborCost ?? 0).toFixed(2)})</div>` : ''}
+            </td>
           </tr>
           <tr>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-weight:600; color:#b45309;">Kesim Fire / Atık (%${settings.wastePercentage})</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; color:#475569;">Dahil</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; font-family:'JetBrains Mono', monospace;">Oransal</td>
             <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-family:'JetBrains Mono', monospace;">%${settings.wastePercentage}</td>
-            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace; color:#b45309;">₺${(breakdown.wasteCost ?? 0).toFixed(2)}</td>
+            <td style="border:1px solid #cbd5e1; padding:7px 10px; text-align:right; font-weight:700; font-family:'JetBrains Mono', monospace; color:#b45309;">
+              ₺${((breakdown.wasteCost ?? 0) * qty).toFixed(2)}
+              ${qty > 1 ? `<div style="font-size:9px; color:#64748b; font-weight:normal;">(Birim: ₺${(breakdown.wasteCost ?? 0).toFixed(2)})</div>` : ''}
+            </td>
           </tr>
         </tbody>
       </table>
 
+      <!-- FİNANSAL VE MALİYET HESAPLAMA ÖZETİ -->
       <div style="margin-top:20px; display:flex; justify-content:flex-end;">
-        <div style="width:340px; background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:4px; font-size:12px;">
-          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-            <span>Toplam Net Maliyet:</span>
-            <span style="font-family:'JetBrains Mono', monospace; font-weight:700;">₺${(breakdown.totalDirectCost ?? 0).toFixed(2)}</span>
+        <div style="width:400px; background:#f8fafc; border:1px solid #cbd5e1; padding:18px 20px; border-radius:8px; font-size:12.5px; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+          
+          <!-- 1. Toplam Adet Maliyeti -->
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#334155;">
+            <span>Toplam Adet Maliyeti:</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:700; color:#0f172a;">₺${(breakdown.totalDirectCost ?? 0).toFixed(2)}</span>
           </div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#15803d;">
-            <span>Uygulanan Kâr Marjı:</span>
-            <span style="font-family:'JetBrains Mono', monospace; font-weight:700;">%${settings.targetProfitMarginPercent}</span>
+
+          <!-- 2. Toplam Sipariş Maliyeti (Adet Maliyet x Adet) -->
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#334155;">
+            <span>Toplam Sipariş Maliyeti ${qty > 1 ? `(${qty} Adet × ₺${(breakdown.totalDirectCost ?? 0).toFixed(2)})` : ''}:</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:700; color:#0f172a;">₺${((breakdown.totalDirectCost ?? 0) * qty).toFixed(2)}</span>
           </div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-            <span>Ara Toplam (KDV Hariç):</span>
-            <span style="font-family:'JetBrains Mono', monospace; font-weight:700;">₺${(breakdown.calculatedPriceBeforeVat ?? 0).toFixed(2)}</span>
+
+          <!-- 3. Uygulanan Kâr Oranı ve Tutarı -->
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#15803d;">
+            <span>Uygulanan Kâr Marjı (%${settings.targetProfitMarginPercent}):</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:700;">+₺${(((breakdown.totalDirectCost ?? 0) * (settings.targetProfitMarginPercent / 100)) * qty).toFixed(2)}</span>
           </div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#64748b;">
+
+          <!-- 4. KDV Hariç Toplam Tutar -->
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#334155;">
+            <span>KDV Hariç Toplam Tutar (Ara Toplam):</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:700; color:#0f172a;">₺${((breakdown.calculatedPriceBeforeVat ?? 0) * qty).toFixed(2)}</span>
+          </div>
+
+          <!-- 5. KDV Tutarı -->
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#475569;">
             <span>KDV Tutarı (%${settings.vatRatePercent}):</span>
-            <span style="font-family:'JetBrains Mono', monospace; font-weight:600;">₺${(breakdown.vatAmount ?? 0).toFixed(2)}</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:700; color:#0f172a;">+₺${((breakdown.vatAmount ?? 0) * qty).toFixed(2)}</span>
           </div>
-          ${breakdown.shippingCost > 0 ? `
+
+          <!-- Kargo (Varsa) -->
+          ${(breakdown.shippingCost ?? 0) > 0 ? `
           <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#2563eb;">
-            <span>Kargo & Sevk Ücreti:</span>
-            <span style="font-family:'JetBrains Mono', monospace; font-weight:600;">₺${breakdown.shippingCost.toFixed(2)}</span>
+            <span>Kargo & Sevkiyat Ücreti:</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:700;">+₺${(breakdown.shippingCost).toFixed(2)}</span>
           </div>` : ''}
-          <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:800; border-top:2px solid #0f172a; padding-top:8px; color:#0f172a;">
+
+          <!-- Uygulanan Özel İskonto (Varsa) -->
+          ${hasDiscount ? `
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:#b91c1c; background:#fef2f2; padding:6px 10px; border-radius:4px; border:1px dashed #fca5a5; font-size:12px;">
+            <span>Uygulanan Özel İskonto ${discountPercent > 0 ? `(%${discountPercent})` : ''}:</span>
+            <span style="font-family:'JetBrains Mono', monospace; font-weight:700;">-₺${Math.round(totalDiscount).toLocaleString('tr-TR')}</span>
+          </div>` : ''}
+
+          <!-- 6. Toplam Tutar (GENEL SATIŞ TUTARI) -->
+          <div style="display:flex; justify-content:space-between; align-items:baseline; font-size:15px; font-weight:900; border-top:2px solid #0f172a; padding-top:10px; margin-top:10px; color:#0f172a;">
             <span>GENEL SATIŞ TUTARI:</span>
-            <span style="color:#b45309; font-family:'JetBrains Mono', monospace;">₺${grandTotal.toLocaleString('tr-TR')}</span>
+            <span style="color:#b45309; font-size:19px; font-family:'JetBrains Mono', monospace; font-weight:900;">₺${grandTotal.toLocaleString('tr-TR')}</span>
           </div>
+
           ${qty > 1 ? `
-          <div style="font-size:10px; color:#64748b; text-align:right; margin-top:3px; font-family:'JetBrains Mono', monospace;">
-            (${qty} Adet × ₺${singlePrice.toLocaleString('tr-TR')})
-          </div>` : ''}
+          <div style="font-size:11.5px; color:#64748b; text-align:right; margin-top:4px; font-family:'JetBrains Mono', monospace; font-weight:600;">
+            (${qty} Adet × ₺${Number(singlePrice.toFixed(2)).toLocaleString('tr-TR')})
+          </div>` : `
+          <div style="font-size:10px; color:#64748b; text-align:right; margin-top:4px; font-family:'JetBrains Mono', monospace;">
+            (KDV Dahil Net Sipariş Tutarı)
+          </div>`}
         </div>
       </div>
     </div>

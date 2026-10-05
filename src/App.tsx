@@ -1262,9 +1262,7 @@ function SimulatorMain() {
 
     // 10. Özel Fiyat
     const override = order.customOverridePrice ?? order.simulatorConfig?.customOverridePrice;
-    if (override !== undefined) {
-      setCustomOverridePrice(override);
-    }
+    setCustomOverridePrice(override ?? null);
 
     // 11. Modalı kapat
     setIsArchiveModalOpen(false);
@@ -2420,7 +2418,8 @@ Durum: Onaylandi / Uretime Hazir`;
         customPaintingFile,
         customFrameFile,
         customOuterFrameFile,
-        effectivePrice: costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity),
+        effectivePrice: costBreakdown.effectiveFinalPriceWithVat,
+        totalPrice: Math.round(costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)),
         deliveryMethod,
         shippingCost: costBreakdown.shippingCost,
         qrDataUrl,
@@ -2549,32 +2548,24 @@ Durum: Onaylandi / Uretime Hazir`;
           innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : customFrameFile,
           outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
           matInfo: matWidth > 0 ? `${matWidth} cm ${getPaspartuColorName(innerMatColor)}` : "Paspartusuz",
-          effectivePrice: costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity),
+          effectivePrice: costBreakdown.effectiveFinalPriceWithVat,
           quantity: Math.max(1, orderQuantity),
           companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
           authorUser: activeUser?.fullName
         });
       } else if (action === "cost") {
         triggerCostBreakdownPrintWindow({
+          breakdown: costBreakdown,
+          settings: unitPricesSettings,
+          artworkWidthCm: artworkWidth,
+          artworkHeightCm: artworkHeight,
           orderNumber,
           customerName,
-          artworkWidth,
-          artworkHeight,
-          matWidth,
-          middleMatWidth,
-          innerMatColor,
-          frameWidth,
-          outerFrameWidth,
-          innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : customFrameFile,
-          outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
-          totalW,
-          totalH,
-          effectivePrice: costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity),
-          quantity: Math.max(1, orderQuantity),
+          deliveryDate,
           flags: effectiveInclusionFlags,
-          costBreakdown,
           companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
-          authorUser: activeUser?.fullName
+          quantity: Math.max(1, orderQuantity),
+          customOverridePrice
         });
       }
     }, 300);
@@ -3953,6 +3944,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         isOrderCreated={isOrderCreated}
         quantity={orderQuantity}
         onQuantityChange={setOrderQuantity}
+        companyProfile={companyProfile}
       />
 
       <CuttingListModal

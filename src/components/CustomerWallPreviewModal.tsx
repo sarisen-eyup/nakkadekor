@@ -806,7 +806,7 @@ export const CustomerWallPreviewModal: React.FC<CustomerWallPreviewModalProps> =
                 type="button"
                 onClick={() => {
                   if (activeControlTab === "frame") {
-                    updateScale(Math.max(0.15, Number((scale - 0.05).toFixed(2))));
+                    updateScale(Math.max(0.10, Number((scale - 0.05).toFixed(2))));
                   } else {
                     updateBgScale(Math.max(0.50, Number((bgScale - 0.05).toFixed(2))));
                   }
@@ -850,7 +850,7 @@ export const CustomerWallPreviewModal: React.FC<CustomerWallPreviewModalProps> =
                 type="button"
                 onClick={() => {
                   if (activeControlTab === "frame") {
-                    updateScale(Math.min(2.50, Number((scale + 0.05).toFixed(2))));
+                    updateScale(Math.min(1.00, Number((scale + 0.05).toFixed(2))));
                   } else {
                     updateBgScale(Math.min(2.50, Number((bgScale + 0.05).toFixed(2))));
                   }
@@ -865,7 +865,7 @@ export const CustomerWallPreviewModal: React.FC<CustomerWallPreviewModalProps> =
 
               {/* Quick Presets */}
               <div className="hidden sm:flex items-center gap-1">
-                {(activeControlTab === "frame" ? [0.25, 0.5, 0.75, 1.0, 1.5] : [0.75, 1.0, 1.25, 1.5]).map((pVal) => {
+                {(activeControlTab === "frame" ? [0.25, 0.5, 0.75, 1.0] : [0.75, 1.0, 1.25, 1.5]).map((pVal) => {
                   const currentVal = activeControlTab === "frame" ? scale : bgScale;
                   return (
                     <button

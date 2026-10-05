@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { X, DollarSign, Calculator, Percent, Check, Tag, Info, ArrowRight, Printer, CheckSquare, Square, Lock, Unlock, ShieldCheck, RotateCcw } from "lucide-react";
-import { CostCalculationBreakdown, UnitPricesSettings, MaterialInclusionFlags } from "../types/pricing";
+import { CostCalculationBreakdown, UnitPricesSettings, MaterialInclusionFlags, CompanyProfile } from "../types/pricing";
 import { triggerCostBreakdownPrintWindow } from "../utils/printHelper";
 import { toast } from "../context/ToastContext";
 
@@ -23,6 +23,7 @@ interface CostBreakdownModalProps {
   isOrderCreated?: boolean;
   quantity?: number;
   onQuantityChange?: (qty: number) => void;
+  companyProfile?: CompanyProfile;
 }
 
 export function CostBreakdownModal({
@@ -43,7 +44,8 @@ export function CostBreakdownModal({
   isShopMode = false,
   isOrderCreated = false,
   quantity = 1,
-  onQuantityChange
+  onQuantityChange,
+  companyProfile
 }: CostBreakdownModalProps) {
   const qty = Math.max(1, quantity || 1);
   const naturalUnitPrice = Math.ceil(breakdown.calculatedPriceWithVat) + (breakdown.shippingCost || 0);
@@ -106,7 +108,9 @@ export function CostBreakdownModal({
       customerName,
       deliveryDate,
       flags,
-      quantity
+      quantity,
+      companyProfile,
+      customOverridePrice
     });
   };
 
