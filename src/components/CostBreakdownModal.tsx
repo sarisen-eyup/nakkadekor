@@ -1,5 +1,5 @@
-import React, { useState, useRef } from "react";
-import { X, DollarSign, Calculator, Percent, Check, Tag, Info, ArrowRight, Printer, CheckSquare, Square, Lock, Unlock, ShieldCheck } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { X, DollarSign, Calculator, Percent, Check, Tag, Info, ArrowRight, Printer, CheckSquare, Square, Lock, Unlock, ShieldCheck, RotateCcw } from "lucide-react";
 import { CostCalculationBreakdown, UnitPricesSettings, MaterialInclusionFlags } from "../types/pricing";
 import { triggerCostBreakdownPrintWindow } from "../utils/printHelper";
 import { toast } from "../context/ToastContext";
@@ -45,17 +45,32 @@ export function CostBreakdownModal({
   quantity = 1,
   onQuantityChange
 }: CostBreakdownModalProps) {
+  const qty = Math.max(1, quantity || 1);
+  const naturalUnitPrice = Math.ceil(breakdown.calculatedPriceWithVat) + (breakdown.shippingCost || 0);
+  const calculatedGenelToplam = naturalUnitPrice * qty;
+  const currentGenelToplam = Math.round(breakdown.effectiveFinalPriceWithVat * qty);
+  const totalDiscount = calculatedGenelToplam - currentGenelToplam;
+
   const [overrideInput, setOverrideInput] = useState<string>(
-    customOverridePrice ? customOverridePrice.toString() : ""
+    customOverridePrice != null ? String(currentGenelToplam) : ""
   );
   const printRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setOverrideInput(customOverridePrice != null ? String(currentGenelToplam) : "");
+  }, [customOverridePrice, qty, currentGenelToplam]);
 
   if (!isOpen) return null;
 
   const handleApplyOverride = () => {
     const val = parseFloat(overrideInput);
     if (!isNaN(val) && val > 0) {
-      onSetCustomOverridePrice(val);
+      // Girilen tutar Genel Toplam'dır; adet başına birim fiyata dönüştürülüp atanır.
+      // Kargo varsa kargo bedeli düşülerek çerçeve birim fiyatı belirlenir.
+      const shippingPerPiece = breakdown.shippingCost || 0;
+      const unitTarget = val / qty;
+      const unitFraming = Math.max(0, unitTarget - shippingPerPiece);
+      onSetCustomOverridePrice(Number(unitFraming.toFixed(4)));
     } else {
       onSetCustomOverridePrice(null);
       setOverrideInput("");
@@ -65,6 +80,16 @@ export function CostBreakdownModal({
   const handleClearOverride = () => {
     onSetCustomOverridePrice(null);
     setOverrideInput("");
+  };
+
+  const handleQuickPercentDiscount = (percent: number) => {
+    // Genel Toplam üzerinden iskonto hesabı
+    const discountedTotal = Math.max(1, Math.round(calculatedGenelToplam * (1 - percent / 100)));
+    const shippingPerPiece = breakdown.shippingCost || 0;
+    const unitTarget = discountedTotal / qty;
+    const unitFraming = Math.max(0, unitTarget - shippingPerPiece);
+    setOverrideInput(String(discountedTotal));
+    onSetCustomOverridePrice(Number(unitFraming.toFixed(4)));
   };
 
   const handlePrint = () => {
@@ -159,6 +184,13 @@ export function CostBreakdownModal({
             }`}>
               {artworkWidthCm}×{artworkHeightCm} cm Eser
             </span>
+            {qty > 1 && (
+              <span className={`text-[10px] sm:text-xs font-mono font-bold px-2 py-0.5 rounded-md border shrink-0 ${
+                isDarkMode ? "bg-amber-500/15 border-amber-500/30 text-amber-300" : "bg-amber-50 border-amber-300 text-amber-800"
+              }`}>
+                {qty} Adet Sipariş
+              </span>
+            )}
             {customerName && (
               <span className={`text-[10px] sm:text-xs truncate max-w-[200px] ${
                 isDarkMode ? "text-neutral-400" : "text-slate-500"
@@ -185,10 +217,11 @@ export function CostBreakdownModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-300 text-xs font-mono">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t border-gray-300 text-xs font-mono">
               <p><strong>Müşteri:</strong> {customerName || "Belirtilmedi"}</p>
               <p><strong>Teslim Tarihi:</strong> {deliveryDate || "Normal"}</p>
               <p><strong>Eser Ölçüsü:</strong> {artworkWidthCm} x {artworkHeightCm} cm</p>
+              <p><strong>Sipariş Adedi:</strong> {qty} Adet</p>
             </div>
           </div>
 
@@ -431,17 +464,19 @@ export function CostBreakdownModal({
               <span className={`text-[10px] font-mono uppercase tracking-wider print:text-black font-bold block ${
                 isDarkMode ? "text-[#C5A059]" : "text-[#7A5A19]"
               }`}>
-                03. Nihai Satış Fiyatı (KDV Dahil)
+                03. {qty > 1 ? `Genel Toplam Satış Tutarı (${qty} Adet)` : "Nihai Satış Fiyatı (KDV Dahil)"}
               </span>
               <div className={`text-2xl font-mono font-bold print:text-black ${
                 isDarkMode ? "text-[#C5A059]" : "text-[#8C6B23]"
               }`}>
-                ₺{breakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}
+                ₺{(breakdown.effectiveFinalPriceWithVat * qty).toLocaleString("tr-TR")}
               </div>
               <span className={`text-[11px] print:text-gray-700 font-mono block ${
                 isDarkMode ? "text-[#C5A059]/80" : "text-[#7A5A19]"
               }`}>
-                {isShopMode ? `%{settings.targetProfitMarginPercent} Kâr + %{settings.vatRatePercent} KDV` : "KDV Dahil Net Sipariş Tutarı"}
+                {qty > 1 
+                  ? `Birim Fiyat: ₺${Number(breakdown.effectiveFinalPriceWithVat.toFixed(2)).toLocaleString("tr-TR")} • Net Sipariş Tutarı`
+                  : (isShopMode ? `%{settings.targetProfitMarginPercent} Kâr + %{settings.vatRatePercent} KDV` : "KDV Dahil Net Sipariş Tutarı")}
               </span>
             </div>
 
@@ -479,7 +514,7 @@ export function CostBreakdownModal({
                     <th className="py-3 px-4 font-semibold">DURUM</th>
                     <th className="py-3 px-4 font-semibold">MİKTAR / BİRİM</th>
                     <th className="py-3 px-4 font-semibold text-right">{isShopMode ? "HAM BİRİM FİYAT" : "BİRİM FİYAT"}</th>
-                    <th className="py-3 px-4 font-semibold text-right">{isShopMode ? "HAM TUTAR" : "TUTAR"}</th>
+                    <th className="py-3 px-4 font-semibold text-right">{isShopMode ? "HAM TUTAR" : "TUTAR"} {qty > 1 ? `(${qty} Adet)` : ""}</th>
                   </tr>
                 </thead>
                 <tbody className={`divide-y print:divide-gray-200 ${
@@ -501,13 +536,18 @@ export function CostBreakdownModal({
                       </span>
                     </td>
                     <td className={`py-2.5 px-4 font-mono text-[11px] ${isDarkMode ? "text-neutral-300" : "text-slate-600"} print:text-black`}>
-                      {breakdown.artworkSqm.toFixed(3)} m²
+                      {qty > 1 ? `${(breakdown.artworkSqm * qty).toFixed(3)} m² (${qty}×${breakdown.artworkSqm.toFixed(3)})` : `${breakdown.artworkSqm.toFixed(3)} m²`}
                     </td>
                     <td className={`py-2.5 px-4 font-mono text-right text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"} print:text-black`}>
                       {isShopMode ? `₺${settings.canvasPrintPricePerSqm}/m²` : "-"}
                     </td>
                     <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs print:text-black ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                      ₺{(isShopMode ? breakdown.artworkCost : breakdown.artworkSellingPrice).toFixed(2)}
+                      ₺{((isShopMode ? breakdown.artworkCost : breakdown.artworkSellingPrice) * qty).toFixed(2)}
+                      {qty > 1 && (
+                        <span className="block text-[10px] opacity-75 font-normal print:hidden">
+                          (Birim: ₺{(isShopMode ? breakdown.artworkCost : breakdown.artworkSellingPrice).toFixed(2)})
+                        </span>
+                      )}
                     </td>
                   </tr>
 
@@ -527,13 +567,18 @@ export function CostBreakdownModal({
                         </span>
                       </td>
                       <td className={`py-2.5 px-4 font-mono text-[11px] ${isDarkMode ? "text-neutral-300" : "text-slate-600"} print:text-black`}>
-                        {breakdown.innerMatSqm.toFixed(3)} m²
+                        {qty > 1 ? `${(breakdown.innerMatSqm * qty).toFixed(3)} m² (${qty}×${breakdown.innerMatSqm.toFixed(3)})` : `${breakdown.innerMatSqm.toFixed(3)} m²`}
                       </td>
                       <td className={`py-2.5 px-4 font-mono text-right text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"} print:text-black`}>
                         {isShopMode ? `₺${breakdown.innerMatUnitPrice ?? (breakdown.isInnerMatTransparent ? (settings.transparentMatBoardPricePerSqm ?? 520) : settings.matBoardPricePerSqm)}/m²` : "-"}
                       </td>
                       <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs print:text-black ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                        ₺{(isShopMode ? breakdown.innerMatCost : breakdown.innerMatSellingPrice).toFixed(2)}
+                        ₺{((isShopMode ? breakdown.innerMatCost : breakdown.innerMatSellingPrice) * qty).toFixed(2)}
+                        {qty > 1 && (
+                          <span className="block text-[10px] opacity-75 font-normal print:hidden">
+                            (Birim: ₺{(isShopMode ? breakdown.innerMatCost : breakdown.innerMatSellingPrice).toFixed(2)})
+                          </span>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -553,13 +598,18 @@ export function CostBreakdownModal({
                       </span>
                     </td>
                     <td className={`py-2.5 px-4 font-mono text-[11px] ${isDarkMode ? "text-neutral-300" : "text-slate-600"} print:text-black`}>
-                      {breakdown.innerFrameMeter.toFixed(2)} mt
+                      {qty > 1 ? `${(breakdown.innerFrameMeter * qty).toFixed(2)} mt (${qty}×${breakdown.innerFrameMeter.toFixed(2)})` : `${breakdown.innerFrameMeter.toFixed(2)} mt`}
                     </td>
                     <td className={`py-2.5 px-4 font-mono text-right text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"} print:text-black`}>
                       {isShopMode ? "Metre Tül" : "-"}
                     </td>
                     <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs print:text-black ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                      ₺{(isShopMode ? breakdown.innerFrameCost : breakdown.innerFrameSellingPrice).toFixed(2)}
+                      ₺{((isShopMode ? breakdown.innerFrameCost : breakdown.innerFrameSellingPrice) * qty).toFixed(2)}
+                      {qty > 1 && (
+                        <span className="block text-[10px] opacity-75 font-normal print:hidden">
+                          (Birim: ₺{(isShopMode ? breakdown.innerFrameCost : breakdown.innerFrameSellingPrice).toFixed(2)})
+                        </span>
+                      )}
                     </td>
                   </tr>
 
@@ -579,13 +629,18 @@ export function CostBreakdownModal({
                         </span>
                       </td>
                       <td className={`py-2.5 px-4 font-mono text-[11px] ${isDarkMode ? "text-neutral-300" : "text-slate-600"} print:text-black`}>
-                        {breakdown.middleMatSqm.toFixed(3)} m²
+                        {qty > 1 ? `${(breakdown.middleMatSqm * qty).toFixed(3)} m² (${qty}×${breakdown.middleMatSqm.toFixed(3)})` : `${breakdown.middleMatSqm.toFixed(3)} m²`}
                       </td>
                       <td className={`py-2.5 px-4 font-mono text-right text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"} print:text-black`}>
                         {isShopMode ? `₺${breakdown.middleMatUnitPrice ?? (breakdown.isMiddleMatTransparent ? (settings.transparentMatBoardPricePerSqm ?? 520) : settings.middleMatBoardPricePerSqm)}/m²` : "-"}
                       </td>
                       <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs print:text-black ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                        ₺{(isShopMode ? breakdown.middleMatCost : breakdown.middleMatSellingPrice).toFixed(2)}
+                        ₺{((isShopMode ? breakdown.middleMatCost : breakdown.middleMatSellingPrice) * qty).toFixed(2)}
+                        {qty > 1 && (
+                          <span className="block text-[10px] opacity-75 font-normal print:hidden">
+                            (Birim: ₺{(isShopMode ? breakdown.middleMatCost : breakdown.middleMatSellingPrice).toFixed(2)})
+                          </span>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -606,13 +661,18 @@ export function CostBreakdownModal({
                         </span>
                       </td>
                       <td className={`py-2.5 px-4 font-mono text-[11px] ${isDarkMode ? "text-neutral-300" : "text-slate-600"} print:text-black`}>
-                        {breakdown.outerFrameMeter.toFixed(2)} mt
+                        {qty > 1 ? `${(breakdown.outerFrameMeter * qty).toFixed(2)} mt (${qty}×${breakdown.outerFrameMeter.toFixed(2)})` : `${breakdown.outerFrameMeter.toFixed(2)} mt`}
                       </td>
                       <td className={`py-2.5 px-4 font-mono text-right text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"} print:text-black`}>
                         {isShopMode ? "Metre Tül" : "-"}
                       </td>
                       <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs print:text-black ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                        ₺{(isShopMode ? breakdown.outerFrameCost : breakdown.outerFrameSellingPrice).toFixed(2)}
+                        ₺{((isShopMode ? breakdown.outerFrameCost : breakdown.outerFrameSellingPrice) * qty).toFixed(2)}
+                        {qty > 1 && (
+                          <span className="block text-[10px] opacity-75 font-normal print:hidden">
+                            (Birim: ₺{(isShopMode ? breakdown.outerFrameCost : breakdown.outerFrameSellingPrice).toFixed(2)})
+                          </span>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -632,13 +692,18 @@ export function CostBreakdownModal({
                       </span>
                     </td>
                     <td className={`py-2.5 px-4 font-mono text-[11px] ${isDarkMode ? "text-neutral-300" : "text-slate-600"} print:text-black`}>
-                      {breakdown.glassBackingSqm.toFixed(3)} m²
+                      {qty > 1 ? `${(breakdown.glassBackingSqm * qty).toFixed(3)} m² (${qty}×${breakdown.glassBackingSqm.toFixed(3)})` : `${breakdown.glassBackingSqm.toFixed(3)} m²`}
                     </td>
                     <td className={`py-2.5 px-4 font-mono text-right text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"} print:text-black`}>
                       {isShopMode ? `₺${settings.glassPricePerSqm}/m²` : "-"}
                     </td>
                     <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs print:text-black ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                      ₺{(isShopMode ? breakdown.glassCost : breakdown.glassSellingPrice).toFixed(2)}
+                      ₺{((isShopMode ? breakdown.glassCost : breakdown.glassSellingPrice) * qty).toFixed(2)}
+                      {qty > 1 && (
+                        <span className="block text-[10px] opacity-75 font-normal print:hidden">
+                          (Birim: ₺{(isShopMode ? breakdown.glassCost : breakdown.glassSellingPrice).toFixed(2)})
+                        </span>
+                      )}
                     </td>
                   </tr>
 
@@ -657,13 +722,18 @@ export function CostBreakdownModal({
                       </span>
                     </td>
                     <td className={`py-2.5 px-4 font-mono text-[11px] ${isDarkMode ? "text-neutral-300" : "text-slate-600"} print:text-black`}>
-                      {breakdown.glassBackingSqm.toFixed(3)} m²
+                      {qty > 1 ? `${(breakdown.glassBackingSqm * qty).toFixed(3)} m² (${qty}×${breakdown.glassBackingSqm.toFixed(3)})` : `${breakdown.glassBackingSqm.toFixed(3)} m²`}
                     </td>
                     <td className={`py-2.5 px-4 font-mono text-right text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"} print:text-black`}>
                       {isShopMode ? `₺${settings.backingBoardPricePerSqm}/m²` : "-"}
                     </td>
                     <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs print:text-black ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                      ₺{(isShopMode ? breakdown.backingBoardCost : breakdown.backingBoardSellingPrice).toFixed(2)}
+                      ₺{((isShopMode ? breakdown.backingBoardCost : breakdown.backingBoardSellingPrice) * qty).toFixed(2)}
+                      {qty > 1 && (
+                        <span className="block text-[10px] opacity-75 font-normal print:hidden">
+                          (Birim: ₺{(isShopMode ? breakdown.backingBoardCost : breakdown.backingBoardSellingPrice).toFixed(2)})
+                        </span>
+                      )}
                     </td>
                   </tr>
 
@@ -685,13 +755,18 @@ export function CostBreakdownModal({
                           </span>
                         </td>
                         <td className={`py-2.5 px-4 font-mono text-[11px] ${isDarkMode ? "text-neutral-300" : "text-slate-600"} print:text-black`}>
-                          {breakdown.backingClothSqm.toFixed(3)} m²
+                          {qty > 1 ? `${(breakdown.backingClothSqm * qty).toFixed(3)} m² (${qty}×${breakdown.backingClothSqm.toFixed(3)})` : `${breakdown.backingClothSqm.toFixed(3)} m²`}
                         </td>
                         <td className={`py-2.5 px-4 font-mono text-right text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"} print:text-black`}>
                           {isShopMode ? `₺${settings.backingClothPricePerSqm ?? settings.backingPaperPricePerSqm ?? 90}/m²` : "-"}
                         </td>
                         <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs print:text-black ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                          ₺{(isShopMode ? breakdown.backingClothCost : breakdown.backingClothSellingPrice).toFixed(2)}
+                          ₺{((isShopMode ? breakdown.backingClothCost : breakdown.backingClothSellingPrice) * qty).toFixed(2)}
+                          {qty > 1 && (
+                            <span className="block text-[10px] opacity-75 font-normal print:hidden">
+                              (Birim: ₺{(isShopMode ? breakdown.backingClothCost : breakdown.backingClothSellingPrice).toFixed(2)})
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -715,7 +790,12 @@ export function CostBreakdownModal({
                       <td className={`py-2.5 px-4 font-mono text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-500"} print:text-black`}>-</td>
                       <td className={`py-2.5 px-4 font-mono text-right text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-500"} print:text-black`}>-</td>
                       <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                        ₺{breakdown.wasteCost.toFixed(2)}
+                        ₺{(breakdown.wasteCost * qty).toFixed(2)}
+                        {qty > 1 && (
+                          <span className="block text-[10px] opacity-75 font-normal print:hidden">
+                            (Birim: ₺{breakdown.wasteCost.toFixed(2)})
+                          </span>
+                        )}
                       </td>
                     </tr>
                   )}
@@ -735,13 +815,18 @@ export function CostBreakdownModal({
                       </span>
                     </td>
                     <td className={`py-2.5 px-4 font-mono text-[11px] ${isDarkMode ? "text-neutral-300" : "text-slate-600"} print:text-black`}>
-                      1 Adet
+                      {qty} Adet
                     </td>
                     <td className={`py-2.5 px-4 font-mono text-right text-[11px] ${isDarkMode ? "text-neutral-400" : "text-slate-600"} print:text-black`}>
                       {isShopMode ? `₺${settings.laborFixedCost}` : "-"}
                     </td>
                     <td className={`py-2.5 px-4 font-mono font-bold text-right text-xs print:text-black ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                      ₺{(isShopMode ? breakdown.laborCost : breakdown.laborSellingPrice).toFixed(2)}
+                      ₺{((isShopMode ? breakdown.laborCost : breakdown.laborSellingPrice) * qty).toFixed(2)}
+                      {qty > 1 && (
+                        <span className="block text-[10px] opacity-75 font-normal print:hidden">
+                          (Birim: ₺{(isShopMode ? breakdown.laborCost : breakdown.laborSellingPrice).toFixed(2)})
+                        </span>
+                      )}
                     </td>
                   </tr>
 
@@ -776,65 +861,153 @@ export function CostBreakdownModal({
           </div>
 
           {/* Special Custom Override / Discount Section */}
-          <div className={`print:hidden border p-4 rounded-xl space-y-3 transition-all shadow-xs ${
+          <div className={`print:hidden p-3.5 sm:p-4 rounded-2xl border transition-all shadow-xs space-y-3 ${
             isDarkMode ? "bg-[#181a1d] border-neutral-800" : "bg-[#fdfbf8] border-[#e8dfcf]"
           }`}>
             <div className="flex items-center justify-between">
-              <label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
+              <label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
                 isDarkMode ? "text-neutral-200" : "text-[#7A5A19]"
               }`}>
-                <Tag className={`w-4 h-4 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} /> Müşteriye Özel İskonto / Manuel Fiyat Belirleme
+                <Tag className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+                <span>Özel İskonto / Manuel Fiyat</span>
               </label>
 
               {customOverridePrice && (
                 <button
                   type="button"
                   onClick={handleClearOverride}
-                  className="text-[11px] font-mono font-bold text-red-500 hover:underline cursor-pointer"
+                  className="text-[11px] font-mono font-bold text-red-500 hover:text-red-400 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Özel fiyatı kaldırıp sistemin hesapladığı fiyata dön"
                 >
-                  Hesaplanan Fiyata Dön
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Sıfırla</span>
                 </button>
               )}
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
+            {/* Hızlı İskonto Butonları (%5, %10, %15, %20) */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                isDarkMode ? "text-neutral-400" : "text-slate-500"
+              }`}>
+                Hızlı İskonto:
+              </span>
+              {[5, 10, 15, 20].map((pct) => {
+                const targetTotal = Math.max(1, Math.round(calculatedGenelToplam * (1 - pct / 100)));
+                const isSelected = customOverridePrice != null && Math.abs(currentGenelToplam - targetTotal) <= 1;
+
+                return (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => handleQuickPercentDiscount(pct)}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all cursor-pointer active:scale-95 ${
+                      isSelected
+                        ? (isDarkMode 
+                            ? "bg-[#C5A059] text-black border-[#C5A059] shadow-xs" 
+                            : "bg-[#B88E3A] text-white border-[#B88E3A] shadow-xs")
+                        : (isDarkMode
+                            ? "bg-[#101216] border-white/10 text-neutral-300 hover:border-[#C5A059]/50 hover:text-white"
+                            : "bg-white border-slate-200 text-slate-700 hover:border-[#B88E3A]/50 hover:bg-slate-100")
+                    }`}
+                    title={`%${pct} İskonto Uygula (${qty > 1 ? `Toplam: ₺${targetTotal}` : `₺${targetTotal}`})`}
+                  >
+                    %{pct}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Manuel Tutar Girişi ve Uygula Butonu */}
+            <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <input
                   type="number"
-                  placeholder={`Örn: ${Math.ceil(breakdown.calculatedPriceWithVat)}`}
+                  min="1"
+                  step="any"
+                  placeholder={`Örn: ${calculatedGenelToplam}`}
                   value={overrideInput}
                   onChange={(e) => setOverrideInput(e.target.value)}
-                  className={`w-full border rounded-xl px-3.5 py-2.5 sm:py-2 text-base sm:text-sm font-mono font-bold focus:outline-none transition-colors ${
-                    isDarkMode ? "bg-[#121415] border-[#C5A059]/40 text-white focus:border-[#C5A059]" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] shadow-2xs"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleApplyOverride();
+                    }
+                  }}
+                  className={`w-full border rounded-xl pl-3 pr-28 py-2 text-xs font-mono font-bold focus:outline-none transition-colors ${
+                    isDarkMode 
+                      ? "bg-[#101216] border-white/15 text-white focus:border-[#C5A059]" 
+                      : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] shadow-2xs"
                   }`}
                 />
-                <span className={`absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-mono font-bold ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>₺ (KDV Dahil)</span>
+                <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold pointer-events-none ${
+                  isDarkMode ? "text-neutral-400" : "text-slate-500"
+                }`}>
+                  {qty > 1 ? `₺ (${qty} Adet Toplamı)` : "₺ (KDV Dahil)"}
+                </span>
               </div>
 
               <button
                 type="button"
                 onClick={handleApplyOverride}
-                className={`w-full sm:w-auto px-5 py-2.5 sm:py-2 font-mono font-bold text-xs rounded-xl transition-all shrink-0 shadow-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 ${
-                  isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+                className={`px-3.5 py-2 font-mono font-bold text-xs rounded-xl transition-all shrink-0 shadow-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1 ${
+                  isDarkMode 
+                    ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" 
+                    : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
                 }`}
               >
                 <Tag className="w-3.5 h-3.5" />
-                <span>FİYATI UYGULA</span>
+                <span>Uygula</span>
               </button>
             </div>
 
+            {/* Aktif Özel Fiyat Bilgi Çubuğu */}
             {customOverridePrice ? (
-              <div className={`p-2.5 border rounded-lg text-xs font-mono flex items-center gap-2 ${
+              <div className={`p-2.5 border rounded-xl text-[11px] font-mono flex items-center justify-between gap-2 ${
                 isDarkMode ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-300" : "bg-emerald-50 border-emerald-300 text-emerald-800"
               }`}>
-                <Check className="w-4 h-4 shrink-0 text-emerald-500" />
-                <span>
-                  Özel Müşteri Fiyatı Aktif: <strong className={isDarkMode ? "text-white text-sm" : "text-slate-900 text-sm"}>₺{customOverridePrice.toLocaleString("tr-TR")}</strong>. İş emrine ve sipariş formuna bu fiyat basılacaktır.
-                </span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Check className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                  <span className="truncate">
+                    {qty > 1 ? (
+                      <>
+                        Özel Genel Toplam: <strong className="font-bold">₺{currentGenelToplam.toLocaleString("tr-TR")}</strong>
+                        {totalDiscount > 0 && (
+                          <span className="opacity-80 text-[10px] ml-1">
+                            (-₺{Math.round(totalDiscount).toLocaleString("tr-TR")} indirim)
+                          </span>
+                        )}
+                        <span className="opacity-75 text-[10px] ml-1.5 font-normal">
+                          (Birim: ₺{Number(breakdown.effectiveFinalPriceWithVat.toFixed(2)).toLocaleString("tr-TR")})
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        Özel Fiyat: <strong className="font-bold">₺{currentGenelToplam.toLocaleString("tr-TR")}</strong>
+                        {totalDiscount > 0 && (
+                          <span className="opacity-80 text-[10px] ml-1">
+                            (-₺{Math.round(totalDiscount).toLocaleString("tr-TR")} indirim)
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearOverride}
+                  className="text-[10px] underline font-bold text-red-400 hover:text-red-300 shrink-0 cursor-pointer"
+                >
+                  Kaldır
+                </button>
               </div>
             ) : (
-              <p className={`text-[11px] font-sans ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                💡 İsterseniz yukarıdaki alana pazarlık sonucu anlaştığınız net fiyatı yazabilirsiniz. Boş bırakırsanız otomatik hesaplanan tutar kullanılır.
+              <p className={`text-[10px] leading-tight ${
+                isDarkMode ? "text-neutral-400" : "text-slate-500"
+              }`}>
+                {qty > 1 
+                  ? `💡 İskonto butonlarına tıklayarak veya ${qty} adet için anlaştığınız genel toplam tutarı girerek siparişe özel fiyat tanımlayabilirsiniz.` 
+                  : "💡 İskonto butonlarına tıklayabilir veya müşteriyle anlaştığınız özel birim tutarı yazıp uygulayabilirsiniz. Bu değer sipariş özeti ve sipariş kayıtları ile anında senkronize olur."}
               </p>
             )}
           </div>

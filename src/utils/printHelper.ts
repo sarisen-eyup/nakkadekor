@@ -1090,14 +1090,6 @@ FİRMA: ${companyName}`;
     thermalLabelsHtml += renderSingleSticker(i, totalQuantity);
   }
 
-  // A4 Sayfada Çoklu Basım İçin (3 Sütun x 8 Satır = 24 Etiket Izgarası)
-  let multiGridHtml = "";
-  const multiCount = Math.max(24, totalQuantity);
-  for (let i = 0; i < multiCount; i++) {
-    const seq = (i % totalQuantity) + 1;
-    multiGridHtml += renderSingleSticker(seq, totalQuantity);
-  }
-
   const fullHtml = `
     <!DOCTYPE html>
     <html lang="tr">
@@ -1421,24 +1413,6 @@ FİRMA: ${companyName}`;
             font-family: monospace, -apple-system, sans-serif;
           }
 
-          /* A4 Çoklu Izgara Görünümü (3 Sütun x 8 Satır = 24 Etiket) */
-          .multi-grid-container {
-            display: none;
-            grid-template-columns: repeat(3, 60mm);
-            gap: 3mm 4mm;
-            background: #fff;
-            padding: 10mm;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            border-radius: 4px;
-            justify-content: center;
-          }
-          body.show-multi .multi-grid-container {
-            display: grid;
-          }
-          body.show-multi .single-preview {
-            display: none;
-          }
-
           /* Yazıcı & Termal Etiket Çıktısı (Tam 60x30 mm) */
           @page {
             size: 60mm 30mm;
@@ -1451,7 +1425,7 @@ FİRMA: ${companyName}`;
               padding: 0 !important;
               margin: 0 !important;
             }
-            .no-print-bar, .print-mode-tabs, .preview-label-tag {
+            .no-print-bar, .preview-label-tag {
               display: none !important;
             }
             .preview-stage {
@@ -1479,31 +1453,8 @@ FİRMA: ${companyName}`;
               page-break-after: auto !important;
               break-after: auto !important;
             }
-            body.show-multi .multi-grid-container {
-              display: grid !important;
-              padding: 8mm 6mm !important;
-              box-shadow: none !important;
-              gap: 2.5mm 3.5mm !important;
-            }
-            body.show-multi @page {
-              size: A4 portrait;
-              margin: 8mm;
-            }
           }
         </style>
-        <script>
-          function toggleMode(mode) {
-            if (mode === 'multi') {
-              document.body.classList.add('show-multi');
-              document.getElementById('btn-single').classList.remove('active');
-              document.getElementById('btn-multi').classList.add('active');
-            } else {
-              document.body.classList.remove('show-multi');
-              document.getElementById('btn-single').classList.add('active');
-              document.getElementById('btn-multi').classList.remove('active');
-            }
-          }
-        </script>
       </head>
       <body>
         <div class="no-print-bar">
@@ -1516,15 +1467,6 @@ FİRMA: ${companyName}`;
           </button>
         </div>
 
-        <div class="print-mode-tabs">
-          <button id="btn-single" class="mode-btn active" onclick="toggleMode('single')">
-            ${totalQuantity > 1 ? `60x30 mm Termal Rulo (${totalQuantity} Etiket)` : '60x30 mm Tekli Termal Etiket'}
-          </button>
-          <button id="btn-multi" class="mode-btn" onclick="toggleMode('multi')">
-            A4 Sayfada Çoklu Basım (24'lü Izgara)
-          </button>
-        </div>
-
         <div class="preview-stage">
           <div class="preview-label-tag">
             ${totalQuantity > 1 ? `Sipariş Adedi: ${totalQuantity} Adet. Her bir etiket için 1/${totalQuantity} ... ${totalQuantity}/${totalQuantity} sıra numarası oluşturulmuştur.` : '30mm × 60mm rulo termal etiket veya standart kağıt için hazır format.'}
@@ -1533,11 +1475,6 @@ FİRMA: ${companyName}`;
           <!-- Tekli / Rulo Görünüm (Sipariş Adedi Kadar) -->
           <div class="single-preview" style="display:flex; flex-direction:column; gap:12px; align-items:center;">
             ${thermalLabelsHtml}
-          </div>
-
-          <!-- A4 Çoklu Görünüm -->
-          <div class="multi-grid-container">
-            ${multiGridHtml}
           </div>
         </div>
       </body>

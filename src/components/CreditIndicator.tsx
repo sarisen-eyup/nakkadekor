@@ -273,7 +273,7 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-xs cursor-pointer select-none ${
+      className={`h-9 flex items-center gap-1.5 px-3 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-xs cursor-pointer select-none active:scale-95 ${
         isLowCredits
           ? isDarkMode
             ? "bg-rose-950/25 border-rose-500/40 text-rose-300 hover:bg-rose-900/30"
@@ -292,14 +292,14 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
       <span className={isDarkMode ? "text-neutral-200 font-bold" : "text-slate-800 font-bold"}>HESAP</span>
 
       {loading ? (
-        <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ${
+        <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
           isDarkMode ? "bg-white/10 text-neutral-300" : "bg-slate-100 text-slate-600"
         }`}>
           <Loader2 className={`w-2.5 h-2.5 animate-spin ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
           <span>...</span>
         </span>
       ) : activeUnlimited ? (
-        <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-black ${
+        <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
           isDarkMode 
             ? "bg-emerald-950/60 text-emerald-400 border border-emerald-500/40" 
             : "bg-emerald-50 text-emerald-700 border border-emerald-300/80 shadow-2xs"
@@ -308,7 +308,7 @@ export const CreditIndicator: React.FC<CreditIndicatorProps> = ({
           <span>SINIRSIZ</span>
         </span>
       ) : (
-        <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-black ${
+        <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
           isLowCredits
             ? "bg-rose-500/20 text-rose-500 font-bold border border-rose-400/40"
             : isDarkMode 

@@ -539,7 +539,7 @@ export const ArtworkStep: React.FC<ArtworkStepProps> = ({
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-mono font-bold text-[#C5A059]">
-                      %{Math.round((roomFrameScale || 1) * 100)}
+                      %{Math.round(Math.min(1.0, Math.max(0.10, roomFrameScale || 1)) * 100)}
                     </span>
                     {onResetRoomPosition && (
                       <button
@@ -561,10 +561,10 @@ export const ArtworkStep: React.FC<ArtworkStepProps> = ({
                 <div className="flex items-center gap-2">
                   <input 
                     type="range"
-                    min="0.15"
-                    max="2.50"
-                    step="0.02"
-                    value={roomFrameScale || 1}
+                    min="0.10"
+                    max="1.00"
+                    step="0.01"
+                    value={Math.min(1.0, Math.max(0.10, roomFrameScale || 1))}
                     onChange={(e) => setRoomFrameScale && setRoomFrameScale(Number(e.target.value))}
                     className="flex-1 h-1.5 accent-[#C5A059] cursor-pointer"
                   />

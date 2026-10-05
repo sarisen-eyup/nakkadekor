@@ -1944,7 +1944,8 @@ function SimulatorMain() {
         companyName: companyProfile.companyName || "Nakka Dekor",
         activeProfileName: activeInnerProfile?.name || activeInnerProfile?.code || "Klasik Profil",
         outerProfileName: activeOuterProfile?.name || activeOuterProfile?.code || "",
-        totalPrice: costBreakdown.effectiveFinalPriceWithVat,
+        totalPrice: costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity),
+        quantity: Math.max(1, orderQuantity),
         containerRect: sRect ? {
           left: sRect.left,
           top: sRect.top,
@@ -2369,7 +2370,7 @@ Ara Paspartu (3D): ${middleMatWidth > 0 ? `${middleMatWidth} cm` : 'Yok'}
 Ic Cerceve: ${frameWidth} cm (Profil: ${customFrameFile})
 Dis Cerceve: ${outerFrameWidth > 0 ? `${outerFrameWidth} cm (Profil: ${customOuterFrameFile})` : 'Yok'}
 Toplam Olcu: ${totalW.toFixed(2)}x${totalH.toFixed(2)} cm
-Fiyat: TL ${costBreakdown.effectiveFinalPriceWithVat.toLocaleString('tr-TR')}
+Fiyat: TL ${(costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)).toLocaleString('tr-TR')}${orderQuantity > 1 ? ` (${orderQuantity} Adet Toplamı)` : ''}
 Durum: Onaylandi / Uretime Hazir`;
 
     let qrDataUrl = "";
@@ -2419,7 +2420,7 @@ Durum: Onaylandi / Uretime Hazir`;
         customPaintingFile,
         customFrameFile,
         customOuterFrameFile,
-        effectivePrice: costBreakdown.effectiveFinalPriceWithVat,
+        effectivePrice: costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity),
         deliveryMethod,
         shippingCost: costBreakdown.shippingCost,
         qrDataUrl,
@@ -2548,7 +2549,8 @@ Durum: Onaylandi / Uretime Hazir`;
           innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : customFrameFile,
           outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
           matInfo: matWidth > 0 ? `${matWidth} cm ${getPaspartuColorName(innerMatColor)}` : "Paspartusuz",
-          effectivePrice: costBreakdown.effectiveFinalPriceWithVat,
+          effectivePrice: costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity),
+          quantity: Math.max(1, orderQuantity),
           companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
           authorUser: activeUser?.fullName
         });
@@ -2567,7 +2569,8 @@ Durum: Onaylandi / Uretime Hazir`;
           outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
           totalW,
           totalH,
-          effectivePrice: costBreakdown.effectiveFinalPriceWithVat,
+          effectivePrice: costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity),
+          quantity: Math.max(1, orderQuantity),
           flags: effectiveInclusionFlags,
           costBreakdown,
           companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
@@ -3142,7 +3145,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
     }`}>
       
       {/* 1. Header with AI Studio styling & Gold Highlights */}
-      <header className={`w-full h-auto lg:h-18 py-2.5 sm:py-3 lg:py-0 border-b flex flex-col lg:flex-row items-center justify-between px-3 sm:px-5 lg:px-7 flex-shrink-0 z-20 shadow-sm gap-2.5 lg:gap-3 transition-colors duration-200 rounded-b-2xl md:rounded-b-3xl ${
+      <header className={`w-full h-auto lg:h-18 py-2.5 sm:py-3 lg:py-0 border-b flex flex-col lg:flex-row items-center justify-between px-3 sm:px-5 lg:px-7 flex-shrink-0 z-20 shadow-sm gap-2.5 lg:gap-3 transition-colors duration-200 rounded-none ${
         isDarkMode ? "bg-[#14171e] border-white/10" : "bg-white border-slate-200"
       }`}>
         {/* Top bar on Mobile & Tablet / Left Branding on Desktop */}
@@ -3220,14 +3223,14 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
           </div>
         </div>
         
-        {/* Core Actions & Desktop Utilities */}
-        <div className="w-full lg:w-auto flex flex-col sm:flex-row items-center gap-2 shrink-0">
-          {/* Primary Operations Cluster - Grid on mobile, flex row on tablet and desktop */}
-          <div className="grid grid-cols-4 sm:flex items-center gap-1.5 w-full lg:w-auto">
-            {/* 1. New Frame / Reset Simulator Button (YENİ) */}
+        {/* Core Actions & System Controls - 5 Ordered Groups */}
+        <div className="w-full lg:w-auto flex items-center gap-1.5 sm:gap-2 lg:gap-2.5 shrink-0 overflow-x-auto no-scrollbar py-1 lg:py-0">
+          
+          {/* 1. GRUP: YENİ */}
+          <div className="flex items-center shrink-0">
             <button
               onClick={handleNewOrderClick}
-              className={`flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-xl border transition-all uppercase text-[10px] sm:text-[11px] font-extrabold tracking-wider shadow-sm cursor-pointer active:scale-95 whitespace-nowrap ${
+              className={`h-9 flex items-center justify-center gap-1.5 px-3 rounded-xl border transition-all uppercase text-[11px] sm:text-xs font-bold tracking-wider shadow-sm cursor-pointer active:scale-95 select-none whitespace-nowrap ${
                 isDarkMode
                   ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25 hover:border-emerald-500/60"
                   : "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100 shadow-2xs"
@@ -3237,30 +3240,17 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>YENİ</span>
             </button>
+          </div>
 
-            {/* 2. Order Archive Button */}
-            <button
-              onClick={() => setIsArchiveModalOpen(true)}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-xl border transition-all uppercase text-[10px] sm:text-[11px] font-bold tracking-wider shadow-sm cursor-pointer whitespace-nowrap ${
-                isDarkMode
-                  ? "bg-[#101216] border-white/10 text-neutral-300 hover:text-white"
-                  : "bg-white border-slate-200 text-slate-700 hover:text-slate-900"
-              }`}
-              title="Geçmiş Sipariş ve Teklif Arşivi"
-            >
-              <Archive className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
-              <span className="hidden xs:inline sm:inline">ARŞİV</span>
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold ${
-                isDarkMode ? "bg-white/10 text-[#C5A059]" : "bg-slate-100 text-[#B88E3A]"
-              }`}>
-                {archiveOrders.length}
-              </span>
-            </button>
+          {/* Grup Ayırıcı */}
+          <div className={`h-5 w-px shrink-0 ${isDarkMode ? "bg-white/15" : "bg-slate-300"}`} />
 
-            {/* 3. Live Price Calculator Button */}
+          {/* 2. GRUP: TUTAR, YAZDIR */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Canlı Fiyat & Tutar */}
             <button 
               onClick={() => setIsCostModalOpen(true)}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 rounded-xl border transition-all uppercase text-[10px] sm:text-[11px] font-bold tracking-wider shadow-sm cursor-pointer whitespace-nowrap ${
+              className={`h-9 flex items-center justify-center gap-1.5 px-3 rounded-xl border transition-all uppercase text-[11px] sm:text-xs font-bold tracking-wider shadow-sm cursor-pointer active:scale-95 select-none whitespace-nowrap ${
                 isDarkMode
                   ? "bg-[#101216] border-white/10 hover:border-[#C5A059]/50 text-white"
                   : "bg-white border-slate-200 hover:border-[#B88E3A]/50 text-slate-900"
@@ -3268,16 +3258,23 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               title="Maliyet Dökümü & Kalem Kalem Fiyat Analizi"
             >
               <Calculator className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
-              <span className="hidden xl:inline text-neutral-400">TUTAR:</span>
-              <strong className={`text-[10px] sm:text-xs font-mono truncate ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
-                ₺{costBreakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")}
+              <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>TUTAR:</span>
+              <strong className={`font-mono ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>
+                ₺{(costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)).toLocaleString("tr-TR")}
               </strong>
+              {orderQuantity > 1 && (
+                <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md ${
+                  isDarkMode ? "bg-[#C5A059]/20 text-[#C5A059]" : "bg-[#B88E3A]/15 text-[#B88E3A]"
+                }`}>
+                  {orderQuantity} Adet
+                </span>
+              )}
             </button>
 
-            {/* 4. Consolidated Unified Print Center Button (Belge Yazdır) */}
+            {/* Yazdır */}
             <button 
               onClick={() => setIsPrintCenterModalOpen(true)}
-              className={`flex items-center justify-center gap-1 sm:gap-1.5 font-extrabold px-2 sm:px-3.5 py-2 sm:py-1.5 transition-all duration-200 uppercase text-[10px] sm:text-[11px] tracking-wider shadow-md active:scale-95 cursor-pointer rounded-xl border whitespace-nowrap ${
+              className={`h-9 flex items-center justify-center gap-1.5 px-3.5 rounded-xl border transition-all uppercase text-[11px] sm:text-xs font-bold tracking-wider shadow-md active:scale-95 cursor-pointer select-none whitespace-nowrap ${
                 isDarkMode
                   ? "bg-[#C5A059] text-black border-[#d6b169] hover:bg-[#b5924d]"
                   : "bg-[#B88E3A] text-white border-[#a67e2f] hover:bg-[#a67e2f]"
@@ -3285,8 +3282,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               title="Belge Yazdır: Sipariş Formu, Üretim Emri, Maliyet Tablosu, 60x30 Termal Arka Etiket"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline sm:inline">YAZDIR</span>
-              <span className={`text-[9px] px-1 sm:px-1.5 py-0.2 rounded-full font-mono font-black ${
+              <span>YAZDIR</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-black ${
                 isDarkMode ? "bg-black/25 text-black" : "bg-black/20 text-white"
               }`}>
                 4
@@ -3294,12 +3291,36 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
             </button>
           </div>
 
-          {/* Subtle Vertical Divider (Desktop only) */}
-          <div className={`hidden lg:block h-5 w-px ${isDarkMode ? "bg-white/15" : "bg-slate-300"}`} />
+          {/* Grup Ayırıcı */}
+          <div className={`h-5 w-px shrink-0 ${isDarkMode ? "bg-white/15" : "bg-slate-300"}`} />
 
-          {/* Desktop System & Configuration Cluster */}
-          <div className="hidden lg:flex items-center gap-1.5 shrink-0">
-            {/* Account & Credit Management Button */}
+          {/* 3. GRUP: ARŞİV */}
+          <div className="flex items-center shrink-0">
+            <button
+              onClick={() => setIsArchiveModalOpen(true)}
+              className={`h-9 flex items-center justify-center gap-1.5 px-3 rounded-xl border transition-all uppercase text-[11px] sm:text-xs font-bold tracking-wider shadow-sm cursor-pointer active:scale-95 select-none whitespace-nowrap ${
+                isDarkMode
+                  ? "bg-[#101216] border-white/10 text-neutral-300 hover:text-white"
+                  : "bg-white border-slate-200 text-slate-700 hover:text-slate-900"
+              }`}
+              title="Geçmiş Sipariş ve Teklif Arşivi"
+            >
+              <Archive className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+              <span>ARŞİV</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                isDarkMode ? "bg-white/10 text-[#C5A059]" : "bg-slate-100 text-[#B88E3A]"
+              }`}>
+                {archiveOrders.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Grup Ayırıcı */}
+          <div className={`h-5 w-px shrink-0 ${isDarkMode ? "bg-white/15" : "bg-slate-300"}`} />
+
+          {/* 4. GRUP: HESAP, AYARLAR */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Hesap ve Kredi Göstergesi */}
             <CreditIndicator
               variant="desktop"
               isDarkMode={isDarkMode}
@@ -3313,10 +3334,10 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               onCreditUpdate={handleCreditUpdate}
             />
 
-            {/* Settings Button */}
+            {/* Ayarlar Butonu */}
             <button 
               onClick={() => setIsSettingsOpen(true)}
-              className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl border transition-all uppercase text-[10px] font-bold tracking-wider shadow-sm cursor-pointer whitespace-nowrap ${
+              className={`h-9 flex items-center justify-center gap-1.5 px-3 rounded-xl border transition-all uppercase text-[11px] sm:text-xs font-bold tracking-wider shadow-sm cursor-pointer active:scale-95 select-none whitespace-nowrap ${
                 isDarkMode
                   ? "bg-[#101216] border-white/10 text-neutral-300 hover:text-white"
                   : "bg-white border-slate-200 text-slate-700 hover:text-slate-900"
@@ -3324,13 +3345,19 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               title="Birim Fiyat Ayarları & Çerçeve Veritabanı"
             >
               <Settings className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
-              <span className="hidden xl:inline">AYARLAR</span>
+              <span>AYARLAR</span>
             </button>
+          </div>
 
-            {/* Light / Dark Mode Switcher Button */}
+          {/* Grup Ayırıcı */}
+          <div className={`h-5 w-px shrink-0 ${isDarkMode ? "bg-white/15" : "bg-slate-300"}`} />
+
+          {/* 5. GRUP: AÇIK MOD / KOYU MOD, ÇIKIŞ */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Açık Mod / Koyu Mod */}
             <button
               onClick={() => setThemeMode(isDarkMode ? "light" : "dark")}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm whitespace-nowrap ${
+              className={`h-9 flex items-center justify-center gap-1.5 px-3 rounded-xl border transition-all uppercase text-[11px] sm:text-xs font-bold tracking-wider shadow-sm cursor-pointer active:scale-95 select-none whitespace-nowrap ${
                 isDarkMode
                   ? "bg-[#101216] border-white/10 text-[#C5A059] hover:bg-[#1a1e26]"
                   : "bg-slate-100 border-slate-200 text-[#B88E3A] hover:bg-slate-200"
@@ -3338,21 +3365,24 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               title={isDarkMode ? "Açık Moda Geç" : "Koyu Moda Geç"}
             >
               {isDarkMode ? <Sun className="w-3.5 h-3.5 text-[#C5A059]" /> : <Moon className="w-3.5 h-3.5 text-[#B88E3A]" />}
+              <span>{isDarkMode ? "AÇIK MOD" : "KOYU MOD"}</span>
             </button>
 
-            {/* Logout Button */}
+            {/* Çıkış */}
             <button
               onClick={handleLogout}
-              className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+              className={`h-9 flex items-center justify-center gap-1.5 px-3 rounded-xl border transition-all uppercase text-[11px] sm:text-xs font-bold tracking-wider shadow-sm cursor-pointer active:scale-95 select-none whitespace-nowrap ${
                 isDarkMode
-                  ? "bg-[#101216] border-white/10 text-neutral-400 hover:text-rose-400 hover:border-rose-400/30"
-                  : "bg-white border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-200"
+                  ? "bg-[#101216] border-white/10 text-neutral-300 hover:text-rose-400 hover:border-rose-400/40"
+                  : "bg-white border-slate-200 text-slate-700 hover:text-rose-600 hover:border-rose-300"
               }`}
               title="Oturumu Kapat (Giriş Ekranına Dön)"
             >
               <LogOut className="w-3.5 h-3.5" />
+              <span>ÇIKIŞ</span>
             </button>
           </div>
+
         </div>
       </header>
 
@@ -3392,7 +3422,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
       <main className="flex-grow flex flex-col lg:flex-row lg:overflow-hidden">
           
           {/* Left Control Panel / Inputs sidebar */}
-          <aside className={`w-full lg:w-[450px] xl:w-[480px] rounded-3xl p-4 sm:p-5 flex flex-col gap-4 flex-shrink-0 z-10 shadow-sm overflow-y-auto order-last lg:order-none transition-colors duration-200 border ${
+          <aside className={`w-full lg:w-[35%] xl:w-[35%] 2xl:w-[35%] lg:min-w-[400px] rounded-none p-4 sm:p-5 flex flex-col gap-4 flex-shrink-0 z-10 shadow-sm overflow-y-auto order-last lg:order-none transition-colors duration-200 border ${
             isDarkMode ? "bg-[#14171d] border-white/10 text-neutral-100" : "bg-white border-slate-200 text-slate-800"
           }`}>
             {/* Step Navigation Pill Bar */}
@@ -3567,12 +3597,14 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 isExistingOrder={Boolean(activeOrderId || archiveOrders.some(o => o.orderNumber === orderNumber))}
                 quantity={orderQuantity}
                 onQuantityChange={setOrderQuantity}
+                customOverridePrice={customOverridePrice}
+                onSetCustomOverridePrice={setCustomOverridePrice}
               />
             )}
           </aside>
 
           {/* Central High-Resolution Wide Virtual Wall Canvas Visualizer & Bottom Actions Bar */}
-          <div className="flex-1 flex flex-col min-w-0 order-first lg:order-none overflow-hidden relative">
+          <div className="flex-1 lg:w-[65%] flex flex-col min-w-0 order-first lg:order-none overflow-hidden relative">
             <section 
               ref={setStageRef} 
               data-no-drag-scroll="true"
@@ -3581,7 +3613,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                   e.preventDefault();
                   const delta = e.deltaY < 0 ? 0.05 : -0.05;
                   if (roomActiveTarget === "frame") {
-                    setRoomFrameScale((prev) => Math.min(2.5, Math.max(0.15, Number((prev + delta).toFixed(2)))));
+                    setRoomFrameScale((prev) => Math.min(1.0, Math.max(0.10, Number((prev + delta).toFixed(2)))));
                   } else {
                     setRoomBgScale((prev) => Math.min(2.5, Math.max(0.50, Number((prev + delta).toFixed(2)))));
                   }
@@ -3669,10 +3701,10 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
 
                     <input 
                       type="range"
-                      min={roomActiveTarget === "frame" ? "0.15" : "0.50"}
-                      max="2.50"
-                      step="0.02"
-                      value={roomActiveTarget === "frame" ? roomFrameScale : roomBgScale}
+                      min={roomActiveTarget === "frame" ? "0.10" : "0.50"}
+                      max={roomActiveTarget === "frame" ? "1.00" : "2.50"}
+                      step={roomActiveTarget === "frame" ? "0.01" : "0.02"}
+                      value={roomActiveTarget === "frame" ? Math.min(1.0, Math.max(0.10, roomFrameScale)) : roomBgScale}
                       onChange={(e) => {
                         const val = Number(e.target.value);
                         if (roomActiveTarget === "frame") setRoomFrameScale(val);
@@ -4067,7 +4099,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         activeProfileName={activeInnerProfile?.name || "Özel Profil"}
         outerProfileName={activeOuterProfile?.name}
         paspartuName={getPaspartuColorName(innerMatColor)}
-        totalPrice={costBreakdown.effectiveFinalPriceWithVat}
+        totalPrice={costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)}
         orderNumber={orderNumber}
         customerName={customerName}
         customerPhone={customerPhone}

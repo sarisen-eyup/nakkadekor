@@ -346,7 +346,7 @@ export const CustomerWallPreviewModal: React.FC<CustomerWallPreviewModalProps> =
     if (activeControlTab === "room") {
       updateBgScale((prev) => Math.min(2.5, Math.max(0.5, Number((prev + delta).toFixed(2)))));
     } else {
-      updateScale((prev) => Math.min(2.5, Math.max(0.15, Number((prev + delta).toFixed(2)))));
+      updateScale((prev) => Math.min(1.0, Math.max(0.10, Number((prev + delta).toFixed(2)))));
     }
   };
 
@@ -821,10 +821,10 @@ export const CustomerWallPreviewModal: React.FC<CustomerWallPreviewModalProps> =
               {activeControlTab === "frame" ? (
                 <input 
                   type="range"
-                  min="0.15"
-                  max="2.50"
-                  step="0.02"
-                  value={scale}
+                  min="0.10"
+                  max="1.00"
+                  step="0.01"
+                  value={Math.min(1.0, Math.max(0.10, scale))}
                   onChange={(e) => updateScale(Number(e.target.value))}
                   className="w-24 sm:w-36 h-1.5 accent-[#C5A059] cursor-pointer"
                 />

@@ -13,7 +13,10 @@ import {
   FileText,
   Printer,
   AlertCircle,
-  Plus
+  Plus,
+  Tag,
+  RotateCcw,
+  Check
 } from "lucide-react";
 import { MaterialInclusionFlags, CostCalculationBreakdown } from "../types/pricing";
 
@@ -58,6 +61,8 @@ interface OrderStepProps {
   isExistingOrder?: boolean;
   quantity?: number;
   onQuantityChange?: (qty: number) => void;
+  customOverridePrice?: number | null;
+  onSetCustomOverridePrice?: (price: number | null) => void;
 }
 
 export const OrderStep: React.FC<OrderStepProps> = ({
@@ -100,7 +105,9 @@ export const OrderStep: React.FC<OrderStepProps> = ({
   onPrevStep,
   isExistingOrder = false,
   quantity = 1,
-  onQuantityChange
+  onQuantityChange,
+  customOverridePrice = null,
+  onSetCustomOverridePrice
 }) => {
   const getTodayIso = () => {
     const today = new Date();
@@ -135,13 +142,53 @@ export const OrderStep: React.FC<OrderStepProps> = ({
 
   const todayIso = getTodayIso();
 
-  // 2. Initial State (İlk Yükleme): Form component'i ilk yüklendiğinde veya arşivden boş bir forma geçildiğinde
-  // quantity değerinin hafızada kalan eski sayıyı değil, her zaman varsayılan 1'i almasını sağla.
+  const qty = Math.max(1, quantity || 1);
+  const naturalUnitPrice = Math.ceil(costBreakdown.calculatedPriceWithVat) + (costBreakdown.shippingCost || 0);
+  const calculatedGenelToplam = naturalUnitPrice * qty;
+  const currentGenelToplam = Math.round(costBreakdown.effectiveFinalPriceWithVat * qty);
+  const totalDiscount = calculatedGenelToplam - currentGenelToplam;
+
+  // Müşteriye Özel İskonto / Manuel Fiyat State & Senkronizasyon (Genel Toplam üzerinden)
+  const [overrideInput, setOverrideInput] = React.useState<string>(
+    customOverridePrice != null ? String(currentGenelToplam) : ""
+  );
+
   useEffect(() => {
-    if (!isExistingOrder && onQuantityChange && quantity !== 1) {
-      onQuantityChange(1);
+    setOverrideInput(customOverridePrice != null ? String(currentGenelToplam) : "");
+  }, [customOverridePrice, qty, currentGenelToplam]);
+
+  const handleApplyOverride = () => {
+    if (!onSetCustomOverridePrice) return;
+    const val = parseFloat(overrideInput);
+    if (!isNaN(val) && val > 0) {
+      // Girilen tutar Genel Toplam'dır; adet başına birim fiyata dönüştürülüp atanır.
+      // Kargo varsa kargo bedeli düşülerek çerçeve birim fiyatı belirlenir.
+      const shippingPerPiece = costBreakdown.shippingCost || 0;
+      const unitTarget = val / qty;
+      const unitFraming = Math.max(0, unitTarget - shippingPerPiece);
+      onSetCustomOverridePrice(Number(unitFraming.toFixed(4)));
+    } else {
+      onSetCustomOverridePrice(null);
+      setOverrideInput("");
     }
-  }, [isExistingOrder]);
+  };
+
+  const handleClearOverride = () => {
+    if (!onSetCustomOverridePrice) return;
+    onSetCustomOverridePrice(null);
+    setOverrideInput("");
+  };
+
+  const handleQuickPercentDiscount = (percent: number) => {
+    if (!onSetCustomOverridePrice) return;
+    // Genel Toplam üzerinden iskonto hesabı
+    const discountedTotal = Math.max(1, Math.round(calculatedGenelToplam * (1 - percent / 100)));
+    const shippingPerPiece = costBreakdown.shippingCost || 0;
+    const unitTarget = discountedTotal / qty;
+    const unitFraming = Math.max(0, unitTarget - shippingPerPiece);
+    setOverrideInput(String(discountedTotal));
+    onSetCustomOverridePrice(Number(unitFraming.toFixed(4)));
+  };
 
   const handleCreateOrderClick = (asNewOrder: boolean = false) => {
     let hasError = false;
@@ -605,12 +652,17 @@ export const OrderStep: React.FC<OrderStepProps> = ({
             </span>
             <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
               <span className="text-xl font-mono font-extrabold text-[#C5A059]">
-                ₺{(costBreakdown.effectiveFinalPriceWithVat * Math.max(1, quantity || 1)).toLocaleString("tr-TR")}
+                ₺{(costBreakdown.effectiveFinalPriceWithVat * qty).toLocaleString("tr-TR")}
               </span>
+              {customOverridePrice && totalDiscount > 0 && (
+                <span className="text-[10px] line-through opacity-60 font-mono text-neutral-400">
+                  ₺{calculatedGenelToplam.toLocaleString("tr-TR")}
+                </span>
+              )}
               <div className="flex items-center gap-2">
-                {(quantity || 1) > 1 && (
+                {qty > 1 && (
                   <span className="text-[10px] font-mono text-neutral-300">
-                    ({quantity} Adet × ₺{costBreakdown.effectiveFinalPriceWithVat.toLocaleString("tr-TR")})
+                    ({qty} Adet × ₺{Number(costBreakdown.effectiveFinalPriceWithVat.toFixed(2)).toLocaleString("tr-TR")})
                   </span>
                 )}
                 <button
@@ -673,6 +725,158 @@ export const OrderStep: React.FC<OrderStepProps> = ({
             </button>
           )}
         </div>
+      </div>
+
+      {/* 2.5 Müşteriye Özel İskonto / Manuel Fiyat Belirleme Bölümü */}
+      <div className={`p-3.5 sm:p-4 rounded-2xl border transition-all shadow-xs space-y-3 ${
+        isDarkMode ? "bg-[#14171d] border-white/10" : "bg-white border-slate-200"
+      }`}>
+        <div className="flex items-center justify-between">
+          <label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+            isDarkMode ? "text-neutral-200" : "text-[#7A5A19]"
+          }`}>
+            <Tag className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+            <span>Özel İskonto / Manuel Fiyat</span>
+          </label>
+
+          {customOverridePrice && (
+            <button
+              type="button"
+              onClick={handleClearOverride}
+              className="text-[11px] font-mono font-bold text-red-500 hover:text-red-400 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+              title="Özel fiyatı kaldırıp sistemin hesapladığı fiyata dön"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Sıfırla</span>
+            </button>
+          )}
+        </div>
+
+        {/* Hızlı İskonto Butonları (%5, %10, %15, %20) */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${
+            isDarkMode ? "text-neutral-400" : "text-slate-500"
+          }`}>
+            Hızlı İskonto:
+          </span>
+          {[5, 10, 15, 20].map((pct) => {
+            const targetTotal = Math.max(1, Math.round(calculatedGenelToplam * (1 - pct / 100)));
+            const isSelected = customOverridePrice != null && Math.abs(currentGenelToplam - targetTotal) <= 1;
+
+            return (
+              <button
+                key={pct}
+                type="button"
+                onClick={() => handleQuickPercentDiscount(pct)}
+                className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all cursor-pointer active:scale-95 ${
+                  isSelected
+                    ? (isDarkMode 
+                        ? "bg-[#C5A059] text-black border-[#C5A059] shadow-xs" 
+                        : "bg-[#B88E3A] text-white border-[#B88E3A] shadow-xs")
+                    : (isDarkMode
+                        ? "bg-[#101216] border-white/10 text-neutral-300 hover:border-[#C5A059]/50 hover:text-white"
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:border-[#B88E3A]/50 hover:bg-slate-100")
+                }`}
+                title={`%${pct} İskonto Uygula (${qty > 1 ? `Toplam: ₺${targetTotal}` : `₺${targetTotal}`})`}
+              >
+                %{pct}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Manuel Tutar Girişi ve Uygula Butonu */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <input
+              type="number"
+              min="1"
+              step="any"
+              placeholder={`Örn: ${calculatedGenelToplam}`}
+              value={overrideInput}
+              onChange={(e) => setOverrideInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleApplyOverride();
+                }
+              }}
+              className={`w-full border rounded-xl pl-3 pr-28 py-2 text-xs font-mono font-bold focus:outline-none transition-colors ${
+                isDarkMode 
+                  ? "bg-[#101216] border-white/15 text-white focus:border-[#C5A059]" 
+                  : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] shadow-2xs"
+              }`}
+            />
+            <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold pointer-events-none ${
+              isDarkMode ? "text-neutral-400" : "text-slate-500"
+            }`}>
+              {qty > 1 ? `₺ (${qty} Adet Toplamı)` : "₺ (KDV Dahil)"}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleApplyOverride}
+            className={`px-3.5 py-2 font-mono font-bold text-xs rounded-xl transition-all shrink-0 shadow-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1 ${
+              isDarkMode 
+                ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" 
+                : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+            }`}
+          >
+            <Tag className="w-3.5 h-3.5" />
+            <span>Uygula</span>
+          </button>
+        </div>
+
+        {/* Aktif Özel Fiyat Bilgi Çubuğu */}
+        {customOverridePrice ? (
+          <div className={`p-2.5 border rounded-xl text-[11px] font-mono flex items-center justify-between gap-2 ${
+            isDarkMode ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-300" : "bg-emerald-50 border-emerald-300 text-emerald-800"
+          }`}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Check className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+              <span className="truncate">
+                {qty > 1 ? (
+                  <>
+                    Özel Genel Toplam: <strong className="font-bold">₺{currentGenelToplam.toLocaleString("tr-TR")}</strong>
+                    {totalDiscount > 0 && (
+                      <span className="opacity-80 text-[10px] ml-1">
+                        (-₺{Math.round(totalDiscount).toLocaleString("tr-TR")} indirim)
+                      </span>
+                    )}
+                    <span className="opacity-75 text-[10px] ml-1.5 font-normal">
+                      (Birim: ₺{Number(costBreakdown.effectiveFinalPriceWithVat.toFixed(2)).toLocaleString("tr-TR")})
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Özel Fiyat: <strong className="font-bold">₺{currentGenelToplam.toLocaleString("tr-TR")}</strong>
+                    {totalDiscount > 0 && (
+                      <span className="opacity-80 text-[10px] ml-1">
+                        (-₺{Math.round(totalDiscount).toLocaleString("tr-TR")} indirim)
+                      </span>
+                    )}
+                  </>
+                )}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleClearOverride}
+              className="text-[10px] underline font-bold text-red-400 hover:text-red-300 shrink-0 cursor-pointer"
+            >
+              Kaldır
+            </button>
+          </div>
+        ) : (
+          <p className={`text-[10px] leading-tight ${
+            isDarkMode ? "text-neutral-400" : "text-slate-500"
+          }`}>
+            {qty > 1 
+              ? `💡 İskonto butonlarına tıklayarak veya ${qty} adet için anlaştığınız genel toplam tutarı girerek siparişe özel fiyat tanımlayabilirsiniz.` 
+              : "💡 İskonto butonlarına tıklayabilir veya müşteriyle anlaştığınız özel birim tutarı yazıp uygulayabilirsiniz. Bu değer döküm ve sipariş kayıtları ile anında senkronize olur."}
+          </p>
+        )}
       </div>
 
       {/* Geri Butonu */}

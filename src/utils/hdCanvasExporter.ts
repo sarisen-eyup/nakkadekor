@@ -465,7 +465,7 @@ export async function exportAndDownloadHD(opts: HDCanvasExportOptions): Promise<
   // If positioning wasn't provided or produced invalid numbers, fall back to centered gallery placement
   if (!Number.isFinite(canvasFrameX) || !Number.isFinite(canvasFrameY) || !Number.isFinite(canvasFrameW) || canvasFrameW <= 10 || !Number.isFinite(canvasFrameH) || canvasFrameH <= 10) {
     const frameAspect = totalW / totalH;
-    const safeScale = Math.max(0.2, safeNum(roomFrameScale, 1));
+    const safeScale = Math.min(1.0, Math.max(0.1, safeNum(roomFrameScale, 1)));
     const maxH = canvas.height * 0.62 * safeScale;
     const maxW = canvas.width * 0.50 * safeScale;
 
