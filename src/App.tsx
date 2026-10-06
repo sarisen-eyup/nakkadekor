@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { 
   Upload, 
   Download, 
@@ -445,6 +445,34 @@ function SimulatorMain() {
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState<boolean>(false);
   const [isPrintCenterModalOpen, setIsPrintCenterModalOpen] = useState<boolean>(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState<boolean>(false);
+  const [isOrderModifiedWarningOpen, setIsOrderModifiedWarningOpen] = useState<boolean>(false);
+  const [confirmResetAction, setConfirmResetAction] = useState<
+    | { type: "new" }
+    | { type: "load"; order: OrderArchiveItem; options?: { autoPrint?: "order_form" | "cutting_list" | "label" | "cost" } }
+    | null
+  >(null);
+  const [loadedOrderSnapshot, setLoadedOrderSnapshot] = useState<{
+    orderNumber: string;
+    orderId: string;
+    customerName: string;
+    customerPhone: string;
+    deliveryDate: string;
+    deliveryMethod: "store" | "shipping";
+    orderQuantity: number;
+    artworkWidth: number;
+    artworkHeight: number;
+    customPaintingUrl: string | null;
+    selectedInnerProfileId: string;
+    frameWidth: number;
+    selectedOuterProfileId: string;
+    outerFrameWidth: number;
+    matWidth: number;
+    middleMatWidth: number;
+    innerMatColor: string;
+    outerMatColor: string;
+    inclusionFlags: MaterialInclusionFlags;
+    customOverridePrice: number | null;
+  } | null>(null);
 
   // B2B Subscription, Order Archive, and Session state
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData>(() => loadSubscriptionFromStorage());
@@ -1019,6 +1047,109 @@ function SimulatorMain() {
     flags: effectiveInclusionFlags
   });
 
+  // Takip ve Değişiklik Kontrolü (Madde 2):
+  // Arşivden çağrılan / kaydedilen sipariş üzerinde herhangi bir değişiklik yapıldı mı?
+  const isOrderModified = useMemo(() => {
+    if (!loadedOrderSnapshot) return false;
+    
+    if (customerName.trim() !== loadedOrderSnapshot.customerName.trim()) return true;
+    if (customerPhone.trim() !== loadedOrderSnapshot.customerPhone.trim()) return true;
+    if ((deliveryDate || "") !== (loadedOrderSnapshot.deliveryDate || "")) return true;
+    if (deliveryMethod !== loadedOrderSnapshot.deliveryMethod) return true;
+    if (orderQuantity !== loadedOrderSnapshot.orderQuantity) return true;
+    if (artworkWidth !== loadedOrderSnapshot.artworkWidth) return true;
+    if (artworkHeight !== loadedOrderSnapshot.artworkHeight) return true;
+    if (customPaintingUrl !== loadedOrderSnapshot.customPaintingUrl) return true;
+    if (selectedInnerProfileId !== loadedOrderSnapshot.selectedInnerProfileId) return true;
+    if (Math.abs(frameWidth - loadedOrderSnapshot.frameWidth) > 0.05) return true;
+    if (selectedOuterProfileId !== loadedOrderSnapshot.selectedOuterProfileId) return true;
+    if (Math.abs(outerFrameWidth - loadedOrderSnapshot.outerFrameWidth) > 0.05) return true;
+    if (Math.abs(matWidth - loadedOrderSnapshot.matWidth) > 0.05) return true;
+    if (Math.abs(middleMatWidth - loadedOrderSnapshot.middleMatWidth) > 0.05) return true;
+    if (innerMatColor !== loadedOrderSnapshot.innerMatColor) return true;
+    if (outerMatColor !== loadedOrderSnapshot.outerMatColor) return true;
+    if (customOverridePrice !== loadedOrderSnapshot.customOverridePrice) return true;
+
+    const curF = effectiveInclusionFlags;
+    const snapF = loadedOrderSnapshot.inclusionFlags;
+    if (
+      Boolean(curF.includeArtworkPrint) !== Boolean(snapF.includeArtworkPrint) ||
+      Boolean(curF.includeInnerFrame) !== Boolean(snapF.includeInnerFrame) ||
+      Boolean(curF.includeOuterFrame) !== Boolean(snapF.includeOuterFrame) ||
+      Boolean(curF.includeInnerMat) !== Boolean(snapF.includeInnerMat) ||
+      Boolean(curF.includeMiddleMat) !== Boolean(snapF.includeMiddleMat) ||
+      Boolean(curF.includeGlass) !== Boolean(snapF.includeGlass) ||
+      Boolean(curF.includeBackingBoard) !== Boolean(snapF.includeBackingBoard) ||
+      Boolean(curF.includeBackingCloth) !== Boolean(snapF.includeBackingCloth) ||
+      Boolean(curF.includeKraftTape) !== Boolean(snapF.includeKraftTape) ||
+      Boolean(curF.includeBackingPaper) !== Boolean(snapF.includeBackingPaper) ||
+      Boolean(curF.includeLaborCost) !== Boolean(snapF.includeLaborCost)
+    ) {
+      return true;
+    }
+
+    return false;
+  }, [
+    loadedOrderSnapshot,
+    customerName,
+    customerPhone,
+    deliveryDate,
+    deliveryMethod,
+    orderQuantity,
+    artworkWidth,
+    artworkHeight,
+    customPaintingUrl,
+    selectedInnerProfileId,
+    frameWidth,
+    selectedOuterProfileId,
+    outerFrameWidth,
+    matWidth,
+    middleMatWidth,
+    innerMatColor,
+    outerMatColor,
+    customOverridePrice,
+    effectiveInclusionFlags
+  ]);
+
+  // Ekranda kaydedilmemiş bir sipariş veya değişiklik var mı? (Madde 4)
+  const hasUnsavedWork = useMemo(() => {
+    if (loadedOrderSnapshot) {
+      return isOrderModified;
+    }
+    // Arşivden yüklenmemişse, kullanıcının yaptığı değişiklikler/girişler var mı?
+    const isDefaultClean = 
+      !customPaintingUrl &&
+      !customerName?.trim() &&
+      !customerPhone?.trim() &&
+      !deliveryDate?.trim() &&
+      orderQuantity === 1 &&
+      widthInput === "50" &&
+      heightInput === "70" &&
+      matWidthInput === "0" &&
+      outerFrameWidthInput === "0.0" &&
+      middleMatWidthInput === "0.0" &&
+      customOverridePrice === null &&
+      (!selectedInnerProfileId || (frameProfiles.length > 0 && selectedInnerProfileId === frameProfiles[0]?.id));
+
+    return !isDefaultClean;
+  }, [
+    loadedOrderSnapshot,
+    isOrderModified,
+    customPaintingUrl,
+    customerName,
+    customerPhone,
+    deliveryDate,
+    orderQuantity,
+    widthInput,
+    heightInput,
+    matWidthInput,
+    outerFrameWidthInput,
+    middleMatWidthInput,
+    customOverridePrice,
+    selectedInnerProfileId,
+    frameProfiles
+  ]);
+
   // Settings & Profile save handlers
   const handleSaveSettings = (newSettings: UnitPricesSettings) => {
     setUnitPricesSettings(newSettings);
@@ -1089,7 +1220,7 @@ function SimulatorMain() {
     }
   };
 
-  const handleLoadOrderToWorkspace = (
+  const executeLoadOrderToWorkspace = (
     order: OrderArchiveItem,
     options?: { autoPrint?: "order_form" | "cutting_list" | "label" | "cost" }
   ) => {
@@ -1113,29 +1244,36 @@ function SimulatorMain() {
     });
 
     // 2. Müşteri ve Teslimat Bilgilerini yükle
-    if (order.customerName) setCustomerName(order.customerName);
-    if (order.customerPhone) setCustomerPhone(order.customerPhone);
+    const resolvedCustomerName = order.customerName || "";
+    const resolvedCustomerPhone = order.customerPhone || "";
+    setCustomerName(resolvedCustomerName);
+    setCustomerPhone(resolvedCustomerPhone);
+    
+    let resolvedDeliveryDate = "";
     if (order.deliveryDate) {
       const isoDate = normalizeDateToIso(order.deliveryDate);
-      setDeliveryDate(isoDate || order.deliveryDate);
-      setLoadedOrderOriginalDeliveryDate(isoDate || order.deliveryDate);
+      resolvedDeliveryDate = isoDate || order.deliveryDate;
+      setDeliveryDate(resolvedDeliveryDate);
+      setLoadedOrderOriginalDeliveryDate(resolvedDeliveryDate);
     } else {
       setDeliveryDate("");
       setLoadedOrderOriginalDeliveryDate(null);
     }
     setDeliveryDateError(false);
     setDeliveryDateErrorMessage(null);
-    if (order.deliveryMethod) {
-      setDeliveryMethod(order.deliveryMethod === "pickup" ? "store" : order.deliveryMethod);
-    }
+
+    const resolvedDeliveryMethod = order.deliveryMethod === "pickup" ? "store" : (order.deliveryMethod || "store");
+    setDeliveryMethod(resolvedDeliveryMethod);
 
     // Sipariş Adedini yükle (Varsayılan 1)
-    const loadedQty = order.quantity || order.simulatorConfig?.quantity || 1;
-    setOrderQuantity(Math.max(1, Number(loadedQty) || 1));
+    const loadedQty = Math.max(1, Number(order.quantity || order.simulatorConfig?.quantity) || 1);
+    setOrderQuantity(loadedQty);
 
     // 3. Eser Ölçülerini yükle
-    if (order.artworkWidthCm) setWidthInput(String(order.artworkWidthCm));
-    if (order.artworkHeightCm) setHeightInput(String(order.artworkHeightCm));
+    const resolvedArtW = order.artworkWidthCm || 50;
+    const resolvedArtH = order.artworkHeightCm || 70;
+    setWidthInput(String(resolvedArtW));
+    setHeightInput(String(resolvedArtH));
 
     // 4. Kayıtlı eser görselini yükle
     const savedPainting = order.customPaintingUrl || order.simulatorConfig?.customPaintingUrl;
@@ -1148,6 +1286,8 @@ function SimulatorMain() {
     }
 
     // 5. İç Çerçeve Profilini bul ve yükle
+    let resolvedInnerProfileId = "";
+    let resolvedFrameWidth = 4.0;
     const targetInnerId = order.innerProfileId || order.simulatorConfig?.innerProfileId;
     let foundInner = targetInnerId ? frameProfiles.find(p => p.id === targetInnerId) : null;
     if (!foundInner && order.innerFrameTitle && order.innerFrameTitle !== "Çerçeve Seçilmedi" && order.innerFrameTitle !== "Yok") {
@@ -1165,8 +1305,10 @@ function SimulatorMain() {
 
     if (foundInner) {
       handleSelectInnerProfile(foundInner.id);
+      resolvedInnerProfileId = foundInner.id;
       const customW = order.frameWidthCm || order.simulatorConfig?.frameWidthCm || foundInner.widthCm;
       if (customW) {
+        resolvedFrameWidth = Number(customW);
         setFrameWidthInput(String(customW));
       }
       setInclusionFlags(prev => ({ ...prev, includeInnerFrame: true }));
@@ -1174,14 +1316,18 @@ function SimulatorMain() {
       setCustomFrameFile(order.innerFrameTitle);
       const widthMatch = order.innerFrameTitle.match(/([\d.,]+)\s*cm/i);
       if (widthMatch) {
-        setFrameWidthInput(widthMatch[1].replace(",", "."));
+        resolvedFrameWidth = parseFloat(widthMatch[1].replace(",", ".")) || 4.0;
+        setFrameWidthInput(String(resolvedFrameWidth));
       } else if (order.frameWidthCm) {
+        resolvedFrameWidth = Number(order.frameWidthCm);
         setFrameWidthInput(String(order.frameWidthCm));
       }
       setInclusionFlags(prev => ({ ...prev, includeInnerFrame: true }));
     }
 
     // 6. Dış Çerçeve Profilini bul ve yükle
+    let resolvedOuterProfileId = "";
+    let resolvedOuterFrameWidth = 0.0;
     const targetOuterId = order.outerProfileId || order.simulatorConfig?.outerProfileId;
     let foundOuter = targetOuterId ? frameProfiles.find(p => p.id === targetOuterId) : null;
     if (!foundOuter && order.outerFrameTitle && order.outerFrameTitle !== "Yok" && order.outerFrameTitle !== "Çerçeve Seçilmedi") {
@@ -1195,8 +1341,10 @@ function SimulatorMain() {
 
     if (foundOuter) {
       handleSelectOuterProfile(foundOuter.id);
+      resolvedOuterProfileId = foundOuter.id;
       const customOuterW = order.outerFrameWidthCm || order.simulatorConfig?.outerFrameWidthCm || foundOuter.widthCm;
       if (customOuterW) {
+        resolvedOuterFrameWidth = Number(customOuterW);
         setOuterFrameWidthInput(String(customOuterW));
       }
       setInclusionFlags(prev => ({ ...prev, includeOuterFrame: true }));
@@ -1204,7 +1352,9 @@ function SimulatorMain() {
       const fallbackOuter = frameProfiles.length > 1 ? frameProfiles[1] : (frameProfiles[0] || null);
       if (fallbackOuter) {
         handleSelectOuterProfile(fallbackOuter.id);
+        resolvedOuterProfileId = fallbackOuter.id;
       }
+      resolvedOuterFrameWidth = Number(order.outerFrameWidthCm);
       setOuterFrameWidthInput(String(order.outerFrameWidthCm));
       setInclusionFlags(prev => ({ ...prev, includeOuterFrame: true }));
     } else {
@@ -1214,11 +1364,13 @@ function SimulatorMain() {
     }
 
     // 7. Paspartu ve Renkleri
-    let matW = 0;
+    let resolvedMatW = 0;
+    let resolvedInnerMatColor = "#FAF9F5";
+    let resolvedOuterMatColor = "#FAF9F5";
     if (order.matWidthCm !== undefined) {
-      matW = Number(order.matWidthCm);
+      resolvedMatW = Number(order.matWidthCm);
       setMatWidthInput(String(order.matWidthCm));
-      setInclusionFlags(prev => ({ ...prev, includeInnerMat: matW > 0 }));
+      setInclusionFlags(prev => ({ ...prev, includeInnerMat: resolvedMatW > 0 }));
     } else if (order.matInfo) {
       if (order.matInfo.toLowerCase().includes("paspartusuz") || order.matInfo.toLowerCase().includes("yok")) {
         setMatWidthInput("0");
@@ -1227,53 +1379,91 @@ function SimulatorMain() {
         const matMatch = order.matInfo.match(/([\d.,]+)\s*cm/i);
         if (matMatch) {
           const parsedWidth = matMatch[1].replace(",", ".");
-          matW = parseFloat(parsedWidth) || 0;
+          resolvedMatW = parseFloat(parsedWidth) || 0;
           setMatWidthInput(parsedWidth);
-          setInclusionFlags(prev => ({ ...prev, includeInnerMat: matW > 0 }));
+          setInclusionFlags(prev => ({ ...prev, includeInnerMat: resolvedMatW > 0 }));
         }
         const matText = order.matInfo.toLowerCase();
-        if (matText.includes("siyah")) setInnerMatColor("#1C1C1E");
-        else if (matText.includes("beyaz")) setInnerMatColor("#FFFFFF");
-        else if (matText.includes("krem")) setInnerMatColor("#FAF9F5");
-        else if (matText.includes("antrasit")) setInnerMatColor("#2C2C2E");
-        else if (matText.includes("şeffaf") || matText.includes("seffaf") || matText.includes("cam")) setInnerMatColor("transparent");
+        if (matText.includes("siyah")) resolvedInnerMatColor = "#1C1C1E";
+        else if (matText.includes("beyaz")) resolvedInnerMatColor = "#FFFFFF";
+        else if (matText.includes("krem")) resolvedInnerMatColor = "#FAF9F5";
+        else if (matText.includes("antrasit")) resolvedInnerMatColor = "#2C2C2E";
+        else if (matText.includes("şeffaf") || matText.includes("seffaf") || matText.includes("cam")) resolvedInnerMatColor = "transparent";
       }
     }
 
     if (order.innerMatColor || order.simulatorConfig?.innerMatColor) {
-      setInnerMatColor(order.innerMatColor || order.simulatorConfig?.innerMatColor);
+      resolvedInnerMatColor = order.innerMatColor || order.simulatorConfig?.innerMatColor;
+      setInnerMatColor(resolvedInnerMatColor);
     }
     if (order.outerMatColor || order.simulatorConfig?.outerMatColor) {
-      setOuterMatColor(order.outerMatColor || order.simulatorConfig?.outerMatColor);
+      resolvedOuterMatColor = order.outerMatColor || order.simulatorConfig?.outerMatColor;
+      setOuterMatColor(resolvedOuterMatColor);
     }
 
     // 8. 3D Ara Paspartu
+    let resolvedMiddleMatW = 0.0;
     const middleMatW = order.middleMatWidthCm ?? order.simulatorConfig?.middleMatWidthCm;
     if (middleMatW !== undefined) {
+      resolvedMiddleMatW = Number(middleMatW);
       setMiddleMatWidthInput(String(middleMatW));
       setInclusionFlags(prev => ({ ...prev, includeMiddleMat: Number(middleMatW) > 0 }));
     }
 
     // 9. Malzeme Dahil Edilme Bayrakları
-    const flags = order.inclusionFlags || order.simulatorConfig?.flags;
-    if (flags) {
-      setInclusionFlags(flags);
-    }
+    const resolvedFlags: MaterialInclusionFlags = order.inclusionFlags || order.simulatorConfig?.flags || {
+      includeArtworkPrint: false,
+      includeInnerMat: resolvedMatW > 0,
+      includeInnerFrame: true,
+      includeMiddleMat: resolvedMiddleMatW > 0,
+      includeOuterFrame: resolvedOuterFrameWidth > 0,
+      includeGlass: false,
+      includeBackingBoard: false,
+      includeBackingCloth: false,
+      includeKraftTape: false,
+      includeBackingPaper: false,
+      includeLaborCost: true
+    };
+    setInclusionFlags(resolvedFlags);
 
-    // 10. Özel Fiyat
+    // 10. Özel Fiyat / İskonto
     const override = order.customOverridePrice ?? order.simulatorConfig?.customOverridePrice;
     setCustomOverridePrice(override ?? null);
 
-    // 11. Modalı kapat
+    // 11. Snapshot Kaydet (Değişiklik tespiti için tam temiz referans)
+    setLoadedOrderSnapshot({
+      orderNumber: order.orderNumber,
+      orderId: resolvedId,
+      customerName: resolvedCustomerName,
+      customerPhone: resolvedCustomerPhone,
+      deliveryDate: resolvedDeliveryDate,
+      deliveryMethod: resolvedDeliveryMethod,
+      orderQuantity: loadedQty,
+      artworkWidth: resolvedArtW,
+      artworkHeight: resolvedArtH,
+      customPaintingUrl: savedPainting || null,
+      selectedInnerProfileId: resolvedInnerProfileId,
+      frameWidth: resolvedFrameWidth,
+      selectedOuterProfileId: resolvedOuterProfileId,
+      outerFrameWidth: resolvedOuterFrameWidth,
+      matWidth: resolvedMatW,
+      middleMatWidth: resolvedMiddleMatW,
+      innerMatColor: resolvedInnerMatColor,
+      outerMatColor: resolvedOuterMatColor,
+      inclusionFlags: resolvedFlags,
+      customOverridePrice: override ?? null
+    });
+
+    // 12. Modalı kapat
     setIsArchiveModalOpen(false);
 
-    // 12. Çerçeveleme sekmesini aktif yap (kullanıcı hemen görseli ve ölçüleri görsün)
+    // 13. Çerçeveleme sekmesini aktif yap (kullanıcı hemen görseli ve ölçüleri görsün)
     setActiveSidebarTab("framing");
 
-    // 13. Sayfayı simülatör görsel alanına kaydır
+    // 14. Sayfayı simülatör görsel alanına kaydır
     window.scrollTo({ top: 0, behavior: "smooth" });
 
-    // 14. Otomatik yazdırma isteği varsa kuyruğa al
+    // 15. Otomatik yazdırma isteği varsa kuyruğa al
     if (options?.autoPrint) {
       setPendingAutoPrint(options.autoPrint);
     } else {
@@ -1285,7 +1475,20 @@ function SimulatorMain() {
     }
   };
 
-  // Simülatördeki Tüm Seçenekleri Sıfırlayıp Yeni Çerçeve Tasarımı Başlatma
+  const handleLoadOrderToWorkspace = (
+    order: OrderArchiveItem,
+    options?: { autoPrint?: "order_form" | "cutting_list" | "label" | "cost" }
+  ) => {
+    // Madde 4: Ekranda kaydedilmemiş bir sipariş veya değişiklik varsa onay iste
+    if (hasUnsavedWork) {
+      setConfirmResetAction({ type: "load", order, options });
+      setIsResetConfirmOpen(true);
+      return;
+    }
+    executeLoadOrderToWorkspace(order, options);
+  };
+
+  // Simülatördeki Tüm Seçenekleri Sıfırlayıp Yeni Çerçeve Tasarımı Başlatma (Madde 3)
   const handleResetSimulator = () => {
     // 1. Resim ve eser bilgilerini sıfırla
     setCustomPaintingUrl(null);
@@ -1312,18 +1515,18 @@ function SimulatorMain() {
     handleSelectOuterProfile("");
     setMiddleMatWidthInput("0.0");
 
-    // 5. Müşteri ve teslimat bilgilerini temizle, sipariş adedini varsayılan 1'e sıfırla
+    // 5. Müşteri ve teslimat bilgilerini temizle, sipariş adedini varsayılan 1'e sıfırla (Madde 3)
     setCustomerName("");
     setCustomerPhone("");
     setDeliveryDate("");
     setDeliveryMethod("store");
-    setOrderQuantity(1); // 1. Form Sıfırlama: Sipariş Adedi her zaman açıkça 1'e eşitlenir
+    setOrderQuantity(1); // Madde 3: Yeni butonuna basıldığında adet kesinlikle 1'e sıfırlanır
     setCustomerNameError(false);
     setCustomerPhoneError(false);
     setDeliveryDateError(false);
 
-    // 6. Özel fiyat ve malzeme bayraklarını sıfırla
-    setCustomOverridePrice(null);
+    // 6. Özel fiyat ve malzeme bayraklarını sıfırla (Madde 3)
+    setCustomOverridePrice(null); // Madde 3: İskonto kesinlikle sıfırlanır
     setInclusionFlags({
       includeArtworkPrint: false,
       includeInnerMat: false,
@@ -1350,6 +1553,7 @@ function SimulatorMain() {
     setLoadedOrderOriginalDeliveryDate(null);
     setDeliveryDateErrorMessage(null);
     setDeliveryDateError(false);
+    setLoadedOrderSnapshot(null); // Sıfırlanınca snapshot da temizlenir
     clearWorkspaceDraft();
 
     // 9. Sekmeyi 1. Eser adımına getir
@@ -1357,6 +1561,7 @@ function SimulatorMain() {
 
     // 10. Onay modalını kapat
     setIsResetConfirmOpen(false);
+    setConfirmResetAction(null);
 
     // 11. Sayfa başına yumuşak kaydır
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1374,53 +1579,15 @@ function SimulatorMain() {
     setOrderQuantity(1);
   };
 
-  // Header "YENİ" butonuna tıklandığında kontrol
+  // Header "YENİ" butonuna tıklandığında kontrol (Madde 4)
   const handleNewOrderClick = () => {
-    // 1. Simülatör halihazırda boş/varsayılan durumda mı?
-    const isDefaultClean = 
-      !customPaintingUrl &&
-      !customerName?.trim() &&
-      !customerPhone?.trim() &&
-      !deliveryDate?.trim() &&
-      orderQuantity === 1 &&
-      widthInput === "50" &&
-      heightInput === "70" &&
-      matWidthInput === "0" &&
-      outerFrameWidthInput === "0.0" &&
-      middleMatWidthInput === "0.0" &&
-      customOverridePrice === null &&
-      (!selectedInnerProfileId || (frameProfiles.length > 0 && selectedInnerProfileId === frameProfiles[0]?.id));
-
-    if (isDefaultClean) {
-      handleResetSimulator();
-      return;
-    }
-
-    // 2. Mevcut sipariş numarası arşivde kayıtlı mı?
-    const savedItem = archiveOrders.find(o => o.orderNumber === orderNumber);
-    if (!savedItem) {
-      // Arşivde henüz kayıtlı değil ve veri girişi yapılmış -> Onay modalı göster
+    // Madde 4: Ekranda kaydedilmemiş bir sipariş veya değişiklik varsa onay iste
+    if (hasUnsavedWork) {
+      setConfirmResetAction({ type: "new" });
       setIsResetConfirmOpen(true);
       return;
     }
-
-    // 3. Arşivde kayıtlı ise, kayıt sonrasında herhangi bir değişiklik yapılmış mı?
-    const isModified = 
-      savedItem.customerName !== customerName.trim() ||
-      savedItem.artworkWidthCm !== artworkWidth ||
-      savedItem.artworkHeightCm !== artworkHeight ||
-      (savedItem.innerProfileId && savedItem.innerProfileId !== selectedInnerProfileId) ||
-      (savedItem.matWidthCm !== undefined && Number(savedItem.matWidthCm) !== matWidth) ||
-      (savedItem.quantity !== undefined && Number(savedItem.quantity) !== orderQuantity) ||
-      (savedItem.customPaintingUrl !== customPaintingUrl);
-
-    if (isModified) {
-      // Kayıtlı sipariş üzerinde kaydedilmemiş değişiklikler var -> Onay modalı göster
-      setIsResetConfirmOpen(true);
-    } else {
-      // Sipariş zaten güvenle arşivde kayıtlı, doğrudan sıfırla
-      handleResetSimulator();
-    }
+    handleResetSimulator();
   };
 
   // Select initial inner frame profile if none selected, or synchronize if previous profile was removed
@@ -1437,16 +1604,22 @@ function SimulatorMain() {
     }
   }, [frameProfiles, selectedInnerProfileId]);
 
-  // ESC key listener to close reset confirmation modal
+  // ESC key listener to close confirmation modals
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isResetConfirmOpen) {
-        setIsResetConfirmOpen(false);
+      if (e.key === "Escape") {
+        if (isResetConfirmOpen) {
+          setIsResetConfirmOpen(false);
+          setConfirmResetAction(null);
+        }
+        if (isOrderModifiedWarningOpen) {
+          setIsOrderModifiedWarningOpen(false);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isResetConfirmOpen]);
+  }, [isResetConfirmOpen, isOrderModifiedWarningOpen]);
 
   // Sync inclusionFlags when matWidth / middleMatWidth change
   useEffect(() => {
@@ -1971,11 +2144,17 @@ function SimulatorMain() {
       return;
     }
 
+    if (isOrderModified) {
+      setIsOrderModifiedWarningOpen(true);
+      toast.error("⚠️ Lütfen siparişi güncelleyin veya yeni bir sipariş olarak kaydedin.");
+      return;
+    }
+
     // Kredi Kontrolü: Sınırsız değilse ve kredi sıfır veya altındaysa engelle ve uyar
     const isUnlimited = subscriptionData.isUnlimited || subscriptionData.subscriptionTier === "unlimited";
     if (!isUnlimited && subscriptionData.remainingCredits <= 0) {
       toast.error("Krediniz yetersiz, lütfen kredi yükleyin.");
-      setIsPricingModalOpen(true);
+      setIsSubscriptionModalOpen(true);
       return;
     }
 
@@ -2652,7 +2831,7 @@ Durum: Onaylandi / Uretime Hazir`;
     const isUnlimited = subscriptionData.isUnlimited || subscriptionData.subscriptionTier === "unlimited";
     if (!isUpdate && !isUnlimited && subscriptionData.remainingCredits <= 0) {
       toast.error("Krediniz yetersiz, lütfen kredi yükleyin.");
-      setIsPricingModalOpen(true);
+      setIsSubscriptionModalOpen(true);
       return;
     }
 
@@ -2735,10 +2914,33 @@ Durum: Onaylandi / Uretime Hazir`;
       toast.success(`${currentOrderNum} numaralı sipariş başarıyla güncellendi.`);
     } else if (asNewOrder) {
       toast.success(`${currentOrderNum} numaralı yeni sipariş başarıyla oluşturuldu. Önceki sipariş arşivde korundu.`);
-      setOrderQuantity(1); // 1. Form Sıfırlama: Yeni sipariş oluşturulduğunda quantity varsayılan 1'e sıfırlanır
     } else {
       toast.success("Sipariş başarıyla oluşturuldu.");
     }
+
+    // Sipariş kaydedildiğinde/güncellendiğinde snapshot senkronize edilir (Madde 2)
+    setLoadedOrderSnapshot({
+      orderNumber: currentOrderNum,
+      orderId: resolvedId,
+      customerName: customerName.trim(),
+      customerPhone: fullPhone,
+      deliveryDate: isoDeliveryDate || "",
+      deliveryMethod: deliveryMethod,
+      orderQuantity: Math.max(1, orderQuantity),
+      artworkWidth: artworkWidth,
+      artworkHeight: artworkHeight,
+      customPaintingUrl: customPaintingUrl,
+      selectedInnerProfileId: selectedInnerProfileId,
+      frameWidth: frameWidth,
+      selectedOuterProfileId: selectedOuterProfileId,
+      outerFrameWidth: outerFrameWidth,
+      matWidth: matWidth,
+      middleMatWidth: middleMatWidth,
+      innerMatColor: innerMatColor,
+      outerMatColor: outerMatColor,
+      inclusionFlags: { ...effectiveInclusionFlags },
+      customOverridePrice: customOverridePrice
+    });
 
     setLoadedOrderOriginalDeliveryDate(null);
     setDeliveryDateErrorMessage(null);
@@ -2778,6 +2980,12 @@ Durum: Onaylandi / Uretime Hazir`;
         text: "⚠️ Arka etiket basabilmek için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.",
         type: "error"
       });
+      return;
+    }
+
+    if (isOrderModified) {
+      setIsOrderModifiedWarningOpen(true);
+      toast.error("⚠️ Lütfen siparişi güncelleyin veya yeni bir sipariş olarak kaydedin.");
       return;
     }
 
@@ -2831,6 +3039,12 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
       return;
     }
 
+    if (isOrderModified) {
+      setIsOrderModifiedWarningOpen(true);
+      toast.error("⚠️ Lütfen siparişi güncelleyin veya yeni bir sipariş olarak kaydedin.");
+      return;
+    }
+
     triggerCuttingListPrintWindow({
       cutList,
       customerName,
@@ -2851,6 +3065,12 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         text: "⚠️ Maliyet tablosu basabilmek için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.",
         type: "error"
       });
+      return;
+    }
+
+    if (isOrderModified) {
+      setIsOrderModifiedWarningOpen(true);
+      toast.error("⚠️ Lütfen siparişi güncelleyin veya yeni bir sipariş olarak kaydedin.");
       return;
     }
 
@@ -3264,21 +3484,36 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
 
             {/* Yazdır */}
             <button 
-              onClick={() => setIsPrintCenterModalOpen(true)}
+              onClick={() => {
+                if (isOrderModified) {
+                  setIsOrderModifiedWarningOpen(true);
+                  toast.error("⚠️ Lütfen siparişi güncelleyin veya yeni bir sipariş olarak kaydedin.");
+                  return;
+                }
+                setIsPrintCenterModalOpen(true);
+              }}
               className={`h-9 flex items-center justify-center gap-1.5 px-3.5 rounded-xl border transition-all uppercase text-[11px] sm:text-xs font-bold tracking-wider shadow-md active:scale-95 cursor-pointer select-none whitespace-nowrap ${
-                isDarkMode
-                  ? "bg-[#C5A059] text-black border-[#d6b169] hover:bg-[#b5924d]"
-                  : "bg-[#B88E3A] text-white border-[#a67e2f] hover:bg-[#a67e2f]"
+                isOrderModified
+                  ? (isDarkMode ? "bg-amber-500/20 text-amber-400 border-amber-500/50 hover:bg-amber-500/30" : "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200")
+                  : isDarkMode
+                    ? "bg-[#C5A059] text-black border-[#d6b169] hover:bg-[#b5924d]"
+                    : "bg-[#B88E3A] text-white border-[#a67e2f] hover:bg-[#a67e2f]"
               }`}
-              title="Belge Yazdır: Sipariş Formu, Üretim Emri, Maliyet Tablosu, 60x30 Termal Arka Etiket"
+              title={isOrderModified ? "Siparişte değişiklik yapıldı! Yazdırmak için siparişi güncelleyin veya yeni kaydedin." : "Belge Yazdır: Sipariş Formu, Üretim Emri, Maliyet Tablosu, 60x30 Termal Arka Etiket"}
             >
               <Printer className="w-3.5 h-3.5" />
               <span>YAZDIR</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-black ${
-                isDarkMode ? "bg-black/25 text-black" : "bg-black/20 text-white"
-              }`}>
-                4
-              </span>
+              {isOrderModified ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono font-black bg-amber-500 text-black">
+                  !
+                </span>
+              ) : (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-black ${
+                  isDarkMode ? "bg-black/25 text-black" : "bg-black/20 text-white"
+                }`}>
+                  4
+                </span>
+              )}
             </button>
           </div>
 
@@ -3586,6 +3821,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 onCreateNewOrder={() => handleCreateOrderFromSimulator({ asNewOrder: true })}
                 onPrevStep={activeSidebarTab === "materials" ? () => setActiveSidebarTab("framing") : undefined}
                 isExistingOrder={Boolean(activeOrderId || archiveOrders.some(o => o.orderNumber === orderNumber))}
+                isOrderModified={isOrderModified}
                 quantity={orderQuantity}
                 onQuantityChange={setOrderQuantity}
                 customOverridePrice={customOverridePrice}
@@ -3942,6 +4178,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         isDarkMode={isDarkMode}
         isShopMode={isShopMode}
         isOrderCreated={isOrderCreated}
+        isOrderModified={isOrderModified}
+        onPromptOrderModified={() => setIsOrderModifiedWarningOpen(true)}
         quantity={orderQuantity}
         onQuantityChange={setOrderQuantity}
         companyProfile={companyProfile}
@@ -3957,6 +4195,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         artworkHeightCm={artworkHeight}
         isDarkMode={isDarkMode}
         isOrderCreated={isOrderCreated}
+        isOrderModified={isOrderModified}
+        onPromptOrderModified={() => setIsOrderModifiedWarningOpen(true)}
         quantity={orderQuantity}
       />
 
@@ -3978,8 +4218,12 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         isDarkMode={isDarkMode}
         totalPriceWithVat={costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)}
         isOrderCreated={isOrderCreated}
+        isOrderModified={isOrderModified}
+        onPromptOrderModified={() => setIsOrderModifiedWarningOpen(true)}
         quantity={orderQuantity}
         onCreateOrder={handleCreateOrderFromSimulator}
+        onUpdateOrder={() => handleCreateOrderFromSimulator({ asNewOrder: false })}
+        onCreateNewOrder={() => handleCreateOrderFromSimulator({ asNewOrder: true })}
         onPrintOrderForm={downloadCompositedImage}
         onPrintJobOrder={downloadCompositedImage}
         onPrintCuttingList={handlePrintCuttingList}
@@ -4109,11 +4353,14 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         lightingStyle={lightingStyle}
       />
 
-      {/* Reset Simulator / New Order Confirmation Modal */}
+      {/* Reset Simulator / New Order or Load Confirmation Modal (Madde 4) */}
       {isResetConfirmOpen && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
-          onClick={() => setIsResetConfirmOpen(false)}
+          onClick={() => {
+            setIsResetConfirmOpen(false);
+            setConfirmResetAction(null);
+          }}
         >
           <div 
             className={`w-full max-w-md rounded-3xl border shadow-2xl p-6 relative flex flex-col gap-5 ${
@@ -4128,7 +4375,13 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-bold">Kaydedilmemiş Değişiklikler</h3>
                 <p className={`text-xs mt-1 leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
-                  Mevcut tasarım henüz kaydedilmedi. Simülatörü sıfırlayıp yeni bir siparişe başlamak istediğinize emin misiniz?
+                  {confirmResetAction?.type === "load" ? (
+                    <>
+                      Ekranınızda kaydedilmemiş bir sipariş veya değişiklikler bulunmaktadır. Arşivden <strong className="text-amber-500 font-bold">#{confirmResetAction.order.orderNumber}</strong> numaralı siparişi yüklerseniz mevcut ekran sıfırlanacaktır. Devam etmek istiyor musunuz?
+                    </>
+                  ) : (
+                    "Mevcut tasarım veya sipariş henüz kaydedilmedi. Simülatörü sıfırlayıp yeni bir siparişe başlamak istediğinize emin misiniz?"
+                  )}
                 </p>
               </div>
             </div>
@@ -4143,14 +4396,17 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 <span className="truncate font-sans font-medium">{customerName.trim() || "İsimsiz Müşteri"}</span>
               </div>
               <div className="shrink-0 font-medium">
-                <span>{artworkWidth}×{artworkHeight} cm</span>
+                <span>{orderQuantity} Adet • {artworkWidth}×{artworkHeight} cm</span>
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-2.5 pt-1">
               <button
                 type="button"
-                onClick={() => setIsResetConfirmOpen(false)}
+                onClick={() => {
+                  setIsResetConfirmOpen(false);
+                  setConfirmResetAction(null);
+                }}
                 className={`px-4 py-2.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
                   isDarkMode 
                     ? "border-neutral-700 hover:bg-neutral-800 text-neutral-300" 
@@ -4161,11 +4417,104 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               </button>
               <button
                 type="button"
-                onClick={handleResetSimulator}
+                onClick={() => {
+                  setIsResetConfirmOpen(false);
+                  if (confirmResetAction?.type === "load") {
+                    executeLoadOrderToWorkspace(confirmResetAction.order, confirmResetAction.options);
+                  } else {
+                    handleResetSimulator();
+                  }
+                  setConfirmResetAction(null);
+                }}
                 className="px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-rose-600 hover:bg-rose-500 text-white transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Sıfırla</span>
+                <span>{confirmResetAction?.type === "load" ? "Siparişi Yükle" : "Sıfırla"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Siparişte Değişiklik Yapıldı - Güncelle / Yeni Kaydet Uyarı Modalı (Madde 2) */}
+      {isOrderModifiedWarningOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setIsOrderModifiedWarningOpen(false)}
+        >
+          <div 
+            className={`w-full max-w-md rounded-3xl border shadow-2xl p-6 relative flex flex-col gap-5 ${
+              isDarkMode ? "bg-[#14171e] border-amber-500/40 text-white" : "bg-white border-amber-300 text-slate-900"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/25">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-amber-500">Siparişte Değişiklik Yapıldı</h3>
+                <p className={`text-xs mt-1.5 leading-relaxed ${isDarkMode ? "text-neutral-300" : "text-slate-600"}`}>
+                  Lütfen siparişi güncelleyin veya yeni bir sipariş olarak kaydedin. Belgelerin ve kesim listesinin güncel verilerle basılabilmesi için siparişin kaydedilmesi zorunludur.
+                </p>
+              </div>
+            </div>
+
+            {/* Mini Sipariş Bilgi Kartı */}
+            <div className={`p-3.5 rounded-2xl border text-xs font-mono flex items-center justify-between gap-2 ${
+              isDarkMode ? "bg-black/30 border-white/5 text-neutral-300" : "bg-slate-50 border-slate-200 text-slate-700"
+            }`}>
+              <div className="flex items-center gap-2 truncate">
+                <span className="font-bold text-[#C5A059] dark:text-[#E5C158]">#{orderNumber}</span>
+                <span className="text-neutral-500">•</span>
+                <span className="truncate font-sans font-medium">{customerName.trim() || "İsimsiz Müşteri"}</span>
+              </div>
+              <div className="shrink-0 font-medium">
+                <span>{orderQuantity} Adet • {artworkWidth}×{artworkHeight} cm</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsOrderModifiedWarningOpen(false)}
+                className={`px-4 py-2.5 rounded-xl text-xs font-semibold border transition-colors cursor-pointer text-center ${
+                  isDarkMode 
+                    ? "border-neutral-700 hover:bg-neutral-800 text-neutral-300" 
+                    : "border-slate-200 hover:bg-slate-100 text-slate-700"
+                }`}
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOrderModifiedWarningOpen(false);
+                  handleCreateOrderFromSimulator({ asNewOrder: false });
+                }}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
+                  isDarkMode 
+                    ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" 
+                    : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Siparişi Güncelle</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOrderModifiedWarningOpen(false);
+                  handleCreateOrderFromSimulator({ asNewOrder: true });
+                }}
+                className={`px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
+                  isDarkMode 
+                    ? "border-emerald-500/50 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/40" 
+                    : "border-emerald-600 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Yeni Kaydet</span>
               </button>
             </div>
           </div>

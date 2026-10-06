@@ -14,6 +14,8 @@ interface CuttingListModalProps {
   artworkHeightCm: number;
   isDarkMode?: boolean;
   isOrderCreated?: boolean;
+  isOrderModified?: boolean;
+  onPromptOrderModified?: () => void;
   quantity?: number;
 }
 
@@ -27,6 +29,8 @@ export function CuttingListModal({
   artworkHeightCm,
   isDarkMode = true,
   isOrderCreated = false,
+  isOrderModified = false,
+  onPromptOrderModified,
   quantity = 1
 }: CuttingListModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
@@ -37,6 +41,11 @@ export function CuttingListModal({
   const handlePrint = () => {
     if (!isOrderCreated) {
       toast.error("⚠️ Üretim emri ve kesim listesini yazdırmak için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.");
+      return;
+    }
+    if (isOrderModified) {
+      toast.error("⚠️ Lütfen siparişi güncelleyin veya yeni bir sipariş olarak kaydedin.");
+      if (onPromptOrderModified) onPromptOrderModified();
       return;
     }
     triggerCuttingListPrintWindow({

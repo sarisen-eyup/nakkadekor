@@ -59,6 +59,7 @@ interface OrderStepProps {
   onCreateNewOrder?: () => void;
   onPrevStep?: () => void;
   isExistingOrder?: boolean;
+  isOrderModified?: boolean;
   quantity?: number;
   onQuantityChange?: (qty: number) => void;
   customOverridePrice?: number | null;
@@ -104,6 +105,7 @@ export const OrderStep: React.FC<OrderStepProps> = ({
   onCreateNewOrder,
   onPrevStep,
   isExistingOrder = false,
+  isOrderModified = false,
   quantity = 1,
   onQuantityChange,
   customOverridePrice = null,
@@ -678,14 +680,22 @@ export const OrderStep: React.FC<OrderStepProps> = ({
 
           {isExistingOrder ? (
             <div className="flex flex-col gap-1.5 shrink-0 items-stretch sm:items-end">
+              {isOrderModified && (
+                <div className="text-[10px] text-amber-500 font-bold flex items-center gap-1 animate-pulse justify-center sm:justify-end">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>Değişiklikler kaydedilmedi</span>
+                </div>
+              )}
               <button
                 type="button"
                 id="btn-update-simulator-order"
                 onClick={() => handleCreateOrderClick(false)}
                 className={`px-4 py-2 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer ${
-                  isDarkMode
-                    ? "bg-[#C5A059] text-black hover:bg-[#b5924d]"
-                    : "bg-[#B88E3A] text-white hover:bg-[#a67e2f]"
+                  isOrderModified
+                    ? "ring-2 ring-amber-500/80 ring-offset-1 " + (isDarkMode ? "bg-amber-500 text-black hover:bg-amber-400" : "bg-amber-600 text-white hover:bg-amber-500")
+                    : isDarkMode
+                      ? "bg-[#C5A059] text-black hover:bg-[#b5924d]"
+                      : "bg-[#B88E3A] text-white hover:bg-[#a67e2f]"
                 }`}
                 title="Mevcut siparişi simülatördeki değişikliklerle güncelle"
               >

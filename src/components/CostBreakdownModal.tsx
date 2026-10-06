@@ -21,6 +21,8 @@ interface CostBreakdownModalProps {
   isDarkMode?: boolean;
   isShopMode?: boolean;
   isOrderCreated?: boolean;
+  isOrderModified?: boolean;
+  onPromptOrderModified?: () => void;
   quantity?: number;
   onQuantityChange?: (qty: number) => void;
   companyProfile?: CompanyProfile;
@@ -43,6 +45,8 @@ export function CostBreakdownModal({
   isDarkMode = true,
   isShopMode = false,
   isOrderCreated = false,
+  isOrderModified = false,
+  onPromptOrderModified,
   quantity = 1,
   onQuantityChange,
   companyProfile
@@ -97,6 +101,11 @@ export function CostBreakdownModal({
   const handlePrint = () => {
     if (!isOrderCreated) {
       toast.error("⚠️ Maliyet tablosunu yazdırmak için lütfen önce 'Siparişi Oluştur' butonuna basarak siparişi kaydediniz.");
+      return;
+    }
+    if (isOrderModified) {
+      toast.error("⚠️ Lütfen siparişi güncelleyin veya yeni bir sipariş olarak kaydedin.");
+      if (onPromptOrderModified) onPromptOrderModified();
       return;
     }
     triggerCostBreakdownPrintWindow({

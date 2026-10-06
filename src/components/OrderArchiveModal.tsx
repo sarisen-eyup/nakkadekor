@@ -487,7 +487,6 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                           type="button"
                           onClick={() => {
                             onLoadOrderToWorkspace(order);
-                            onClose();
                           }}
                           title="Bu Siparişi Simülatöre Aktar & Düzenle"
                           className={`flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xs active:scale-95 border ${
