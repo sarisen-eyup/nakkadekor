@@ -18,7 +18,7 @@ import {
   RotateCcw,
   Check
 } from "lucide-react";
-import { MaterialInclusionFlags, CostCalculationBreakdown } from "../types/pricing";
+import { MaterialInclusionFlags, CostCalculationBreakdown, OrderStatus } from "../types/pricing";
 
 interface OrderStepProps {
   inclusionFlags: MaterialInclusionFlags;
@@ -60,6 +60,13 @@ interface OrderStepProps {
   onPrevStep?: () => void;
   isExistingOrder?: boolean;
   isOrderModified?: boolean;
+  isCostAffectingModified?: boolean;
+  isProductionOrDelivered?: boolean;
+  loadedOrderStatus?: OrderStatus | null;
+  orderNotes?: string;
+  onOrderNotesChange?: (notes: string) => void;
+  revisionNote?: string;
+  referencedOrderNumber?: string;
   quantity?: number;
   onQuantityChange?: (qty: number) => void;
   customOverridePrice?: number | null;
@@ -106,6 +113,13 @@ export const OrderStep: React.FC<OrderStepProps> = ({
   onPrevStep,
   isExistingOrder = false,
   isOrderModified = false,
+  isCostAffectingModified = false,
+  isProductionOrDelivered = false,
+  loadedOrderStatus = null,
+  orderNotes = "",
+  onOrderNotesChange,
+  revisionNote = "",
+  referencedOrderNumber = "",
   quantity = 1,
   onQuantityChange,
   customOverridePrice = null,
@@ -236,9 +250,6 @@ export const OrderStep: React.FC<OrderStepProps> = ({
         onCreateNewOrder();
       } else if (onCreateOrder) {
         onCreateOrder({ asNewOrder: true });
-      }
-      if (onQuantityChange) {
-        onQuantityChange(1);
       }
     } else {
       if (onCreateOrder) {
@@ -584,6 +595,38 @@ export const OrderStep: React.FC<OrderStepProps> = ({
             </div>
           </div>
 
+          {/* Sipariş / Atölye Notu ve Revizyon Referans Bilgisi */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="order-notes-input" className={`text-[10px] font-bold uppercase tracking-wider ${
+                isDarkMode ? "text-neutral-300" : "text-slate-700"
+              }`}>
+                Sipariş / Atölye Notu
+              </label>
+              {referencedOrderNumber && (
+                <span className="text-[10px] font-mono font-bold text-amber-500 flex items-center gap-1">
+                  <FileText className="w-3 h-3" />
+                  Ref: #{referencedOrderNumber}
+                </span>
+              )}
+            </div>
+            <textarea
+              id="order-notes-input"
+              rows={2}
+              value={orderNotes || ""}
+              onChange={(e) => onOrderNotesChange && onOrderNotesChange(e.target.value)}
+              placeholder="Sipariş, montaj veya atölye için not..."
+              className={`w-full px-3 py-2 text-xs rounded-xl border transition-all resize-none ${
+                isDarkMode ? "bg-[#101216] border-white/10 text-white focus:border-[#C5A059] focus:outline-none" : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:outline-none"
+              }`}
+            />
+            {referencedOrderNumber && (
+              <p className="mt-1 text-[10px] text-amber-500/90 font-medium flex items-center gap-1">
+                <span>Revize edilen referans sipariş no: <strong>#{referencedOrderNumber}</strong></span>
+              </p>
+            )}
+          </div>
+
           {/* Zorunlu Alanlar Hata Bildirim Çubuğu */}
           {(customerNameError || customerPhoneError || deliveryDateError) && (
             <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 text-[11px] font-bold flex items-center gap-2 animate-pulse">
@@ -679,44 +722,70 @@ export const OrderStep: React.FC<OrderStepProps> = ({
           </div>
 
           {isExistingOrder ? (
-            <div className="flex flex-col gap-1.5 shrink-0 items-stretch sm:items-end">
-              {isOrderModified && (
+            <div className="flex flex-col gap-2 shrink-0 items-stretch sm:items-end w-full sm:w-auto">
+              {/* 1- Üretim ve Teslimat Koruması (Kilit) Uyarı Bildirimi */}
+              {isProductionOrDelivered ? (
+                <div className="p-2 sm:p-2.5 rounded-xl bg-red-500/15 border border-red-500/40 text-red-500 text-[11px] font-bold flex items-center gap-1.5 shadow-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                  <span>Üretimde veya teslim edilmiş bir siparişi güncelleyemezsiniz.</span>
+                </div>
+              ) : isCostAffectingModified ? (
+                /* 2- Maliyet Kontrolü Uyarı Bildirimi */
+                <div className="p-2 sm:p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-500 text-[11px] font-bold flex items-center gap-1.5 shadow-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
+                  <span>Maliyeti etkileyen alanlar (En, Boy, Profil, Cam, Adet) değiştirildiğinde mevcut sipariş güncellenemez.</span>
+                </div>
+              ) : isOrderModified ? (
                 <div className="text-[10px] text-amber-500 font-bold flex items-center gap-1 animate-pulse justify-center sm:justify-end">
                   <AlertCircle className="w-3 h-3" />
-                  <span>Değişiklikler kaydedilmedi</span>
+                  <span>Müşteri / teslimat bilgisi değişti (Fiyat korunur)</span>
                 </div>
-              )}
-              <button
-                type="button"
-                id="btn-update-simulator-order"
-                onClick={() => handleCreateOrderClick(false)}
-                className={`px-4 py-2 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer ${
-                  isOrderModified
-                    ? "ring-2 ring-amber-500/80 ring-offset-1 " + (isDarkMode ? "bg-amber-500 text-black hover:bg-amber-400" : "bg-amber-600 text-white hover:bg-amber-500")
-                    : isDarkMode
-                      ? "bg-[#C5A059] text-black hover:bg-[#b5924d]"
-                      : "bg-[#B88E3A] text-white hover:bg-[#a67e2f]"
-                }`}
-                title="Mevcut siparişi simülatördeki değişikliklerle güncelle"
-              >
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>Siparişi Güncelle</span>
-              </button>
+              ) : null}
 
-              <button
-                type="button"
-                id="btn-create-new-order-from-archive"
-                onClick={() => handleCreateOrderClick(true)}
-                className={`px-3 py-1.5 rounded-xl font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all border active:scale-95 cursor-pointer ${
-                  isDarkMode
-                    ? "border-emerald-500/40 text-emerald-400 bg-emerald-950/30 hover:bg-emerald-900/40 hover:border-emerald-500/70"
-                    : "border-emerald-600 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
-                }`}
-                title="Önceki siparişi arşivde koruyarak, yeni bir sipariş numarası ile yeni sipariş oluştur"
-              >
-                <Plus className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-                <span>Yeni Sipariş Oluştur</span>
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                <button
+                  type="button"
+                  id="btn-update-simulator-order"
+                  disabled={isProductionOrDelivered || isCostAffectingModified}
+                  onClick={() => handleCreateOrderClick(false)}
+                  className={`px-4 py-2 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 ${
+                    isProductionOrDelivered || isCostAffectingModified
+                      ? "opacity-40 cursor-not-allowed bg-neutral-700 text-neutral-400 border border-neutral-600"
+                      : isOrderModified
+                        ? "ring-2 ring-amber-500/80 ring-offset-1 cursor-pointer " + (isDarkMode ? "bg-amber-500 text-black hover:bg-amber-400" : "bg-amber-600 text-white hover:bg-amber-500")
+                        : isDarkMode
+                          ? "bg-[#C5A059] text-black hover:bg-[#b5924d] cursor-pointer"
+                          : "bg-[#B88E3A] text-white hover:bg-[#a67e2f] cursor-pointer"
+                  }`}
+                  title={
+                    isProductionOrDelivered
+                      ? "Üretimde veya teslim edilmiş bir siparişi güncelleyemezsiniz."
+                      : isCostAffectingModified
+                        ? "Maliyeti etkileyen alanlar değiştiğinde sipariş güncellenemez. Lütfen yeni sipariş oluşturun."
+                        : "Mevcut siparişi simülatördeki değişikliklerle güncelle"
+                  }
+                >
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>Siparişi Güncelle</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="btn-create-new-order-from-archive"
+                  onClick={() => handleCreateOrderClick(true)}
+                  className={`px-3.5 py-2 rounded-xl font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all border active:scale-95 cursor-pointer ${
+                    isCostAffectingModified || isProductionOrDelivered
+                      ? "border-emerald-500 bg-emerald-500 text-black font-extrabold shadow-md hover:bg-emerald-400 ring-2 ring-emerald-500/40"
+                      : isDarkMode
+                        ? "border-emerald-500/40 text-emerald-400 bg-emerald-950/30 hover:bg-emerald-900/40 hover:border-emerald-500/70"
+                        : "border-emerald-600 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                  }`}
+                  title="Formdaki verileri koruyarak yeni bir sipariş numarası ve güncel fiyatlarla yeni sipariş oluştur"
+                >
+                  <Plus className="w-3.5 h-3.5 shrink-0" />
+                  <span>Yeni Sipariş Oluştur</span>
+                </button>
+              </div>
             </div>
           ) : (
             <button

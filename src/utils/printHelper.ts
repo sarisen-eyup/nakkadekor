@@ -267,6 +267,9 @@ export interface PrintDocumentDetails {
   companyProfile?: CompanyProfile;
   authorUser?: string;
   quantity?: number;
+  notes?: string;
+  revisionNote?: string;
+  referencedOrderNumber?: string;
 }
 
 export function triggerImagePrintWindow(
@@ -708,6 +711,11 @@ export function triggerImagePrintWindow(
             <div class="doc-badge">
               <div class="doc-badge-no">SİPARİŞ NO: ${details.orderNumber}</div>
               <div class="doc-badge-date">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
+              ${details.referencedOrderNumber || details.revisionNote ? `
+                <div style="background:#fffbeb; border:1px solid #f59e0b; color:#b45309; padding:2px 6px; border-radius:3px; font-weight:bold; font-size:9px; margin-top:3px; text-align:center;">
+                  REVİZE SİPARİŞ ${details.referencedOrderNumber ? `(Ref: #${details.referencedOrderNumber})` : ''}
+                </div>
+              ` : ''}
             </div>
           </div>
 
@@ -857,6 +865,11 @@ export function triggerImagePrintWindow(
                     }
                   </strong>
                 </div>
+                ${details.revisionNote || details.notes ? `
+                  <div style="margin-top: 4px; padding-top: 3px; border-top: 1px dashed #cbd5e1; font-size: 8px; color: #b45309; line-height: 1.25;">
+                    <strong>Not:</strong> ${(details.revisionNote || details.notes || '').replace(/\n/g, '<br />')}
+                  </div>
+                ` : ''}
               </div>
 
               <!-- Üretim Durumu & Karekod -->
@@ -993,6 +1006,9 @@ export interface BackLabelDetails {
   isPro?: boolean;
   authorUser?: string;
   quantity?: number;
+  notes?: string;
+  revisionNote?: string;
+  referencedOrderNumber?: string;
 }
 
 export async function triggerBackLabelPrintWindow(details: BackLabelDetails) {
@@ -1012,13 +1028,17 @@ export async function triggerBackLabelPrintWindow(details: BackLabelDetails) {
   let qrImgSrc = details.qrDataUrl || "";
   if (!qrImgSrc) {
     try {
-      const qrText = `SİPARİŞ NO: ${details.orderNumber}
+      let qrText = `SİPARİŞ NO: ${details.orderNumber}
 MÜŞTERİ: ${details.customerName || 'Belirtilmedi'}
 ESER: ${safeArtW}x${safeArtH} cm
 DIŞ EBAT: ${safeOuterW.toFixed(2)}x${safeOuterH.toFixed(2)} cm
 PROFİL: ${frameName}
 TARİH: ${displayDate}
 FİRMA: ${companyName}`;
+
+      if (details.referencedOrderNumber) {
+        qrText += `\nREVİZYON REF: #${details.referencedOrderNumber}`;
+      }
 
       qrImgSrc = await QRCode.toDataURL(qrText, {
         margin: 0,
@@ -1066,7 +1086,7 @@ FİRMA: ${companyName}`;
           <!-- Siyah Zeminli Sipariş No Rozeti (Bilgi Kartı Genişliğinde) -->
           <div class="sticker-ord-badge">
             <span class="ord-label">SİPARİŞ NO:</span>
-            <span class="ord-val">${details.orderNumber}</span>
+            <span class="ord-val">${details.orderNumber}${details.referencedOrderNumber ? ` (Rev. #${details.referencedOrderNumber})` : ''}</span>
           </div>
 
           <!-- Bilgi Kartı (Müşteri, Ölçüler, Eser, Tarih) -->
@@ -1083,10 +1103,23 @@ FİRMA: ${companyName}`;
               <span class="info-lbl">Eser:</span>
               <span class="info-val font-mono truncate">${safeArtW}×${safeArtH} cm ${frameName ? `(${frameName})` : ''}</span>
             </div>
-            <div class="info-row">
-              <span class="info-lbl">Tarih:</span>
-              <span class="info-val font-mono">${displayDate}</span>
-            </div>
+            ${details.referencedOrderNumber ? `
+              <div class="info-row">
+                <span class="info-lbl" style="color:#d97706; font-weight:bold;">Rev. Ref:</span>
+                <span class="info-val font-mono truncate" style="color:#d97706; font-weight:bold;">#${details.referencedOrderNumber}</span>
+              </div>
+            ` : `
+              <div class="info-row">
+                <span class="info-lbl">Tarih:</span>
+                <span class="info-val font-mono">${displayDate}</span>
+              </div>
+            `}
+            ${(details.revisionNote || details.notes) ? `
+              <div class="info-row">
+                <span class="info-lbl" style="color:#d97706;">Not:</span>
+                <span class="info-val truncate" style="color:#b45309; font-size:7.5px;">${(details.revisionNote || details.notes || '').replace(/[\r\n]+/g, ' ')}</span>
+              </div>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -1504,6 +1537,9 @@ export interface CuttingListPrintDetails {
   artworkHeightCm: number;
   companyProfile?: CompanyProfile;
   quantity?: number;
+  notes?: string;
+  revisionNote?: string;
+  referencedOrderNumber?: string;
 }
 
 export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) {
@@ -1578,6 +1614,11 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
         </div>
         <div style="text-align:right; line-height:1.25;">
           <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:12px; color:#0f172a;">SİPARİŞ NO: ${cutList.orderNumber}</div>
+          ${details.referencedOrderNumber ? `
+            <div style="font-family:'JetBrains Mono', monospace; font-size:9.5px; color:#b45309; font-weight:bold; margin-top:1px;">
+              (Revize Ref: #${details.referencedOrderNumber})
+            </div>
+          ` : ''}
           <div style="font-family:'JetBrains Mono', monospace; font-size:9.5px; color:#64748b; margin-top:1px;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
         </div>
       </div>
@@ -1605,6 +1646,12 @@ export function triggerCuttingListPrintWindow(details: CuttingListPrintDetails) 
           <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:12px; color:#0f172a; margin-top:2px;">${deliveryDate || "—"}</div>
         </div>
       </div>
+
+      ${(details.revisionNote || details.notes) ? `
+        <div style="background:#fffbeb; border:1px solid #fde68a; padding:4px 8px; border-radius:4px; font-size:9.5px; color:#b45309; margin-bottom:7px; line-height:1.35;">
+          <strong>Sipariş Notu / Revizyon:</strong> ${(details.revisionNote || details.notes || '').replace(/\n/g, '<br/>')}
+        </div>
+      ` : ''}
 
       <!-- 3. Kesim Ölçüleri Tablosu -->
       <h3 style="font-size:11px; font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.4px; border-left:3px solid #C5A059; padding-left:6px; line-height:1.2; color:#0f172a;">
@@ -1665,6 +1712,12 @@ export interface CostBreakdownPrintDetails {
   flags: MaterialInclusionFlags;
   companyProfile?: CompanyProfile;
   quantity?: number;
+  customOverridePrice?: number | null;
+  notes?: string;
+  revisionNote?: string;
+  referencedOrderNumber?: string;
+  isHistoricalSnapshot?: boolean;
+  snapshotDate?: string;
 }
 
 export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetails) {
@@ -1691,6 +1744,16 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
         </div>
         <div style="text-align:right; line-height:1.25;">
           <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:14px; color:#0f172a;">SİPARİŞ NO: #${orderNumber}</div>
+          ${details.referencedOrderNumber ? `
+            <div style="font-family:'JetBrains Mono', monospace; font-size:10px; color:#b45309; font-weight:bold; margin-top:2px;">
+              (Revize Ref: #${details.referencedOrderNumber})
+            </div>
+          ` : ''}
+          ${details.isHistoricalSnapshot ? `
+            <div style="font-family:'JetBrains Mono', monospace; font-size:9.5px; color:#b45309; font-weight:bold; margin-top:2px;">
+              [Tarihsel Fiyat Kaydı: ${details.snapshotDate || 'Arşiv'}]
+            </div>
+          ` : ''}
           <div style="font-family:'JetBrains Mono', monospace; font-size:10px; color:#64748b; margin-top:1px;">Tarih: ${new Date().toLocaleDateString('tr-TR')}</div>
         </div>
       </div>
@@ -1701,6 +1764,12 @@ export function triggerCostBreakdownPrintWindow(details: CostBreakdownPrintDetai
         <div><strong>Teslim Tarihi:</strong> <span style="font-family:'JetBrains Mono', monospace;">${deliveryDate || "Normal"}</span></div>
         <div><strong>Eser Ölçüsü:</strong> <span style="font-family:'JetBrains Mono', monospace; font-weight:600;">${artworkWidthCm} × ${artworkHeightCm} cm</span></div>
       </div>
+
+      ${(details.revisionNote || details.notes) ? `
+        <div style="background:#fffbeb; border:1px solid #fde68a; padding:6px 10px; border-radius:4px; font-size:11px; color:#b45309; margin-bottom:12px; line-height:1.35;">
+          <strong>Sipariş Notu / Revizyon:</strong> ${(details.revisionNote || details.notes || '').replace(/\n/g, '<br/>')}
+        </div>
+      ` : ''}
 
       <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:11.5px;">
         <thead>

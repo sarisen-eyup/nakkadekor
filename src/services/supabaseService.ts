@@ -952,7 +952,9 @@ export async function fetchOrdersFromSupabase(): Promise<{ data: OrderArchiveIte
         customPaintingUrl: simulatorConfig?.customPaintingUrl,
         customPaintingFile: simulatorConfig?.customPaintingFile,
         inclusionFlags: simulatorConfig?.flags,
-        customOverridePrice: simulatorConfig?.customOverridePrice
+        customOverridePrice: simulatorConfig?.customOverridePrice,
+        price_snapshot: row.price_snapshot || simulatorConfig?.price_snapshot,
+        cost_breakdown: row.cost_breakdown || simulatorConfig?.cost_breakdown || (row.price_snapshot || simulatorConfig?.price_snapshot)?.costBreakdown
       };
     });
 
@@ -1071,7 +1073,9 @@ export async function createOrderInSupabase(
     outerMatColor: order.outerMatColor,
     customPaintingUrl: safePaintingUrl,
     flags: order.inclusionFlags,
-    customOverridePrice: order.customOverridePrice
+    customOverridePrice: order.customOverridePrice,
+    price_snapshot: order.price_snapshot,
+    cost_breakdown: order.cost_breakdown
   };
 
   // Standard schema payload

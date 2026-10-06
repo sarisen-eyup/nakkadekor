@@ -421,6 +421,16 @@ export const DEFAULT_SUBSCRIPTION: SubscriptionData = {
 
 export type OrderStatus = "quote" | "approved" | "production" | "delivered";
 
+export interface PriceSnapshot {
+  unitPrices: UnitPricesSettings;
+  costBreakdown: CostCalculationBreakdown;
+  innerProfileMeterPrice?: number;
+  outerProfileMeterPrice?: number;
+  innerProfileId?: string;
+  outerProfileId?: string;
+  snapshotDate: string;
+}
+
 export interface OrderArchiveItem {
   id: string;
   orderNumber: string;
@@ -439,6 +449,13 @@ export interface OrderArchiveItem {
   deliveryMethod: "store" | "shipping";
   authorUser?: string;
   quantity?: number; // Sipariş Adedi (Varsayılan 1)
+  notes?: string; // Sipariş / Atölye notu
+  revisionNote?: string; // Revizyon notu
+  referencedOrderNumber?: string; // Revize edilen referans sipariş no
+
+  // Tarihsel Tutarlılık / Price Snapshot
+  price_snapshot?: PriceSnapshot;
+  cost_breakdown?: CostCalculationBreakdown;
 
   // Genişletilmiş Simülatör Konfigürasyonu (Düzenleme ve Simülatöre Aktarma için)
   innerProfileId?: string;

@@ -32,6 +32,11 @@ interface PrintCenterModalProps {
   totalPriceWithVat: number;
   isOrderCreated?: boolean;
   isOrderModified?: boolean;
+  isCostAffectingModified?: boolean;
+  isProductionOrDelivered?: boolean;
+  referencedOrderNumber?: string;
+  revisionNote?: string;
+  orderNotes?: string;
   quantity?: number;
   onCreateOrder?: () => void;
   onUpdateOrder?: () => void;
@@ -65,6 +70,11 @@ export function PrintCenterModal({
   totalPriceWithVat,
   isOrderCreated = false,
   isOrderModified = false,
+  isCostAffectingModified = false,
+  isProductionOrDelivered = false,
+  referencedOrderNumber = "",
+  revisionNote = "",
+  orderNotes = "",
   quantity = 1,
   onCreateOrder,
   onUpdateOrder,
@@ -116,7 +126,7 @@ export function PrintCenterModal({
               <Printer className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold uppercase tracking-wide">BELGE YAZDIR</h2>
                 {!isOrderCreated ? (
                   <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
@@ -125,6 +135,11 @@ export function PrintCenterModal({
                 ) : (
                   <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     <CheckCircle2 className="w-3 h-3" /> YAZDIRMAYA HAZIR
+                  </span>
+                )}
+                {referencedOrderNumber && (
+                  <span className="flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    <FileText className="w-3 h-3" /> Revize Ref: #{referencedOrderNumber}
                   </span>
                 )}
               </div>
@@ -192,36 +207,57 @@ export function PrintCenterModal({
             </div>
           ) : isOrderModified ? (
             <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${
-              isDarkMode 
-                ? "bg-amber-950/40 border-amber-500/40 text-amber-200 shadow-sm" 
-                : "bg-amber-50 border-amber-300 text-amber-900 shadow-xs"
+              isProductionOrDelivered
+                ? (isDarkMode ? "bg-red-950/40 border-red-500/40 text-red-200" : "bg-red-50 border-red-300 text-red-900")
+                : (isDarkMode ? "bg-amber-950/40 border-amber-500/40 text-amber-200 shadow-sm" : "bg-amber-50 border-amber-300 text-amber-900 shadow-xs")
             }`}>
               <div className="flex items-start sm:items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5 sm:mt-0">
+                <div className={`p-2.5 rounded-xl shrink-0 mt-0.5 sm:mt-0 ${
+                  isProductionOrDelivered ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400"
+                }`}>
                   <AlertCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-extrabold text-xs sm:text-sm uppercase tracking-wide flex items-center gap-1.5 text-amber-400">
-                    Siparişte Değişiklik Yapıldı
+                  <h4 className={`font-extrabold text-xs sm:text-sm uppercase tracking-wide flex items-center gap-1.5 ${
+                    isProductionOrDelivered ? "text-red-400" : "text-amber-400"
+                  }`}>
+                    {isProductionOrDelivered
+                      ? "Üretimde / Teslim Edildi Koruması"
+                      : isCostAffectingModified
+                        ? "Maliyet Değişikliği (Onaylı Fiyat Koruması)"
+                        : "Siparişte Değişiklik Yapıldı"}
                   </h4>
                   <p className="text-xs opacity-90 mt-0.5 leading-relaxed">
-                    Lütfen siparişi güncelleyin veya yeni bir sipariş olarak kaydedin. Değişiklikler kaydedilmeden baskı yapılamaz.
+                    {isProductionOrDelivered
+                      ? "Üretimde veya teslim edilmiş bir siparişi güncelleyemezsiniz. Lütfen 'Yeni Kaydet' butonuna basarak yeni bir sipariş olarak kaydedin."
+                      : isCostAffectingModified
+                        ? "Maliyeti etkileyen alanlar (En, Boy, Profil, Cam, Adet) değiştirildiğinde mevcut sipariş güncellenemez. Lütfen 'Yeni Kaydet' ile devam edin."
+                        : "Müşteri veya teslimat bilgileri değişti. Lütfen siparişi güncelleyin veya yeni bir sipariş olarak kaydedin."}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                 <button
                   type="button"
+                  disabled={isProductionOrDelivered || isCostAffectingModified}
                   onClick={() => {
+                    if (isProductionOrDelivered || isCostAffectingModified) return;
                     onClose();
                     if (onUpdateOrder) onUpdateOrder();
                     else if (onCreateOrder) onCreateOrder();
                   }}
-                  className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer ${
-                    isDarkMode 
-                      ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" 
-                      : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+                  className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95 ${
+                    isProductionOrDelivered || isCostAffectingModified
+                      ? "opacity-35 cursor-not-allowed bg-neutral-700 text-neutral-400 border border-neutral-600"
+                      : (isDarkMode ? "bg-[#C5A059] hover:bg-[#b08c48] text-black cursor-pointer" : "bg-[#B88E3A] hover:bg-[#9E7728] text-white cursor-pointer")
                   }`}
+                  title={
+                    isProductionOrDelivered
+                      ? "Üretimde veya teslim edilmiş bir siparişi güncelleyemezsiniz."
+                      : isCostAffectingModified
+                        ? "Maliyeti etkileyen alanlar değiştiğinde güncellenemez."
+                        : "Siparişi Güncelle"
+                  }
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Siparişi Güncelle</span>
@@ -234,9 +270,11 @@ export function PrintCenterModal({
                       onCreateNewOrder();
                     }}
                     className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 border shadow-sm transition-all active:scale-95 cursor-pointer ${
-                      isDarkMode 
-                        ? "border-emerald-500/50 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/40" 
-                        : "border-emerald-600 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
+                      isProductionOrDelivered || isCostAffectingModified
+                        ? "bg-emerald-500 text-black font-extrabold border-emerald-400 hover:bg-emerald-400 ring-2 ring-emerald-500/40"
+                        : (isDarkMode 
+                            ? "border-emerald-500/50 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/40" 
+                            : "border-emerald-600 text-emerald-800 bg-emerald-50 hover:bg-emerald-100")
                     }`}
                   >
                     <span>Yeni Kaydet</span>

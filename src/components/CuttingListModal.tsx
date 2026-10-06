@@ -17,6 +17,9 @@ interface CuttingListModalProps {
   isOrderModified?: boolean;
   onPromptOrderModified?: () => void;
   quantity?: number;
+  notes?: string;
+  revisionNote?: string;
+  referencedOrderNumber?: string;
 }
 
 export function CuttingListModal({
@@ -31,7 +34,10 @@ export function CuttingListModal({
   isOrderCreated = false,
   isOrderModified = false,
   onPromptOrderModified,
-  quantity = 1
+  quantity = 1,
+  notes = "",
+  revisionNote = "",
+  referencedOrderNumber = ""
 }: CuttingListModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const qty = Math.max(1, quantity || 1);
@@ -54,7 +60,10 @@ export function CuttingListModal({
       deliveryDate,
       artworkWidthCm,
       artworkHeightCm,
-      quantity: qty
+      quantity: qty,
+      notes,
+      revisionNote,
+      referencedOrderNumber
     });
   };
 

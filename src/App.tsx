@@ -89,6 +89,7 @@ import {
   SubscriptionData,
   OrderArchiveItem,
   OrderStatus,
+  PriceSnapshot,
   isProPlan,
   EMPTY_COMPANY_PROFILE,
   DEFAULT_FRAME_PROFILES
@@ -451,6 +452,12 @@ function SimulatorMain() {
     | { type: "load"; order: OrderArchiveItem; options?: { autoPrint?: "order_form" | "cutting_list" | "label" | "cost" } }
     | null
   >(null);
+  const [orderNotes, setOrderNotes] = useState<string>("");
+  const [revisionNote, setRevisionNote] = useState<string>("");
+  const [referencedOrderNumber, setReferencedOrderNumber] = useState<string>("");
+  const [loadedOrderStatus, setLoadedOrderStatus] = useState<OrderStatus | null>(null);
+  const [loadedPriceSnapshot, setLoadedPriceSnapshot] = useState<PriceSnapshot | null>(null);
+
   const [loadedOrderSnapshot, setLoadedOrderSnapshot] = useState<{
     orderNumber: string;
     orderId: string;
@@ -472,6 +479,7 @@ function SimulatorMain() {
     outerMatColor: string;
     inclusionFlags: MaterialInclusionFlags;
     customOverridePrice: number | null;
+    status?: OrderStatus;
   } | null>(null);
 
   // B2B Subscription, Order Archive, and Session state
@@ -1047,19 +1055,30 @@ function SimulatorMain() {
     flags: effectiveInclusionFlags
   });
 
-  // Takip ve Değişiklik Kontrolü (Madde 2):
-  // Arşivden çağrılan / kaydedilen sipariş üzerinde herhangi bir değişiklik yapıldı mı?
-  const isOrderModified = useMemo(() => {
+  // 2. Maliyet Tablosu (Cost Table) Render Mantığı (Kural 2):
+  // Arşivden eski bir sipariş yüklendiğinde, ekrandaki 'Maliyet Tablosu' bileşenini sistemin güncel (live)
+  // malzeme fiyatlarından DEĞİL, siparişin içine kaydettiğimiz bu price_snapshot verisinden besle.
+  const displayCostBreakdown: CostCalculationBreakdown = useMemo(() => {
+    if (loadedPriceSnapshot) {
+      return loadedPriceSnapshot.costBreakdown;
+    }
+    return costBreakdown;
+  }, [loadedPriceSnapshot, costBreakdown]);
+
+  const displayUnitPricesSettings: UnitPricesSettings = useMemo(() => {
+    if (loadedPriceSnapshot) {
+      return loadedPriceSnapshot.unitPrices;
+    }
+    return unitPricesSettings;
+  }, [loadedPriceSnapshot, unitPricesSettings]);
+
+  // Takip ve Değişiklik Kontrolü (Kural 1 & 2):
+  // Maliyeti ETKİLEYEN alanlardaki değişiklikler (En, Boy, Profil, Cam, Adet vb.)
+  const isCostAffectingModified = useMemo(() => {
     if (!loadedOrderSnapshot) return false;
     
-    if (customerName.trim() !== loadedOrderSnapshot.customerName.trim()) return true;
-    if (customerPhone.trim() !== loadedOrderSnapshot.customerPhone.trim()) return true;
-    if ((deliveryDate || "") !== (loadedOrderSnapshot.deliveryDate || "")) return true;
-    if (deliveryMethod !== loadedOrderSnapshot.deliveryMethod) return true;
-    if (orderQuantity !== loadedOrderSnapshot.orderQuantity) return true;
     if (artworkWidth !== loadedOrderSnapshot.artworkWidth) return true;
     if (artworkHeight !== loadedOrderSnapshot.artworkHeight) return true;
-    if (customPaintingUrl !== loadedOrderSnapshot.customPaintingUrl) return true;
     if (selectedInnerProfileId !== loadedOrderSnapshot.selectedInnerProfileId) return true;
     if (Math.abs(frameWidth - loadedOrderSnapshot.frameWidth) > 0.05) return true;
     if (selectedOuterProfileId !== loadedOrderSnapshot.selectedOuterProfileId) return true;
@@ -1068,7 +1087,9 @@ function SimulatorMain() {
     if (Math.abs(middleMatWidth - loadedOrderSnapshot.middleMatWidth) > 0.05) return true;
     if (innerMatColor !== loadedOrderSnapshot.innerMatColor) return true;
     if (outerMatColor !== loadedOrderSnapshot.outerMatColor) return true;
+    if (orderQuantity !== loadedOrderSnapshot.orderQuantity) return true;
     if (customOverridePrice !== loadedOrderSnapshot.customOverridePrice) return true;
+    if (customPaintingUrl !== loadedOrderSnapshot.customPaintingUrl) return true;
 
     const curF = effectiveInclusionFlags;
     const snapF = loadedOrderSnapshot.inclusionFlags;
@@ -1091,14 +1112,8 @@ function SimulatorMain() {
     return false;
   }, [
     loadedOrderSnapshot,
-    customerName,
-    customerPhone,
-    deliveryDate,
-    deliveryMethod,
-    orderQuantity,
     artworkWidth,
     artworkHeight,
-    customPaintingUrl,
     selectedInnerProfileId,
     frameWidth,
     selectedOuterProfileId,
@@ -1107,9 +1122,51 @@ function SimulatorMain() {
     middleMatWidth,
     innerMatColor,
     outerMatColor,
+    orderQuantity,
     customOverridePrice,
+    customPaintingUrl,
     effectiveInclusionFlags
   ]);
+
+  // Maliyeti ETKİLEMEYEN alanlardaki değişiklikler (Müşteri Adı, Telefon, Teslim Tarihi, Teslimat Şekli)
+  const isNonCostModified = useMemo(() => {
+    if (!loadedOrderSnapshot) return false;
+    if (customerName.trim() !== loadedOrderSnapshot.customerName.trim()) return true;
+    if (customerPhone.trim() !== loadedOrderSnapshot.customerPhone.trim()) return true;
+    if ((deliveryDate || "") !== (loadedOrderSnapshot.deliveryDate || "")) return true;
+    if (deliveryMethod !== loadedOrderSnapshot.deliveryMethod) return true;
+    return false;
+  }, [
+    loadedOrderSnapshot,
+    customerName,
+    customerPhone,
+    deliveryDate,
+    deliveryMethod
+  ]);
+
+  // Herhangi bir değişiklik var mı?
+  const isOrderModified = useMemo(() => {
+    return isCostAffectingModified || isNonCostModified;
+  }, [isCostAffectingModified, isNonCostModified]);
+
+  // Aktif Sipariş Durumu & Kural 1 (Üretim ve Teslimat Koruması):
+  const activeOrderInArchive = useMemo(() => {
+    return archiveOrders.find(o => (activeOrderId && o.id === activeOrderId) || o.orderNumber === orderNumber);
+  }, [archiveOrders, activeOrderId, orderNumber]);
+
+  const currentOrderStatus: OrderStatus | null = useMemo(() => {
+    return activeOrderInArchive?.status || loadedOrderStatus || loadedOrderSnapshot?.status || null;
+  }, [activeOrderInArchive, loadedOrderStatus, loadedOrderSnapshot]);
+
+  const isProductionOrDelivered = useMemo(() => {
+    return Boolean(
+      currentOrderStatus && (
+        currentOrderStatus === "production" ||
+        (currentOrderStatus as string) === "in_production" ||
+        currentOrderStatus === "delivered"
+      )
+    );
+  }, [currentOrderStatus]);
 
   // Ekranda kaydedilmemiş bir sipariş veya değişiklik var mı? (Madde 4)
   const hasUnsavedWork = useMemo(() => {
@@ -1430,6 +1487,55 @@ function SimulatorMain() {
     const override = order.customOverridePrice ?? order.simulatorConfig?.customOverridePrice;
     setCustomOverridePrice(override ?? null);
 
+    // 10.1 Notlar, Revizyon Referansı ve Sipariş Durumu
+    setOrderNotes(order.notes || "");
+    setRevisionNote(order.revisionNote || "");
+    setReferencedOrderNumber(order.referencedOrderNumber || "");
+    setLoadedOrderStatus(order.status || "quote");
+
+    // 10.2 Tarihsel Fiyat Anlık Görüntüsü (Price Snapshot - Kural 2)
+    let snapshotToLoad: PriceSnapshot | null = order.price_snapshot || order.simulatorConfig?.price_snapshot || null;
+    if (!snapshotToLoad && (order.cost_breakdown || order.simulatorConfig?.cost_breakdown)) {
+      snapshotToLoad = {
+        unitPrices: { ...unitPricesSettings },
+        costBreakdown: (order.cost_breakdown || order.simulatorConfig?.cost_breakdown)!,
+        innerProfileMeterPrice: foundInner?.unitPricePerMeter,
+        outerProfileMeterPrice: foundOuter?.unitPricePerMeter,
+        innerProfileId: resolvedInnerProfileId,
+        outerProfileId: resolvedOuterProfileId,
+        snapshotDate: order.createdAt || new Date().toISOString()
+      };
+    } else if (!snapshotToLoad) {
+      const computedHistoricalBreakdown = calculateCostsAndPricing({
+        artworkWidthCm: resolvedArtW,
+        artworkHeightCm: resolvedArtH,
+        matWidthCm: resolvedMatW,
+        frameWidthCm: resolvedFrameWidth,
+        middleMatWidthCm: resolvedMiddleMatW,
+        outerFrameWidthCm: resolvedOuterFrameWidth,
+        innerMatColor: resolvedInnerMatColor,
+        outerMatColor: resolvedOuterMatColor,
+        selectedInnerProfileMeterPrice: foundInner?.unitPricePerMeter,
+        selectedOuterProfileMeterPrice: foundOuter?.unitPricePerMeter,
+        innerRabbetDepthMm: order.innerRabbetDepthMm,
+        outerRabbetDepthMm: order.outerRabbetDepthMm,
+        customOverridePrice: override ?? null,
+        deliveryMethod: resolvedDeliveryMethod,
+        settings: unitPricesSettings,
+        flags: resolvedFlags
+      });
+      snapshotToLoad = {
+        unitPrices: { ...unitPricesSettings },
+        costBreakdown: computedHistoricalBreakdown,
+        innerProfileMeterPrice: foundInner?.unitPricePerMeter,
+        outerProfileMeterPrice: foundOuter?.unitPricePerMeter,
+        innerProfileId: resolvedInnerProfileId,
+        outerProfileId: resolvedOuterProfileId,
+        snapshotDate: order.createdAt || new Date().toISOString()
+      };
+    }
+    setLoadedPriceSnapshot(snapshotToLoad);
+
     // 11. Snapshot Kaydet (Değişiklik tespiti için tam temiz referans)
     setLoadedOrderSnapshot({
       orderNumber: order.orderNumber,
@@ -1451,7 +1557,8 @@ function SimulatorMain() {
       innerMatColor: resolvedInnerMatColor,
       outerMatColor: resolvedOuterMatColor,
       inclusionFlags: resolvedFlags,
-      customOverridePrice: override ?? null
+      customOverridePrice: override ?? null,
+      status: order.status || "quote"
     });
 
     // 12. Modalı kapat
@@ -1524,6 +1631,11 @@ function SimulatorMain() {
     setCustomerNameError(false);
     setCustomerPhoneError(false);
     setDeliveryDateError(false);
+    setOrderNotes("");
+    setRevisionNote("");
+    setReferencedOrderNumber("");
+    setLoadedOrderStatus(null);
+    setLoadedPriceSnapshot(null);
 
     // 6. Özel fiyat ve malzeme bayraklarını sıfırla (Madde 3)
     setCustomOverridePrice(null); // Madde 3: İskonto kesinlikle sıfırlanır
@@ -2548,7 +2660,7 @@ Ic Cerceve: ${frameWidth} cm (Profil: ${customFrameFile})
 Dis Cerceve: ${outerFrameWidth > 0 ? `${outerFrameWidth} cm (Profil: ${customOuterFrameFile})` : 'Yok'}
 Toplam Olcu: ${totalW.toFixed(2)}x${totalH.toFixed(2)} cm
 Fiyat: TL ${(costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)).toLocaleString('tr-TR')}${orderQuantity > 1 ? ` (${orderQuantity} Adet Toplamı)` : ''}
-Durum: Onaylandi / Uretime Hazir`;
+Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${referencedOrderNumber}` : ''}${(revisionNote || orderNotes) ? `\nNot: ${(revisionNote || orderNotes).replace(/\n/g, ' ')}` : ''}`;
 
     let qrDataUrl = "";
     try {
@@ -2608,7 +2720,10 @@ Durum: Onaylandi / Uretime Hazir`;
           logoUrl: isProPlan(subscriptionData) ? companyProfile.logoUrl : ""
         } : undefined,
         authorUser: activeUser?.fullName,
-        quantity: orderQuantity
+        quantity: orderQuantity,
+        notes: orderNotes,
+        revisionNote: revisionNote,
+        referencedOrderNumber: referencedOrderNumber
       }
     );
 
@@ -2814,18 +2929,61 @@ Durum: Onaylandi / Uretime Hazir`;
     const isoDeliveryDate = normalizeDateToIso(deliveryDate);
 
     const asNewOrder = options?.asNewOrder === true;
+
+    const existingOrder = !asNewOrder ? archiveOrders.find(
+      o => o.orderNumber === orderNumber || (activeOrderId && o.id === activeOrderId)
+    ) : undefined;
+    const isUpdate = !asNewOrder && Boolean(activeOrderId || existingOrder);
+
+    // Kural 1 & 2: Güncelleme Kilit ve Maliyet Kontrolleri
+    if (isUpdate && existingOrder) {
+      const orderSt = existingOrder.status;
+      const isProdOrDeliv = orderSt === "production" || (orderSt as string) === "in_production" || orderSt === "delivered";
+      if (isProdOrDeliv) {
+        toast.error("Üretimde veya teslim edilmiş bir siparişi güncelleyemezsiniz.");
+        return;
+      }
+      if (isCostAffectingModified) {
+        toast.error("Maliyeti etkileyen alanlar (En, Boy, Profil, Cam, Adet) değiştirildiğinde mevcut sipariş güncellenemez. Lütfen 'Yeni Sipariş Oluştur' butonunu kullanın.");
+        return;
+      }
+    }
+
     let currentOrderNum = orderNumber;
+    let oldReferencedOrderNum = referencedOrderNumber;
+    let finalNotes = orderNotes;
+    let finalRevisionNote = revisionNote;
+    let effectiveOverridePrice = customOverridePrice;
+
     if (asNewOrder) {
+      // Kural 3: Formdaki verileri koru ancak order_id değerini sıfırla, yeni sipariş numarası ata
+      oldReferencedOrderNum = orderNumber; // Arşivden çağrılan eski sipariş numarası
       currentOrderNum = generateOrderNumber();
       setOrderNumber(currentOrderNum);
       setActiveOrderId(null);
       setActiveOrderCreatedAt(null);
-    }
 
-    const existingOrder = !asNewOrder ? archiveOrders.find(
-      o => o.orderNumber === currentOrderNum || (activeOrderId && o.id === activeOrderId)
-    ) : undefined;
-    const isUpdate = !asNewOrder && Boolean(activeOrderId || existingOrder);
+      // Kural 3: Güncel malzeme fiyatlarıyla yeni bir 'Genel Toplam' hesaplat (Eski manuel override sıfırlanır)
+      effectiveOverridePrice = null;
+      setCustomOverridePrice(null);
+
+      // Kural 4: Otomatik Referans Notu
+      const autoRefNote = `Sistem Notu: Revize edilen referans sipariş no: ${oldReferencedOrderNum}`;
+      finalRevisionNote = autoRefNote;
+      const trimmedNotes = orderNotes.trim();
+      if (trimmedNotes) {
+        if (!trimmedNotes.includes(autoRefNote)) {
+          finalNotes = `${trimmedNotes}\n${autoRefNote}`;
+        } else {
+          finalNotes = trimmedNotes;
+        }
+      } else {
+        finalNotes = autoRefNote;
+      }
+      setOrderNotes(finalNotes);
+      setRevisionNote(autoRefNote);
+      setReferencedOrderNumber(oldReferencedOrderNum);
+    }
 
     // Kredi Kontrolü: Yeni sipariş oluşturulurken (güncelleme değilse) kredi sıfır veya altındaysa engelle
     const isUnlimited = subscriptionData.isUnlimited || subscriptionData.subscriptionTier === "unlimited";
@@ -2833,6 +2991,76 @@ Durum: Onaylandi / Uretime Hazir`;
       toast.error("Krediniz yetersiz, lütfen kredi yükleyin.");
       setIsSubscriptionModalOpen(true);
       return;
+    }
+
+    // 1, 3, 4: Tarihsel Tutarlılık (Historical Accuracy) ve Price Snapshot Yönetimi
+    let finalPriceSnapshot: PriceSnapshot;
+    let finalCostBreakdownForOrder: CostCalculationBreakdown;
+
+    if (asNewOrder) {
+      // Kural 4: Yeni Fiyatlara Geçiş (Sadece Revizyonda):
+      // Eski snapshot'ı sil, sistemdeki en güncel (zamlı) malzeme birim fiyatlarını çekerek yepyeni maliyet tablosu ve yeni snapshot oluştur.
+      const freshCostBreakdown = calculateCostsAndPricing({
+        artworkWidthCm: artworkWidth,
+        artworkHeightCm: artworkHeight,
+        matWidthCm: matWidth,
+        frameWidthCm: frameWidth,
+        middleMatWidthCm: middleMatWidth,
+        outerFrameWidthCm: outerFrameWidth,
+        innerMatColor: innerMatColor,
+        outerMatColor: outerMatColor,
+        selectedInnerProfileMeterPrice: activeInnerProfile?.unitPricePerMeter,
+        selectedOuterProfileMeterPrice: activeOuterProfile?.unitPricePerMeter,
+        innerRabbetDepthMm: activeInnerRabbetMm,
+        outerRabbetDepthMm: activeOuterRabbetMm,
+        customOverridePrice: null, // Revizyonda eski manuel override sıfırlanır
+        deliveryMethod: deliveryMethod,
+        settings: unitPricesSettings, // En güncel birim fiyatlar
+        flags: effectiveInclusionFlags
+      });
+
+      const freshSnapshot: PriceSnapshot = {
+        unitPrices: { ...unitPricesSettings },
+        costBreakdown: freshCostBreakdown,
+        innerProfileMeterPrice: activeInnerProfile?.unitPricePerMeter,
+        outerProfileMeterPrice: activeOuterProfile?.unitPricePerMeter,
+        innerProfileId: selectedInnerProfileId,
+        outerProfileId: selectedOuterProfileId,
+        snapshotDate: new Date().toLocaleDateString("tr-TR") + " " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+      };
+      setLoadedPriceSnapshot(freshSnapshot);
+      finalPriceSnapshot = freshSnapshot;
+      finalCostBreakdownForOrder = freshCostBreakdown;
+    } else if (isUpdate) {
+      // Kural 3: Maliyeti Etkilemeyen Güncellemeler:
+      // Kullanıcı sadece 'Müşteri Adı' veya 'Not' vb. değiştirip 'Siparişi Güncelle' dediğinde,
+      // mevcut price_snapshot verisini koru, kesinlikle güncel fiyatlarla ezme.
+      const preservedSnapshot: PriceSnapshot = loadedPriceSnapshot || existingOrder?.price_snapshot || existingOrder?.simulatorConfig?.price_snapshot || {
+        unitPrices: { ...unitPricesSettings },
+        costBreakdown: existingOrder?.cost_breakdown || costBreakdown,
+        innerProfileMeterPrice: activeInnerProfile?.unitPricePerMeter,
+        outerProfileMeterPrice: activeOuterProfile?.unitPricePerMeter,
+        innerProfileId: selectedInnerProfileId,
+        outerProfileId: selectedOuterProfileId,
+        snapshotDate: existingOrder?.createdAt || new Date().toISOString()
+      };
+      setLoadedPriceSnapshot(preservedSnapshot);
+      finalPriceSnapshot = preservedSnapshot;
+      finalCostBreakdownForOrder = preservedSnapshot.costBreakdown;
+    } else {
+      // Kural 1: İlk Kez Yeni Sipariş Oluşturulduğunda o anki GÜNCEL malzeme birim fiyatlarıyla snapshot al:
+      const initialSnapshot: PriceSnapshot = {
+        unitPrices: { ...unitPricesSettings },
+        costBreakdown: costBreakdown,
+        innerProfileMeterPrice: activeInnerProfile?.unitPricePerMeter,
+        outerProfileMeterPrice: activeOuterProfile?.unitPricePerMeter,
+        innerProfileId: selectedInnerProfileId,
+        outerProfileId: selectedOuterProfileId,
+        snapshotDate: new Date().toLocaleDateString("tr-TR") + " " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+      };
+      setLoadedPriceSnapshot(initialSnapshot);
+      finalPriceSnapshot = initialSnapshot;
+      finalCostBreakdownForOrder = costBreakdown;
     }
 
     const resolvedId = (!asNewOrder && (activeOrderId || existingOrder?.id)) || ("ord_" + Date.now());
@@ -2847,6 +3075,19 @@ Durum: Onaylandi / Uretime Hazir`;
       }
     }
 
+    // Kural 2 & 3: Teklif/Onaylandı durumunda sadece maliyeti etkilemeyen alanlar güncellendiğinde eski fiyat korunur
+    const finalTotalAmount = isUpdate && existingOrder && !isCostAffectingModified
+      ? (existingOrder.totalAmount ?? (finalCostBreakdownForOrder.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)))
+      : (asNewOrder
+          ? (finalCostBreakdownForOrder.calculatedPriceWithVat * Math.max(1, orderQuantity))
+          : (costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)));
+
+    const finalCustomOverride = isUpdate && existingOrder && !isCostAffectingModified
+      ? (existingOrder.customOverridePrice ?? customOverridePrice)
+      : effectiveOverridePrice;
+
+    const finalStatus: OrderStatus = asNewOrder ? "quote" : ((!asNewOrder && existingOrder?.status) || "quote");
+
     const newArchiveItem: OrderArchiveItem = {
       id: resolvedId,
       orderNumber: currentOrderNum,
@@ -2859,12 +3100,19 @@ Durum: Onaylandi / Uretime Hazir`;
       innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : (customFrameFile || "Standart Profil"),
       outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
       matInfo: matWidth > 0 ? `${matWidth} cm ${getPaspartuColorName(innerMatColor)}` : "Paspartusuz",
-      totalAmount: costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity),
+      totalAmount: finalTotalAmount,
       quantity: Math.max(1, orderQuantity),
       currency: "₺",
-      status: (!asNewOrder && existingOrder?.status) || "confirmed",
+      status: finalStatus,
       deliveryMethod: deliveryMethod,
       authorUser: activeUser?.fullName || "Yetkili Personel",
+      notes: finalNotes,
+      revisionNote: finalRevisionNote,
+      referencedOrderNumber: oldReferencedOrderNum,
+
+      // Tarihsel Fiyat Kaydı (Price Snapshot)
+      price_snapshot: finalPriceSnapshot,
+      cost_breakdown: finalCostBreakdownForOrder,
 
       // Simülatör anlık yapılandırma görüntüsü
       innerProfileId: selectedInnerProfileId,
@@ -2881,7 +3129,7 @@ Durum: Onaylandi / Uretime Hazir`;
       customPaintingFile: customPaintingFile,
       renderedFrameDataUrl: currentPreviewDataUrl || existingOrder?.renderedFrameDataUrl,
       inclusionFlags: effectiveInclusionFlags,
-      customOverridePrice: customOverridePrice,
+      customOverridePrice: finalCustomOverride,
       simulatorConfig: {
         innerProfileId: selectedInnerProfileId,
         outerProfileId: selectedOuterProfileId,
@@ -2896,8 +3144,10 @@ Durum: Onaylandi / Uretime Hazir`;
         customPaintingUrl: customPaintingUrl,
         customPaintingFile: customPaintingFile,
         flags: effectiveInclusionFlags,
-        customOverridePrice: customOverridePrice,
-        quantity: Math.max(1, orderQuantity)
+        customOverridePrice: finalCustomOverride,
+        quantity: Math.max(1, orderQuantity),
+        price_snapshot: finalPriceSnapshot,
+        cost_breakdown: finalCostBreakdownForOrder
       }
     };
 
@@ -2911,9 +3161,9 @@ Durum: Onaylandi / Uretime Hazir`;
     });
 
     if (isUpdate) {
-      toast.success(`${currentOrderNum} numaralı sipariş başarıyla güncellendi.`);
+      toast.success(`${currentOrderNum} numaralı sipariş başarıyla güncellendi (Eski onaylı fiyat korundu).`);
     } else if (asNewOrder) {
-      toast.success(`${currentOrderNum} numaralı yeni sipariş başarıyla oluşturuldu. Önceki sipariş arşivde korundu.`);
+      toast.success(`${currentOrderNum} numaralı revize sipariş güncel fiyatlarla oluşturuldu. (Ref: #${oldReferencedOrderNum})`);
     } else {
       toast.success("Sipariş başarıyla oluşturuldu.");
     }
@@ -2939,8 +3189,10 @@ Durum: Onaylandi / Uretime Hazir`;
       innerMatColor: innerMatColor,
       outerMatColor: outerMatColor,
       inclusionFlags: { ...effectiveInclusionFlags },
-      customOverridePrice: customOverridePrice
+      customOverridePrice: finalCustomOverride,
+      status: finalStatus
     });
+    setLoadedOrderStatus(finalStatus);
 
     setLoadedOrderOriginalDeliveryDate(null);
     setDeliveryDateErrorMessage(null);
@@ -2991,12 +3243,19 @@ Durum: Onaylandi / Uretime Hazir`;
 
     let qrDataUrl = "";
     try {
-      const qrText = `SİPARİŞ NO: ${orderNumber}
+      let qrText = `SİPARİŞ NO: ${orderNumber}
 MÜŞTERİ: ${customerName || 'Belirtilmedi'}
 ESER: ${artworkWidth}x${artworkHeight} cm
 DIŞ EBAT: ${totalW.toFixed(2)}x${totalH.toFixed(2)} cm
 TARİH: ${new Date().toLocaleDateString('tr-TR')}
 ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
+
+      if (referencedOrderNumber) {
+        qrText += `\nREVİZYON REF: #${referencedOrderNumber}`;
+      }
+      if (revisionNote || orderNotes) {
+        qrText += `\nNOT: ${(revisionNote || orderNotes).replace(/\n/g, ' ')}`;
+      }
 
       qrDataUrl = await QRCode.toDataURL(qrText, {
         margin: 1,
@@ -3026,7 +3285,10 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
       },
       qrDataUrl,
       isPro: isProPlan(subscriptionData),
-      quantity: orderQuantity
+      quantity: orderQuantity,
+      notes: orderNotes,
+      revisionNote: revisionNote,
+      referencedOrderNumber: referencedOrderNumber
     });
   };
 
@@ -3055,7 +3317,10 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         ...companyProfile,
         logoUrl: isProPlan(subscriptionData) ? companyProfile.logoUrl : ""
       },
-      quantity: orderQuantity
+      quantity: orderQuantity,
+      notes: orderNotes,
+      revisionNote: revisionNote,
+      referencedOrderNumber: referencedOrderNumber
     });
   };
 
@@ -3075,8 +3340,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
     }
 
     triggerCostBreakdownPrintWindow({
-      breakdown: costBreakdown,
-      settings: unitPricesSettings,
+      breakdown: displayCostBreakdown,
+      settings: displayUnitPricesSettings,
       artworkWidthCm: artworkWidth,
       artworkHeightCm: artworkHeight,
       orderNumber,
@@ -3087,7 +3352,13 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         ...companyProfile,
         logoUrl: isProPlan(subscriptionData) ? companyProfile.logoUrl : ""
       },
-      quantity: orderQuantity
+      quantity: orderQuantity,
+      notes: orderNotes,
+      revisionNote: revisionNote,
+      referencedOrderNumber: referencedOrderNumber,
+      customOverridePrice: customOverridePrice,
+      isHistoricalSnapshot: Boolean(loadedPriceSnapshot),
+      snapshotDate: loadedPriceSnapshot?.snapshotDate
     });
   };
 
@@ -3785,7 +4056,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               <OrderStep
                 inclusionFlags={inclusionFlags}
                 handleToggleFlag={handleToggleFlag}
-                costBreakdown={costBreakdown}
+                costBreakdown={displayCostBreakdown}
                 deliveryMethod={deliveryMethod}
                 setDeliveryMethod={setDeliveryMethod}
                 defaultShippingCost={unitPricesSettings.defaultShippingCost ?? 150}
@@ -3822,6 +4093,13 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                 onPrevStep={activeSidebarTab === "materials" ? () => setActiveSidebarTab("framing") : undefined}
                 isExistingOrder={Boolean(activeOrderId || archiveOrders.some(o => o.orderNumber === orderNumber))}
                 isOrderModified={isOrderModified}
+                isCostAffectingModified={isCostAffectingModified}
+                isProductionOrDelivered={isProductionOrDelivered}
+                loadedOrderStatus={currentOrderStatus}
+                orderNotes={orderNotes}
+                onOrderNotesChange={setOrderNotes}
+                revisionNote={revisionNote}
+                referencedOrderNumber={referencedOrderNumber}
                 quantity={orderQuantity}
                 onQuantityChange={setOrderQuantity}
                 customOverridePrice={customOverridePrice}
@@ -4164,8 +4442,8 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
       <CostBreakdownModal
         isOpen={isCostModalOpen}
         onClose={() => setIsCostModalOpen(false)}
-        breakdown={costBreakdown}
-        settings={unitPricesSettings}
+        breakdown={displayCostBreakdown}
+        settings={displayUnitPricesSettings}
         customOverridePrice={customOverridePrice}
         onSetCustomOverridePrice={setCustomOverridePrice}
         artworkWidthCm={artworkWidth}
@@ -4183,6 +4461,11 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         quantity={orderQuantity}
         onQuantityChange={setOrderQuantity}
         companyProfile={companyProfile}
+        notes={orderNotes}
+        revisionNote={revisionNote}
+        referencedOrderNumber={referencedOrderNumber}
+        isHistoricalSnapshot={Boolean(loadedPriceSnapshot)}
+        snapshotDate={loadedPriceSnapshot?.snapshotDate}
       />
 
       <CuttingListModal
@@ -4198,6 +4481,9 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         isOrderModified={isOrderModified}
         onPromptOrderModified={() => setIsOrderModifiedWarningOpen(true)}
         quantity={orderQuantity}
+        notes={orderNotes}
+        revisionNote={revisionNote}
+        referencedOrderNumber={referencedOrderNumber}
       />
 
       <PrintCenterModal
@@ -4216,9 +4502,14 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         companyProfile={companyProfile}
         isPro={isProPlan(subscriptionData)}
         isDarkMode={isDarkMode}
-        totalPriceWithVat={costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)}
+        totalPriceWithVat={displayCostBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)}
         isOrderCreated={isOrderCreated}
         isOrderModified={isOrderModified}
+        isCostAffectingModified={isCostAffectingModified}
+        isProductionOrDelivered={isProductionOrDelivered}
+        referencedOrderNumber={referencedOrderNumber}
+        revisionNote={revisionNote}
+        orderNotes={orderNotes}
         onPromptOrderModified={() => setIsOrderModifiedWarningOpen(true)}
         quantity={orderQuantity}
         onCreateOrder={handleCreateOrderFromSimulator}
@@ -4436,7 +4727,7 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         </div>
       )}
 
-      {/* Siparişte Değişiklik Yapıldı - Güncelle / Yeni Kaydet Uyarı Modalı (Madde 2) */}
+      {/* Siparişte Değişiklik Yapıldı - Güncelle / Yeni Kaydet Uyarı Modalı (Kural 1 & 2) */}
       {isOrderModifiedWarningOpen && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200"
@@ -4444,18 +4735,36 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         >
           <div 
             className={`w-full max-w-md rounded-3xl border shadow-2xl p-6 relative flex flex-col gap-5 ${
-              isDarkMode ? "bg-[#14171e] border-amber-500/40 text-white" : "bg-white border-amber-300 text-slate-900"
+              isProductionOrDelivered
+                ? (isDarkMode ? "bg-[#14171e] border-red-500/40 text-white" : "bg-white border-red-300 text-slate-900")
+                : (isDarkMode ? "bg-[#14171e] border-amber-500/40 text-white" : "bg-white border-amber-300 text-slate-900")
             }`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/25">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                isProductionOrDelivered
+                  ? "bg-red-500/15 text-red-500 border-red-500/25"
+                  : "bg-amber-500/15 text-amber-500 border-amber-500/25"
+              }`}>
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-amber-500">Siparişte Değişiklik Yapıldı</h3>
+                <h3 className={`text-base font-bold ${
+                  isProductionOrDelivered ? "text-red-500" : "text-amber-500"
+                }`}>
+                  {isProductionOrDelivered
+                    ? "Üretim / Teslimat Koruması"
+                    : isCostAffectingModified
+                      ? "Maliyet Değişikliği (Onaylı Fiyat Koruması)"
+                      : "Siparişte Değişiklik Yapıldı"}
+                </h3>
                 <p className={`text-xs mt-1.5 leading-relaxed ${isDarkMode ? "text-neutral-300" : "text-slate-600"}`}>
-                  Lütfen siparişi güncelleyin veya yeni bir sipariş olarak kaydedin. Belgelerin ve kesim listesinin güncel verilerle basılabilmesi için siparişin kaydedilmesi zorunludur.
+                  {isProductionOrDelivered
+                    ? "Üretimde veya teslim edilmiş bir siparişi güncelleyemezsiniz. Lütfen 'Yeni Kaydet' butonu ile yeni bir sipariş olarak kaydedin."
+                    : isCostAffectingModified
+                      ? "Maliyeti etkileyen alanlar (En, Boy, Profil, Cam, Adet) değiştirildiği için mevcut onaylı sipariş güncellenemez. Eski onaylı fiyatı korumak için lütfen 'Yeni Kaydet' butonunu kullanın."
+                      : "Müşteri veya teslimat bilgileri değişti. Eski onaylı fiyat korunarak siparişi güncelleyebilir veya yeni bir sipariş olarak kaydedebilirsiniz."}
                 </p>
               </div>
             </div>
@@ -4488,15 +4797,26 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
               </button>
               <button
                 type="button"
+                disabled={isProductionOrDelivered || isCostAffectingModified}
                 onClick={() => {
+                  if (isProductionOrDelivered || isCostAffectingModified) return;
                   setIsOrderModifiedWarningOpen(false);
                   handleCreateOrderFromSimulator({ asNewOrder: false });
                 }}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
-                  isDarkMode 
-                    ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" 
-                    : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 ${
+                  isProductionOrDelivered || isCostAffectingModified
+                    ? "opacity-35 cursor-not-allowed bg-neutral-700 text-neutral-400 border border-neutral-600"
+                    : isDarkMode 
+                      ? "bg-[#C5A059] hover:bg-[#b08c48] text-black cursor-pointer" 
+                      : "bg-[#B88E3A] hover:bg-[#9E7728] text-white cursor-pointer"
                 }`}
+                title={
+                  isProductionOrDelivered
+                    ? "Üretimde veya teslim edilmiş bir siparişi güncelleyemezsiniz."
+                    : isCostAffectingModified
+                      ? "Maliyeti etkileyen alanlar değiştiğinde güncellenemez."
+                      : "Siparişi Güncelle"
+                }
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Siparişi Güncelle</span>
@@ -4508,12 +4828,14 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
                   handleCreateOrderFromSimulator({ asNewOrder: true });
                 }}
                 className={`px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
-                  isDarkMode 
-                    ? "border-emerald-500/50 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/40" 
-                    : "border-emerald-600 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
+                  isProductionOrDelivered || isCostAffectingModified
+                    ? "bg-emerald-500 text-black font-extrabold border-emerald-400 hover:bg-emerald-400 ring-2 ring-emerald-500/40"
+                    : isDarkMode 
+                      ? "border-emerald-500/50 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/40" 
+                      : "border-emerald-600 text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
                 }`}
               >
-                <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Yeni Kaydet</span>
               </button>
             </div>

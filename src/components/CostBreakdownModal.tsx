@@ -26,6 +26,11 @@ interface CostBreakdownModalProps {
   quantity?: number;
   onQuantityChange?: (qty: number) => void;
   companyProfile?: CompanyProfile;
+  notes?: string;
+  revisionNote?: string;
+  referencedOrderNumber?: string;
+  isHistoricalSnapshot?: boolean;
+  snapshotDate?: string;
 }
 
 export function CostBreakdownModal({
@@ -49,7 +54,12 @@ export function CostBreakdownModal({
   onPromptOrderModified,
   quantity = 1,
   onQuantityChange,
-  companyProfile
+  companyProfile,
+  notes = "",
+  revisionNote = "",
+  referencedOrderNumber = "",
+  isHistoricalSnapshot = false,
+  snapshotDate = ""
 }: CostBreakdownModalProps) {
   const qty = Math.max(1, quantity || 1);
   const naturalUnitPrice = Math.ceil(breakdown.calculatedPriceWithVat) + (breakdown.shippingCost || 0);
@@ -119,7 +129,12 @@ export function CostBreakdownModal({
       flags,
       quantity,
       companyProfile,
-      customOverridePrice
+      customOverridePrice,
+      notes,
+      revisionNote,
+      referencedOrderNumber,
+      isHistoricalSnapshot,
+      snapshotDate
     });
   };
 
@@ -237,6 +252,23 @@ export function CostBreakdownModal({
               <p><strong>Sipariş Adedi:</strong> {qty} Adet</p>
             </div>
           </div>
+
+          {/* Tarihsel Fiyat Kaydı (Price Snapshot) Bildirim Rozeti */}
+          {isHistoricalSnapshot && (
+            <div className={`p-3 rounded-xl border flex items-center gap-2.5 print:hidden transition-all ${
+              isDarkMode 
+                ? "bg-amber-950/30 border-amber-500/40 text-amber-300" 
+                : "bg-amber-50 border-amber-300 text-amber-900"
+            }`}>
+              <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
+                <Info className="w-4 h-4" />
+              </div>
+              <div className="text-xs leading-relaxed">
+                <span className="font-bold">Tarihsel Fiyat Kaydı (Price Snapshot): </span>
+                <span>Bu siparişin maliyet tablosundaki birim fiyatlar güncel ayarlardan değil, siparişin kaydedildiği tarihteki ({snapshotDate || "Arşiv Kaydı"}) anlık görüntüden okunmaktadır.</span>
+              </div>
+            </div>
+          )}
 
           {/* Section 0: Material Toggles (Derli Toplu & Modern Kompakt Görünüm) */}
           <div className={`print:hidden border rounded-xl p-3.5 transition-all shadow-xs ${
