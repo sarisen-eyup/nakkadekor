@@ -162,7 +162,7 @@ export const OrderStep: React.FC<OrderStepProps> = ({
   const naturalUnitPrice = Math.ceil(costBreakdown.calculatedPriceWithVat) + (costBreakdown.shippingCost || 0);
   const calculatedGenelToplam = naturalUnitPrice * qty;
   const currentGenelToplam = Math.round(costBreakdown.effectiveFinalPriceWithVat * qty);
-  const totalDiscount = calculatedGenelToplam - currentGenelToplam;
+  const totalDiscount = Math.max(0, calculatedGenelToplam - currentGenelToplam);
 
   // Müşteriye Özel İskonto / Manuel Fiyat State & Senkronizasyon (Genel Toplam üzerinden)
   const [overrideInput, setOverrideInput] = React.useState<string>(
@@ -170,8 +170,12 @@ export const OrderStep: React.FC<OrderStepProps> = ({
   );
 
   useEffect(() => {
-    setOverrideInput(customOverridePrice != null ? String(currentGenelToplam) : "");
-  }, [customOverridePrice, qty, currentGenelToplam]);
+    if (customOverridePrice == null) {
+      setOverrideInput("");
+    } else {
+      setOverrideInput(String(currentGenelToplam));
+    }
+  }, [customOverridePrice, currentGenelToplam]);
 
   const handleApplyOverride = () => {
     if (!onSetCustomOverridePrice) return;
@@ -197,12 +201,20 @@ export const OrderStep: React.FC<OrderStepProps> = ({
 
   const handleQuickPercentDiscount = (percent: number) => {
     if (!onSetCustomOverridePrice) return;
-    // Genel Toplam üzerinden iskonto hesabı
-    const discountedTotal = Math.max(1, Math.round(calculatedGenelToplam * (1 - percent / 100)));
+    const targetTotal = Math.max(1, Math.round(calculatedGenelToplam * (1 - percent / 100)));
+    const isCurrentlySelected = customOverridePrice != null && Math.abs(currentGenelToplam - targetTotal) <= 1;
+
+    // Toggle: Zaten seçili olan yüzdeye tekrar basıldığında iskontoyu tek tıkla kaldır
+    if (isCurrentlySelected) {
+      handleClearOverride();
+      return;
+    }
+
+    // Tek tıkla anında Genel Toplam'a iskonto uygula
     const shippingPerPiece = costBreakdown.shippingCost || 0;
-    const unitTarget = discountedTotal / qty;
+    const unitTarget = targetTotal / qty;
     const unitFraming = Math.max(0, unitTarget - shippingPerPiece);
-    setOverrideInput(String(discountedTotal));
+    setOverrideInput(String(targetTotal));
     onSetCustomOverridePrice(Number(unitFraming.toFixed(4)));
   };
 
@@ -641,7 +653,7 @@ export const OrderStep: React.FC<OrderStepProps> = ({
         </div>
       </div>
 
-      {/* 04. SEGMENTED TICKET ORDER CARD (Matching Screen 2 & 3 in Reference Image) */}
+      {/* 04. SEGMENTED TICKET ORDER CARD (Sipariş Özeti & Genel Toplam) */}
       <div className={`rounded-3xl border overflow-hidden shadow-lg transition-all ${
         isDarkMode ? "bg-[#181c24] border-white/15" : "bg-white border-slate-200"
       }`}>
@@ -664,9 +676,9 @@ export const OrderStep: React.FC<OrderStepProps> = ({
 
           {/* Quick Specs List */}
           <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-baseline gap-2">
               <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Müşteri:</span>
-              <span className="font-bold">{customerName || "—"}</span>
+              <span className="font-bold truncate max-w-[220px]" title={customerName}>{customerName || "—"}</span>
             </div>
             <div className="flex justify-between">
               <span className={isDarkMode ? "text-neutral-400" : "text-slate-500"}>Eser Ebadı:</span>
@@ -688,142 +700,177 @@ export const OrderStep: React.FC<OrderStepProps> = ({
         </div>
 
         {/* Bottom Contrasting Action Bar */}
-        <div className={`p-4 flex items-center justify-between gap-3 ${
-          isDarkMode ? "bg-[#111317]" : "bg-slate-900 text-white"
+        <div className={`p-4 sm:p-5 flex flex-col gap-3.5 ${
+          isDarkMode ? "bg-[#101216]" : "bg-slate-900 text-white"
         }`}>
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block">
-              Genel Toplam (KDV Dahil)
-            </span>
-            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2">
-              <span className="text-xl font-mono font-extrabold text-[#C5A059]">
-                ₺{(costBreakdown.effectiveFinalPriceWithVat * qty).toLocaleString("tr-TR")}
+          {/* Top Row: Price Summary & Breakdown Action */}
+          <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block mb-1">
+                Genel Toplam (KDV Dahil)
               </span>
-              {customOverridePrice && totalDiscount > 0 && (
-                <span className="text-[10px] line-through opacity-60 font-mono text-neutral-400">
-                  ₺{calculatedGenelToplam.toLocaleString("tr-TR")}
+              <div className="flex items-baseline gap-2.5 flex-wrap">
+                <span className="text-2xl sm:text-3xl font-mono font-extrabold text-[#C5A059] tracking-tight">
+                  ₺{(costBreakdown.effectiveFinalPriceWithVat * qty).toLocaleString("tr-TR")}
+                </span>
+                {customOverridePrice != null && totalDiscount > 0 && (
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-sm line-through opacity-60 font-mono text-neutral-400">
+                      ₺{calculatedGenelToplam.toLocaleString("tr-TR")}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      -%{Math.round((totalDiscount / calculatedGenelToplam) * 100)} İndirim (-₺{Math.round(totalDiscount).toLocaleString("tr-TR")})
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Quantity multiplier pill & Breakdown modal button */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {qty > 1 && (
+                <span className={`text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg border whitespace-nowrap ${
+                  isDarkMode 
+                    ? "bg-white/5 border-white/10 text-neutral-300" 
+                    : "bg-slate-800 border-slate-700 text-slate-200"
+                }`}>
+                  {qty} Adet × ₺{Number(costBreakdown.effectiveFinalPriceWithVat.toFixed(2)).toLocaleString("tr-TR")}
                 </span>
               )}
-              <div className="flex items-center gap-2">
-                {qty > 1 && (
-                  <span className="text-[10px] font-mono text-neutral-300">
-                    ({qty} Adet × ₺{Number(costBreakdown.effectiveFinalPriceWithVat.toFixed(2)).toLocaleString("tr-TR")})
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={onOpenCostModal}
-                  className="text-[10px] underline cursor-pointer text-neutral-400 hover:text-white"
-                >
-                  Döküm
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={onOpenCostModal}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 border active:scale-95 ${
+                  isDarkMode
+                    ? "bg-white/5 hover:bg-white/10 text-[#C5A059] border-[#C5A059]/30 hover:border-[#C5A059]/60"
+                    : "bg-slate-800 hover:bg-slate-700 text-[#E5C158] border-slate-700"
+                }`}
+                title="Ayrıntılı Maliyet ve Fiyat Dökümü Tablosunu Aç"
+              >
+                <Calculator className="w-3.5 h-3.5 text-[#C5A059]" />
+                <span>Maliyet Dökümü</span>
+              </button>
             </div>
           </div>
 
-          {isExistingOrder ? (
-            <div className="flex flex-col gap-2 shrink-0 items-stretch sm:items-end w-full sm:w-auto">
-              {/* 1- Üretim ve Teslimat Koruması (Kilit) Uyarı Bildirimi */}
+          {/* Warning / Status Notification Banner (Full Width, never cramped or truncated) */}
+          {isExistingOrder && (
+            <>
               {isProductionOrDelivered ? (
-                <div className="p-2 sm:p-2.5 rounded-xl bg-red-500/15 border border-red-500/40 text-red-500 text-[11px] font-bold flex items-center gap-1.5 shadow-sm">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/40 text-red-400 text-xs font-semibold flex items-start gap-2 shadow-sm leading-snug">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
                   <span>Üretimde veya teslim edilmiş bir siparişi güncelleyemezsiniz.</span>
                 </div>
               ) : isCostAffectingModified ? (
-                /* 2- Maliyet Kontrolü Uyarı Bildirimi */
-                <div className="p-2 sm:p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-500 text-[11px] font-bold flex items-center gap-1.5 shadow-sm">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
-                  <span>Maliyeti etkileyen alanlar (En, Boy, Profil, Cam, Adet) değiştirildiğinde mevcut sipariş güncellenemez.</span>
+                <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs font-semibold flex items-start gap-2 shadow-sm leading-snug">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                  <span>Maliyeti etkileyen alanlar (En, Boy, Profil, Cam, Adet) değiştirildiğinde mevcut sipariş güncellenemez. Lütfen 'Yeni Sipariş Oluştur' butonunu kullanın.</span>
                 </div>
               ) : isOrderModified ? (
-                <div className="text-[10px] text-amber-500 font-bold flex items-center gap-1 animate-pulse justify-center sm:justify-end">
-                  <AlertCircle className="w-3 h-3" />
-                  <span>Müşteri / teslimat bilgisi değişti (Fiyat korunur)</span>
+                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[11px] font-medium flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                  <span>Müşteri veya teslimat bilgileri değişti (Onaylı fiyat korunarak güncellenir).</span>
                 </div>
               ) : null}
+            </>
+          )}
 
-              <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                <button
-                  type="button"
-                  id="btn-update-simulator-order"
-                  disabled={isProductionOrDelivered || isCostAffectingModified}
-                  onClick={() => handleCreateOrderClick(false)}
-                  className={`px-4 py-2 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 ${
-                    isProductionOrDelivered || isCostAffectingModified
-                      ? "opacity-40 cursor-not-allowed bg-neutral-700 text-neutral-400 border border-neutral-600"
-                      : isOrderModified
-                        ? "ring-2 ring-amber-500/80 ring-offset-1 cursor-pointer " + (isDarkMode ? "bg-amber-500 text-black hover:bg-amber-400" : "bg-amber-600 text-white hover:bg-amber-500")
-                        : isDarkMode
-                          ? "bg-[#C5A059] text-black hover:bg-[#b5924d] cursor-pointer"
-                          : "bg-[#B88E3A] text-white hover:bg-[#a67e2f] cursor-pointer"
-                  }`}
-                  title={
-                    isProductionOrDelivered
-                      ? "Üretimde veya teslim edilmiş bir siparişi güncelleyemezsiniz."
-                      : isCostAffectingModified
-                        ? "Maliyeti etkileyen alanlar değiştiğinde sipariş güncellenemez. Lütfen yeni sipariş oluşturun."
-                        : "Mevcut siparişi simülatördeki değişikliklerle güncelle"
-                  }
-                >
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>Siparişi Güncelle</span>
-                </button>
-
-                <button
-                  type="button"
-                  id="btn-create-new-order-from-archive"
-                  onClick={() => handleCreateOrderClick(true)}
-                  className={`px-3.5 py-2 rounded-xl font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all border active:scale-95 cursor-pointer ${
-                    isCostAffectingModified || isProductionOrDelivered
-                      ? "border-emerald-500 bg-emerald-500 text-black font-extrabold shadow-md hover:bg-emerald-400 ring-2 ring-emerald-500/40"
+          {/* Action Buttons Row */}
+          {isExistingOrder ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 w-full">
+              <button
+                type="button"
+                id="btn-update-simulator-order"
+                disabled={isProductionOrDelivered || isCostAffectingModified}
+                onClick={() => handleCreateOrderClick(false)}
+                className={`w-full py-2.5 px-3 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 text-center ${
+                  isProductionOrDelivered || isCostAffectingModified
+                    ? "opacity-40 cursor-not-allowed bg-neutral-800 text-neutral-400 border border-neutral-700"
+                    : isOrderModified
+                      ? "ring-2 ring-amber-500/80 ring-offset-1 cursor-pointer " + (isDarkMode ? "bg-amber-500 text-black hover:bg-amber-400" : "bg-amber-600 text-white hover:bg-amber-500")
                       : isDarkMode
-                        ? "border-emerald-500/40 text-emerald-400 bg-emerald-950/30 hover:bg-emerald-900/40 hover:border-emerald-500/70"
-                        : "border-emerald-600 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
-                  }`}
-                  title="Formdaki verileri koruyarak yeni bir sipariş numarası ve güncel fiyatlarla yeni sipariş oluştur"
-                >
-                  <Plus className="w-3.5 h-3.5 shrink-0" />
-                  <span>Yeni Sipariş Oluştur</span>
-                </button>
-              </div>
+                        ? "bg-[#C5A059] text-black hover:bg-[#b5924d] cursor-pointer"
+                        : "bg-[#B88E3A] text-white hover:bg-[#a67e2f] cursor-pointer"
+                }`}
+                title={
+                  isProductionOrDelivered
+                    ? "Üretimde veya teslim edilmiş bir siparişi güncelleyemezsiniz."
+                    : isCostAffectingModified
+                      ? "Maliyeti etkileyen alanlar değiştiğinde sipariş güncellenemez. Lütfen yeni sipariş oluşturun."
+                      : "Mevcut siparişi simülatördeki değişikliklerle güncelle"
+                }
+              >
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span className="truncate">Siparişi Güncelle</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-create-new-order-from-archive"
+                onClick={() => handleCreateOrderClick(true)}
+                className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all border active:scale-95 cursor-pointer text-center ${
+                  isCostAffectingModified || isProductionOrDelivered
+                    ? "border-emerald-500 bg-emerald-500 text-black font-extrabold shadow-md hover:bg-emerald-400 ring-2 ring-emerald-500/40"
+                    : isDarkMode
+                      ? "border-emerald-500/50 text-emerald-400 bg-emerald-950/30 hover:bg-emerald-900/40 hover:border-emerald-500/70"
+                      : "border-emerald-600 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                }`}
+                title="Formdaki verileri koruyarak yeni bir sipariş numarası ve güncel fiyatlarla yeni sipariş oluştur"
+              >
+                <Plus className="w-4 h-4 shrink-0" />
+                <span className="truncate">Yeni Sipariş Oluştur</span>
+              </button>
             </div>
           ) : (
-            <button
-              type="button"
-              id="btn-create-simulator-order"
-              onClick={() => handleCreateOrderClick(false)}
-              className={`px-4 py-2.5 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer shrink-0 ${
-                isDarkMode
-                  ? "bg-[#C5A059] text-black hover:bg-[#b5924d]"
-                  : "bg-[#B88E3A] text-white hover:bg-[#a67e2f]"
-              }`}
-              title="Simülatördeki ölçü ve malzemelerle siparişi oluştur"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Siparişi Oluştur</span>
-            </button>
+            <div className="pt-1 w-full">
+              <button
+                type="button"
+                id="btn-create-simulator-order"
+                onClick={() => handleCreateOrderClick(false)}
+                className={`w-full py-3 px-4 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer ${
+                  isDarkMode
+                    ? "bg-[#C5A059] text-black hover:bg-[#b5924d]"
+                    : "bg-[#B88E3A] text-white hover:bg-[#a67e2f]"
+                }`}
+                title="Simülatördeki ölçü ve malzemelerle siparişi oluştur"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Siparişi Oluştur</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
 
-      {/* 2.5 Müşteriye Özel İskonto / Manuel Fiyat Belirleme Bölümü */}
-      <div className={`p-3.5 sm:p-4 rounded-2xl border transition-all shadow-xs space-y-3 ${
-        isDarkMode ? "bg-[#14171d] border-white/10" : "bg-white border-slate-200"
+      {/* 05. MÜŞTERİYE ÖZEL İSKONTO / ANLAŞMALI FİYAT BÖLÜMÜ (Sipariş Özeti ve Genel Toplamın Altında) */}
+      <div className={`p-4 rounded-2xl border transition-all space-y-3.5 ${
+        isDarkMode ? "bg-[#181c24] border-white/10" : "bg-white border-slate-200 shadow-sm"
       }`}>
         <div className="flex items-center justify-between">
-          <label className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
-            isDarkMode ? "text-neutral-200" : "text-[#7A5A19]"
-          }`}>
-            <Tag className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
-            <span>Özel İskonto / Manuel Fiyat</span>
-          </label>
+          <div className="flex items-center gap-2">
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+              isDarkMode ? "bg-[#C5A059]/20 text-[#C5A059]" : "bg-[#B88E3A]/10 text-[#B88E3A]"
+            }`}>
+              <Tag className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <h4 className={`text-xs font-bold uppercase tracking-wider ${
+                isDarkMode ? "text-neutral-100" : "text-slate-800"
+              }`}>
+                Özel İskonto / Anlaşmalı Fiyat
+              </h4>
+              <p className={`text-[10px] ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
+                Müşteriye özel indirim veya anlaşmalı toplam tutar belirleyin
+              </p>
+            </div>
+          </div>
 
-          {customOverridePrice && (
+          {customOverridePrice != null && (
             <button
               type="button"
               onClick={handleClearOverride}
-              className="text-[11px] font-mono font-bold text-red-500 hover:text-red-400 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
-              title="Özel fiyatı kaldırıp sistemin hesapladığı fiyata dön"
+              className="text-[11px] font-mono font-bold text-red-500 hover:text-red-400 px-2.5 py-1 rounded-lg border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 flex items-center gap-1 cursor-pointer transition-colors"
+              title="İskontoyu kaldırıp standart fiyata dön"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Sıfırla</span>
@@ -831,130 +878,142 @@ export const OrderStep: React.FC<OrderStepProps> = ({
           )}
         </div>
 
-        {/* Hızlı İskonto Butonları (%5, %10, %15, %20) */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className={`text-[10px] font-bold uppercase tracking-wider ${
-            isDarkMode ? "text-neutral-400" : "text-slate-500"
-          }`}>
-            Hızlı İskonto:
-          </span>
-          {[5, 10, 15, 20].map((pct) => {
-            const targetTotal = Math.max(1, Math.round(calculatedGenelToplam * (1 - pct / 100)));
-            const isSelected = customOverridePrice != null && Math.abs(currentGenelToplam - targetTotal) <= 1;
-
-            return (
-              <button
-                key={pct}
-                type="button"
-                onClick={() => handleQuickPercentDiscount(pct)}
-                className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold border transition-all cursor-pointer active:scale-95 ${
-                  isSelected
-                    ? (isDarkMode 
-                        ? "bg-[#C5A059] text-black border-[#C5A059] shadow-xs" 
-                        : "bg-[#B88E3A] text-white border-[#B88E3A] shadow-xs")
-                    : (isDarkMode
-                        ? "bg-[#101216] border-white/10 text-neutral-300 hover:border-[#C5A059]/50 hover:text-white"
-                        : "bg-slate-50 border-slate-200 text-slate-700 hover:border-[#B88E3A]/50 hover:bg-slate-100")
-                }`}
-                title={`%${pct} İskonto Uygula (${qty > 1 ? `Toplam: ₺${targetTotal}` : `₺${targetTotal}`})`}
-              >
-                %{pct}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Manuel Tutar Girişi ve Uygula Butonu */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <input
-              type="number"
-              min="1"
-              step="any"
-              placeholder={`Örn: ${calculatedGenelToplam}`}
-              value={overrideInput}
-              onChange={(e) => setOverrideInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleApplyOverride();
-                }
-              }}
-              className={`w-full border rounded-xl pl-3 pr-28 py-2 text-xs font-mono font-bold focus:outline-none transition-colors ${
-                isDarkMode 
-                  ? "bg-[#101216] border-white/15 text-white focus:border-[#C5A059]" 
-                  : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] shadow-2xs"
-              }`}
-            />
-            <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold pointer-events-none ${
+        {/* Hızlı İskonto Butonları (%5, %10, %15, %20, %25) */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${
               isDarkMode ? "text-neutral-400" : "text-slate-500"
             }`}>
-              {qty > 1 ? `₺ (${qty} Adet Toplamı)` : "₺ (KDV Dahil)"}
+              Hızlı İskonto Seçenekleri:
+            </span>
+            <span className={`text-[10px] font-mono ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>
+              Tek tıkla uygula / kaldır
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={handleApplyOverride}
-            className={`px-3.5 py-2 font-mono font-bold text-xs rounded-xl transition-all shrink-0 shadow-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1 ${
-              isDarkMode 
-                ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" 
-                : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
-            }`}
-          >
-            <Tag className="w-3.5 h-3.5" />
-            <span>Uygula</span>
-          </button>
+          <div className="grid grid-cols-5 gap-1.5">
+            {[5, 10, 15, 20, 25].map((pct) => {
+              const targetTotal = Math.max(1, Math.round(calculatedGenelToplam * (1 - pct / 100)));
+              const isSelected = customOverridePrice != null && Math.abs(currentGenelToplam - targetTotal) <= 1;
+
+              return (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => handleQuickPercentDiscount(pct)}
+                  className={`py-2 px-1 rounded-xl text-xs font-mono font-extrabold border transition-all cursor-pointer text-center active:scale-95 flex flex-col items-center justify-center gap-0.5 ${
+                    isSelected
+                      ? (isDarkMode 
+                          ? "bg-[#C5A059] text-black border-[#C5A059] shadow-md ring-2 ring-[#C5A059]/40" 
+                          : "bg-[#B88E3A] text-white border-[#B88E3A] shadow-md ring-2 ring-[#B88E3A]/30")
+                      : (isDarkMode
+                          ? "bg-[#101216] border-white/10 text-neutral-300 hover:border-[#C5A059]/50 hover:text-white hover:bg-white/5"
+                          : "bg-slate-50 border-slate-200 text-slate-700 hover:border-[#B88E3A]/50 hover:bg-slate-100")
+                  }`}
+                  title={`%${pct} İskonto Uygula (${qty > 1 ? `${qty} Adet Toplam: ₺${targetTotal.toLocaleString("tr-TR")}` : `₺${targetTotal.toLocaleString("tr-TR")}`})`}
+                >
+                  <span className="flex items-center gap-0.5">
+                    {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                    %{pct}
+                  </span>
+                  <span className={`text-[9px] font-normal leading-none opacity-80 ${isSelected ? (isDarkMode ? "text-black" : "text-white") : (isDarkMode ? "text-neutral-400" : "text-slate-500")}`}>
+                    ₺{targetTotal.toLocaleString("tr-TR")}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Manuel Tutar Girişi ve Uygula Butonu */}
+        <div>
+          <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1.5 ${
+            isDarkMode ? "text-neutral-400" : "text-slate-500"
+          }`}>
+            Veya Özel Genel Toplam Tutarı Girin:
+          </label>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold pointer-events-none ${
+                isDarkMode ? "text-neutral-400" : "text-slate-500"
+              }`}>
+                ₺
+              </span>
+              <input
+                type="number"
+                min="1"
+                step="any"
+                placeholder={String(calculatedGenelToplam)}
+                value={overrideInput}
+                onChange={(e) => setOverrideInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleApplyOverride();
+                  }
+                }}
+                className={`w-full border rounded-xl pl-7 pr-32 py-2.5 text-xs font-mono font-bold focus:outline-none transition-all ${
+                  isDarkMode 
+                    ? "bg-[#101216] border-white/15 text-white focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059]" 
+                    : "bg-white border-slate-300 text-slate-900 focus:border-[#B88E3A] focus:ring-1 focus:ring-[#B88E3A] shadow-xs"
+                }`}
+              />
+              <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono pointer-events-none ${
+                isDarkMode ? "text-neutral-400" : "text-slate-500"
+              }`}>
+                {qty > 1 ? `(${qty} Adet Toplamı)` : "(KDV Dahil)"}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleApplyOverride}
+              className={`px-4 py-2.5 font-mono font-bold text-xs rounded-xl transition-all shrink-0 shadow-sm cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 ${
+                isDarkMode 
+                  ? "bg-[#C5A059] hover:bg-[#b08c48] text-black" 
+                  : "bg-[#B88E3A] hover:bg-[#9E7728] text-white"
+              }`}
+            >
+              <Tag className="w-3.5 h-3.5" />
+              <span>Uygula</span>
+            </button>
+          </div>
         </div>
 
         {/* Aktif Özel Fiyat Bilgi Çubuğu */}
-        {customOverridePrice ? (
-          <div className={`p-2.5 border rounded-xl text-[11px] font-mono flex items-center justify-between gap-2 ${
-            isDarkMode ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-300" : "bg-emerald-50 border-emerald-300 text-emerald-800"
+        {customOverridePrice != null && (
+          <div className={`p-3 border rounded-xl text-xs font-mono flex items-center justify-between gap-2.5 animate-fadeIn ${
+            isDarkMode ? "bg-emerald-950/30 border-emerald-500/40 text-emerald-300" : "bg-emerald-50 border-emerald-300 text-emerald-800"
           }`}>
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Check className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
-              <span className="truncate">
-                {qty > 1 ? (
-                  <>
-                    Özel Genel Toplam: <strong className="font-bold">₺{currentGenelToplam.toLocaleString("tr-TR")}</strong>
-                    {totalDiscount > 0 && (
-                      <span className="opacity-80 text-[10px] ml-1">
-                        (-₺{Math.round(totalDiscount).toLocaleString("tr-TR")} indirim)
-                      </span>
-                    )}
-                    <span className="opacity-75 text-[10px] ml-1.5 font-normal">
-                      (Birim: ₺{Number(costBreakdown.effectiveFinalPriceWithVat.toFixed(2)).toLocaleString("tr-TR")})
+            <div className="flex items-center gap-2 min-w-0">
+              <Check className="w-4 h-4 shrink-0 text-emerald-500" />
+              <div className="truncate">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span>Özel Fiyat Aktif:</span>
+                  <strong className="font-extrabold text-sm">₺{currentGenelToplam.toLocaleString("tr-TR")}</strong>
+                  {totalDiscount > 0 && (
+                    <span className={`text-[11px] px-1.5 py-0.5 rounded font-bold ${
+                      isDarkMode ? "bg-emerald-500/20 text-emerald-300" : "bg-emerald-200 text-emerald-900"
+                    }`}>
+                      -₺{Math.round(totalDiscount).toLocaleString("tr-TR")} indirim (%{Math.round((totalDiscount / calculatedGenelToplam) * 100)})
                     </span>
-                  </>
-                ) : (
-                  <>
-                    Özel Fiyat: <strong className="font-bold">₺{currentGenelToplam.toLocaleString("tr-TR")}</strong>
-                    {totalDiscount > 0 && (
-                      <span className="opacity-80 text-[10px] ml-1">
-                        (-₺{Math.round(totalDiscount).toLocaleString("tr-TR")} indirim)
-                      </span>
-                    )}
-                  </>
+                  )}
+                </div>
+                {qty > 1 && (
+                  <div className="text-[10px] opacity-80 mt-0.5">
+                    Adet Başına Birim: ₺{Number(costBreakdown.effectiveFinalPriceWithVat.toFixed(2)).toLocaleString("tr-TR")}
+                  </div>
                 )}
-              </span>
+              </div>
             </div>
             <button
               type="button"
               onClick={handleClearOverride}
-              className="text-[10px] underline font-bold text-red-400 hover:text-red-300 shrink-0 cursor-pointer"
+              className="text-[11px] underline font-bold text-red-400 hover:text-red-300 shrink-0 cursor-pointer p-1"
             >
               Kaldır
             </button>
           </div>
-        ) : (
-          <p className={`text-[10px] leading-tight ${
-            isDarkMode ? "text-neutral-400" : "text-slate-500"
-          }`}>
-            {qty > 1 
-              ? `💡 İskonto butonlarına tıklayarak veya ${qty} adet için anlaştığınız genel toplam tutarı girerek siparişe özel fiyat tanımlayabilirsiniz.` 
-              : "💡 İskonto butonlarına tıklayabilir veya müşteriyle anlaştığınız özel birim tutarı yazıp uygulayabilirsiniz. Bu değer döküm ve sipariş kayıtları ile anında senkronize olur."}
-          </p>
         )}
       </div>
 

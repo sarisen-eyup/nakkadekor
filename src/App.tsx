@@ -1060,10 +1060,45 @@ function SimulatorMain() {
   // malzeme fiyatlarından DEĞİL, siparişin içine kaydettiğimiz bu price_snapshot verisinden besle.
   const displayCostBreakdown: CostCalculationBreakdown = useMemo(() => {
     if (loadedPriceSnapshot) {
-      return loadedPriceSnapshot.costBreakdown;
+      return calculateCostsAndPricing({
+        artworkWidthCm: artworkWidth,
+        artworkHeightCm: artworkHeight,
+        matWidthCm: matWidth,
+        frameWidthCm: frameWidth,
+        middleMatWidthCm: middleMatWidth,
+        outerFrameWidthCm: outerFrameWidth,
+        innerMatColor: innerMatColor,
+        outerMatColor: outerMatColor,
+        selectedInnerProfileMeterPrice: loadedPriceSnapshot.innerProfileMeterPrice ?? activeInnerProfile?.unitPricePerMeter,
+        selectedOuterProfileMeterPrice: loadedPriceSnapshot.outerProfileMeterPrice ?? activeOuterProfile?.unitPricePerMeter,
+        innerRabbetDepthMm: activeInnerRabbetMm,
+        outerRabbetDepthMm: activeOuterRabbetMm,
+        customOverridePrice: customOverridePrice,
+        deliveryMethod: deliveryMethod,
+        settings: loadedPriceSnapshot.unitPrices,
+        flags: effectiveInclusionFlags
+      });
     }
     return costBreakdown;
-  }, [loadedPriceSnapshot, costBreakdown]);
+  }, [
+    loadedPriceSnapshot,
+    costBreakdown,
+    artworkWidth,
+    artworkHeight,
+    matWidth,
+    frameWidth,
+    middleMatWidth,
+    outerFrameWidth,
+    innerMatColor,
+    outerMatColor,
+    activeInnerProfile?.unitPricePerMeter,
+    activeOuterProfile?.unitPricePerMeter,
+    activeInnerRabbetMm,
+    activeOuterRabbetMm,
+    customOverridePrice,
+    deliveryMethod,
+    effectiveInclusionFlags
+  ]);
 
   const displayUnitPricesSettings: UnitPricesSettings = useMemo(() => {
     if (loadedPriceSnapshot) {
@@ -3080,7 +3115,7 @@ Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${re
       ? (existingOrder.totalAmount ?? (finalCostBreakdownForOrder.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)))
       : (asNewOrder
           ? (finalCostBreakdownForOrder.calculatedPriceWithVat * Math.max(1, orderQuantity))
-          : (costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)));
+          : (displayCostBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)));
 
     const finalCustomOverride = isUpdate && existingOrder && !isCostAffectingModified
       ? (existingOrder.customOverridePrice ?? customOverridePrice)
