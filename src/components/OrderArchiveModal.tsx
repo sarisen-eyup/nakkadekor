@@ -294,9 +294,9 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                   }`}
                 >
                   {/* Ana Bilgi Satırı: Sipariş No & Müşteri | Tasarım Thumbnail & Malzeme Listesi | Fiyat & Aksiyonlar */}
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                    {/* 1. Sol Kolon: Sipariş No, Adet, Müşteri, İletişim, Kayıt ve Teslim Tarihi (4 Kolon) */}
-                    <div className="md:col-span-4 min-w-0 space-y-2.5">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 lg:gap-4 items-center">
+                    {/* 1. Sol Kolon: Sipariş No, Adet, Müşteri, İletişim, Kayıt ve Teslim Tarihi (5 Kolon - Genişletilmiş Alan) */}
+                    <div className="md:col-span-5 min-w-0 space-y-2.5">
                       {/* Üst Sıra: Sipariş No & Yüksek Görünürlüklü TEK Adet Rozeti */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl font-mono font-extrabold text-xs shadow-xs ${
@@ -334,9 +334,9 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                         </div>
                       </div>
 
-                      {/* İletişim, Kayıt Tarihi & Teslim Tarihi (3 Bilgi Alanı) */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1.5 border-t border-dashed border-neutral-700/20 dark:border-white/5">
-                        <div>
+                      {/* İletişim, Kayıt Tarihi & Teslim Tarihi (3 Bilgi Alanı - Rahat ve Ferah) */}
+                      <div className="grid grid-cols-3 gap-2 pt-1.5 border-t border-dashed border-neutral-700/20 dark:border-white/5">
+                        <div className="min-w-0">
                           <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${
                             isDarkMode ? "text-neutral-500" : "text-slate-400"
                           }`}>
@@ -344,13 +344,13 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                           </span>
                           <div className={`text-xs font-mono font-semibold truncate flex items-center gap-1 ${
                             isDarkMode ? "text-neutral-300" : "text-slate-700"
-                          }`}>
+                          }`} title={order.customerPhone}>
                             <Phone className="w-3 h-3 shrink-0 opacity-60" />
                             <span className="truncate">{order.customerPhone || "—"}</span>
                           </div>
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                           <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${
                             isDarkMode ? "text-neutral-500" : "text-slate-400"
                           }`}>
@@ -358,12 +358,12 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                           </span>
                           <div className={`text-xs font-mono font-medium truncate ${
                             isDarkMode ? "text-neutral-400" : "text-slate-500"
-                          }`}>
+                          }`} title={order.createdAt}>
                             {order.createdAt}
                           </div>
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                           <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${
                             isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
                           }`}>
@@ -373,20 +373,20 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                             order.deliveryDate 
                               ? (isDarkMode ? "text-amber-400" : "text-amber-800")
                               : (isDarkMode ? "text-neutral-500" : "text-slate-400")
-                          }`}>
+                          }`} title={formatDeliveryDate(order.deliveryDate)}>
                             <Calendar className="w-3 h-3 shrink-0 text-[#C5A059]" />
-                            <span>{formatDeliveryDate(order.deliveryDate)}</span>
+                            <span className="truncate">{formatDeliveryDate(order.deliveryDate)}</span>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* 2. Orta Kolon: Tasarım Thumbnail + Malzeme Listesi (5 Kolon) */}
-                    <div className="md:col-span-5 min-w-0 flex flex-col sm:flex-row items-center sm:items-stretch gap-2.5">
+                    {/* 2. Orta Kolon: Tasarım Thumbnail + Malzeme Listesi (4 Kolon) */}
+                    <div className="md:col-span-4 min-w-0 flex flex-col sm:flex-row items-center sm:items-stretch gap-2.5">
                       {/* Küçük Tasarım Thumbnail */}
                       <div 
                         onClick={() => thumbnailImage && setLightboxImage({ url: thumbnailImage, title: `${order.orderNumber} • ${order.customerName}` })}
-                        className={`w-22 h-22 sm:w-24 sm:h-auto md:w-26 md:min-h-[105px] shrink-0 rounded-xl border flex flex-col items-center justify-center relative overflow-hidden transition-all group ${
+                        className={`w-20 h-20 sm:w-22 sm:h-auto md:w-22 md:min-h-[105px] shrink-0 rounded-xl border flex flex-col items-center justify-center relative overflow-hidden transition-all group ${
                           thumbnailImage ? "cursor-pointer hover:border-[#C5A059] hover:shadow-md" : ""
                         } ${
                           isDarkMode ? "bg-[#11141a] border-white/10" : "bg-slate-100 border-slate-200"
@@ -405,9 +405,9 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                             </div>
                           </>
                         ) : (
-                          <div className="flex flex-col items-center justify-center p-2 text-center select-none">
+                          <div className="flex flex-col items-center justify-center p-1.5 text-center select-none">
                             {profileTexture ? (
-                              <div className="w-10 h-10 rounded-lg border border-[#C5A059]/40 relative overflow-hidden mb-1 flex items-center justify-center bg-stone-100 dark:bg-stone-900 shadow-xs">
+                              <div className="w-9 h-9 rounded-lg border border-[#C5A059]/40 relative overflow-hidden mb-1 flex items-center justify-center bg-stone-100 dark:bg-stone-900 shadow-xs">
                                 <img src={profileTexture} alt="Profil" className="absolute inset-0 w-full h-full object-cover opacity-60" />
                                 <Image className="w-3.5 h-3.5 text-[#C5A059] relative z-10 drop-shadow-xs" />
                               </div>
@@ -527,10 +527,10 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                       </div>
                     </div>
 
-                    {/* 3. Sağ Kolon: Fiyat, Durum Seçici ve Aksiyon Butonları (3 Kolon) */}
-                    <div className="md:col-span-3 flex flex-col md:items-end justify-center gap-2.5 pt-3 md:pt-0 border-t md:border-t-0 border-dashed border-neutral-700/20 dark:border-white/10">
+                    {/* 3. Sağ Kolon: Fiyat, Simülatöre Aktar (Üstte) ve Açılır Menü + Sil (Altta Yan Yana) (3 Kolon) */}
+                    <div className="md:col-span-3 flex flex-col md:items-end justify-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-dashed border-neutral-700/20 dark:border-white/10 w-full">
                       {/* Genel Toplam Fiyat */}
-                      <div className="text-right w-full md:w-auto">
+                      <div className="text-right w-full">
                         <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${
                           isDarkMode ? "text-neutral-400" : "text-slate-500"
                         }`}>
@@ -543,50 +543,50 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                         </div>
                       </div>
 
-                      {/* Durum Seçici / Rozeti */}
-                      <div className="w-full md:w-auto">
-                        {onUpdateStatus ? (
-                          <div className="relative w-full md:w-auto">
-                            <select
-                              value={order.status}
-                              onChange={(e) => onUpdateStatus(order.id, e.target.value as OrderStatus)}
-                              className={`w-full md:w-auto text-[11px] font-bold uppercase font-mono pl-3 pr-7 py-1.5 rounded-xl border cursor-pointer focus:outline-none transition-colors appearance-none ${getStatusStyle(order.status)}`}
-                              title="Sipariş Durumunu Değiştir"
-                            >
-                              <option value="quote" className={isDarkMode ? "bg-neutral-900 text-sky-400" : "bg-white text-sky-700"}>TEKLİF</option>
-                              <option value="approved" className={isDarkMode ? "bg-neutral-900 text-emerald-400" : "bg-white text-emerald-700"}>ONAYLANDI</option>
-                              <option value="production" className={isDarkMode ? "bg-neutral-900 text-amber-400" : "bg-white text-amber-700"}>ÜRETİMDE</option>
-                              <option value="delivered" className={isDarkMode ? "bg-neutral-900 text-purple-400" : "bg-white text-purple-700"}>TESLİM EDİLDİ</option>
-                            </select>
-                            <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
-                          </div>
-                        ) : (
-                          <span className={`inline-block text-[11px] font-bold uppercase font-mono px-3 py-1.5 rounded-xl border ${getStatusStyle(order.status)}`}>
-                            {getStatusLabel(order.status)}
-                          </span>
-                        )}
-                      </div>
+                      {/* Simülatöre Aktar Butonu (Bir Satır Üstte, Tam Genişlik) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onLoadOrderToWorkspace(order);
+                        }}
+                        title="Bu Siparişi Simülatöre Aktar & Düzenle"
+                        className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xs active:scale-95 border ${
+                          isDarkMode
+                            ? "bg-[#C5A059] hover:bg-[#b59048] text-black border-[#C5A059]"
+                            : "bg-[#B88E3A] hover:bg-[#a17a2b] text-white border-[#B88E3A]"
+                        }`}
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                        <span>Simülatöre Aktar</span>
+                      </button>
 
-                      {/* Yeniden Düzenlenmiş Aksiyon Butonları (Tüm butonlar ikon + açık metin içerir) */}
-                      <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 w-full md:w-auto">
-                        {/* Simülatöre Aktar Butonu */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onLoadOrderToWorkspace(order);
-                          }}
-                          title="Bu Siparişi Simülatöre Aktar & Düzenle"
-                          className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xs active:scale-95 border ${
-                            isDarkMode
-                              ? "bg-[#C5A059] hover:bg-[#b59048] text-black border-[#C5A059]"
-                              : "bg-[#B88E3A] hover:bg-[#a17a2b] text-white border-[#B88E3A]"
-                          }`}
-                        >
-                          <RotateCcw className="w-3.5 h-3.5 shrink-0" />
-                          <span>Simülatöre Aktar</span>
-                        </button>
+                      {/* Alt Satır: Açılır Menü ve Sil Butonu Yan Yana */}
+                      <div className="flex items-center gap-1.5 w-full">
+                        {/* Açılır Menü (Durum Seçici) */}
+                        <div className="flex-1 min-w-0">
+                          {onUpdateStatus ? (
+                            <div className="relative w-full">
+                              <select
+                                value={order.status}
+                                onChange={(e) => onUpdateStatus(order.id, e.target.value as OrderStatus)}
+                                className={`w-full text-[11px] font-bold uppercase font-mono pl-2.5 pr-6 py-1.5 rounded-xl border cursor-pointer focus:outline-none transition-colors appearance-none ${getStatusStyle(order.status)}`}
+                                title="Sipariş Durumunu Değiştir"
+                              >
+                                <option value="quote" className={isDarkMode ? "bg-neutral-900 text-sky-400" : "bg-white text-sky-700"}>TEKLİF</option>
+                                <option value="approved" className={isDarkMode ? "bg-neutral-900 text-emerald-400" : "bg-white text-emerald-700"}>ONAYLANDI</option>
+                                <option value="production" className={isDarkMode ? "bg-neutral-900 text-amber-400" : "bg-white text-amber-700"}>ÜRETİMDE</option>
+                                <option value="delivered" className={isDarkMode ? "bg-neutral-900 text-purple-400" : "bg-white text-purple-700"}>TESLİM EDİLDİ</option>
+                              </select>
+                              <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
+                            </div>
+                          ) : (
+                            <span className={`inline-block w-full text-center text-[11px] font-bold uppercase font-mono px-2 py-1.5 rounded-xl border ${getStatusStyle(order.status)}`}>
+                              {getStatusLabel(order.status)}
+                            </span>
+                          )}
+                        </div>
 
-                        {/* Sil Butonu - Artık yazısı da var */}
+                        {/* Sil Butonu (Yan Yana) */}
                         <button
                           type="button"
                           onClick={() => {
@@ -595,7 +595,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                             }
                           }}
                           title="Siparişi Sil"
-                          className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs uppercase tracking-wider border transition-all cursor-pointer active:scale-95 ${
+                          className={`flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl font-bold text-xs uppercase tracking-wider border transition-all cursor-pointer active:scale-95 shrink-0 ${
                             isDarkMode
                               ? "border-rose-500/30 text-rose-400 hover:bg-rose-500/20 bg-rose-500/10"
                               : "border-rose-200 text-rose-600 hover:bg-rose-50 bg-rose-50/50"
