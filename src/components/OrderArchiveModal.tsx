@@ -13,7 +13,8 @@ import {
   Truck,
   Building2,
   Sliders,
-  ChevronDown
+  ChevronDown,
+  Layers
 } from "lucide-react";
 import { OrderArchiveItem, OrderStatus, CompanyProfile, FrameProfileItem } from "../types/pricing";
 
@@ -261,202 +262,206 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
               return (
                 <div
                   key={order.id}
-                  className={`rounded-2xl border transition-all p-3.5 sm:p-4.5 flex flex-col gap-3 ${
+                  className={`rounded-2xl border transition-all p-4 sm:p-5 flex flex-col gap-3.5 ${
                     isDarkMode
                       ? "bg-[#161a22] border-white/10 hover:border-[#C5A059]/40 shadow-sm"
                       : "bg-white border-slate-200 hover:border-[#B88E3A]/50 hover:shadow-md"
                   }`}
                 >
                   {/* Ana Bilgi Satırı: Sipariş No & Müşteri | Malzeme Listesi | Fiyat & Aksiyonlar */}
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                    {/* Sipariş No, Tarih & Müşteri Bilgisi (3 Kolon) */}
-                    <div className="md:col-span-3 min-w-0">
-                      {/* Sipariş No */}
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg font-mono font-bold text-xs ${
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                    {/* 1. Sol Kolon: Sipariş No, Adet, Tarih & Müşteri Bilgisi (4 Kolon) */}
+                    <div className="md:col-span-4 min-w-0 space-y-2.5">
+                      {/* Üst Sıra: Sipariş No & Yüksek Görünürlüklü TEK Adet Rozeti */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl font-mono font-extrabold text-xs shadow-xs ${
                           isDarkMode 
                             ? "bg-[#C5A059]/15 text-[#C5A059] border border-[#C5A059]/30" 
                             : "bg-amber-50 text-amber-900 border border-amber-300"
                         }`}>
                           <FileText className="w-3.5 h-3.5 shrink-0" />
-                          <span>{order.orderNumber}</span>
+                          <span>#{order.orderNumber}</span>
                         </div>
-                        {(order.quantity || 1) > 1 && (
-                          <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] ${
-                            isDarkMode ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-amber-100 text-amber-800 border border-amber-200"
-                          }`}>
-                            {order.quantity} Adet
-                          </span>
-                        )}
-                      </div>
 
-                      {/* Sipariş Tarihi */}
-                      <div className={`text-[11px] font-mono mt-0.5 ${
-                        isDarkMode ? "text-neutral-400" : "text-slate-500"
-                      }`}>
-                        {order.createdAt}
-                      </div>
-
-                      {/* Müşteri Adı */}
-                      <div className={`font-bold text-sm sm:text-base truncate flex items-center gap-1.5 mt-2 ${
-                        isDarkMode ? "text-white" : "text-slate-900"
-                      }`}>
-                        <User className={`w-4 h-4 shrink-0 ${isDarkMode ? "text-neutral-400" : "text-slate-400"}`} />
-                        <span className="truncate">{order.customerName}</span>
-                      </div>
-                      
-                      {/* Müşteri Telefonu */}
-                      <div className={`text-xs font-mono mt-0.5 flex items-center gap-1.5 ${
-                        isDarkMode ? "text-neutral-400" : "text-slate-600"
-                      }`}>
-                        <Phone className="w-3 h-3 shrink-0 opacity-60" />
-                        <span>{order.customerPhone || "Tel Belirtilmedi"}</span>
-                      </div>
-
-                      {/* Teslimat Tarihi */}
-                      {order.deliveryDate && (
-                        <div className={`text-[11px] font-mono mt-1 flex items-center gap-1.5 font-medium ${
-                          isDarkMode ? "text-amber-400" : "text-amber-800"
+                        {/* Adet Bilgisi: Sadece burada ve yüksek görünürlükle */}
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl font-mono font-black text-xs shadow-sm border ${
+                          isDarkMode 
+                            ? "bg-amber-500/25 text-amber-300 border-amber-500/50 shadow-amber-500/10" 
+                            : "bg-amber-100 text-amber-900 border-amber-300 shadow-amber-200/50"
                         }`}>
-                          <Calendar className="w-3 h-3 shrink-0" />
-                          <span>Teslimat: <strong>{order.deliveryDate}</strong></span>
+                          <Layers className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
+                          <span>{order.quantity || 1} ADET</span>
                         </div>
-                      )}
-                    </div>
+                      </div>
 
-                    {/* Malzeme Listesi (6 Kolon - Geniş & Detaylı) */}
-                    <div className="md:col-span-6 min-w-0 space-y-1">
-                      {/* 1- Tablo Ölçü */}
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`text-[11px] font-bold uppercase tracking-wider shrink-0 ${
+                      {/* Müşteri Adı - Başlık & Açıklama */}
+                      <div className="min-w-0">
+                        <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${
                           isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
                         }`}>
-                          1- Tablo Ölçü:
+                          Müşteri
                         </span>
-                        <span className={`font-mono font-bold text-[11px] tracking-wide ${
+                        <div className={`font-extrabold text-sm sm:text-base truncate flex items-center gap-1.5 ${
                           isDarkMode ? "text-white" : "text-slate-900"
                         }`}>
-                          {order.artworkWidthCm} × {order.artworkHeightCm} cm
-                        </span>
+                          <User className={`w-3.5 h-3.5 shrink-0 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+                          <span className="truncate" title={order.customerName}>{order.customerName || "—"}</span>
+                        </div>
                       </div>
 
-                      {/* 2- 1. Çerçeve */}
-                      <div className="flex items-baseline gap-1.5 truncate">
-                        <span className={`text-[11px] font-bold uppercase tracking-wider shrink-0 ${
-                          isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
-                        }`}>
-                          2- 1. Çerçeve:
-                        </span>
-                        {(() => {
-                          const name = cleanFrameName(order.innerFrameTitle) || "Standart Çerçeve";
-                          const width = order.frameWidthCm ? ` (${order.frameWidthCm} cm)` : "";
-                          return (
-                            <span 
-                              className={`text-[11px] font-medium truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}
-                              title={`${name}${width}`}
-                            >
-                              {name}{width}
-                            </span>
-                          );
-                        })()}
-                      </div>
+                      {/* İletişim & Kayıt Tarihi - Başlık & Açıklama */}
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-dashed border-neutral-700/20 dark:border-white/5">
+                        <div>
+                          <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${
+                            isDarkMode ? "text-neutral-500" : "text-slate-400"
+                          }`}>
+                            İletişim
+                          </span>
+                          <div className={`text-xs font-mono font-semibold truncate flex items-center gap-1 ${
+                            isDarkMode ? "text-neutral-300" : "text-slate-700"
+                          }`}>
+                            <Phone className="w-3 h-3 shrink-0 opacity-60" />
+                            <span>{order.customerPhone || "—"}</span>
+                          </div>
+                        </div>
 
-                      {/* 3- İç Paspartu */}
-                      <div className="flex items-baseline gap-1.5 truncate">
-                        <span className={`text-[11px] font-bold uppercase tracking-wider shrink-0 ${
-                          isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
-                        }`}>
-                          3- İç Paspartu:
-                        </span>
-                        {hasMat ? (
-                          <span className={`text-[11px] font-medium truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                            {order.matInfo}
+                        <div>
+                          <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${
+                            isDarkMode ? "text-neutral-500" : "text-slate-400"
+                          }`}>
+                            Kayıt Tarihi
                           </span>
-                        ) : (
-                          <span className={`text-[11px] font-medium ${isDarkMode ? "text-white/70" : "text-slate-600"}`}>
-                            Paspartusuz
-                          </span>
-                        )}
+                          <div className={`text-xs font-mono font-medium truncate ${
+                            isDarkMode ? "text-neutral-400" : "text-slate-500"
+                          }`}>
+                            {order.createdAt}
+                          </div>
+                        </div>
                       </div>
+                    </div>
 
-                      {/* 4- Dış Paspartu */}
-                      <div className="flex items-baseline gap-1.5 truncate">
-                        <span className={`text-[11px] font-bold uppercase tracking-wider shrink-0 ${
-                          isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
-                        }`}>
-                          4- Dış Paspartu:
-                        </span>
-                        {hasMiddleMat ? (
-                          <span className={`text-[11px] font-medium truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}>
-                            {order.middleMatWidthCm} cm {order.outerMatColor && !order.outerMatColor.startsWith("#") ? `(${order.outerMatColor}) ` : ""}(3D Derinlik)
+                    {/* 2. Orta Kolon: Malzeme Listesi (5 Kolon - Başlık ve Açıklama Ayrımı) */}
+                    <div className="md:col-span-5 min-w-0">
+                      <div className={`p-3 rounded-xl border space-y-2 ${
+                        isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-slate-50 border-slate-200/80"
+                      }`}>
+                        {/* 1- Tablo Ölçü */}
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                            isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                          }`}>
+                            1- Tablo Ölçü:
                           </span>
-                        ) : (
-                          <span className={`text-[11px] font-medium ${isDarkMode ? "text-white/70" : "text-slate-600"}`}>
-                            Yok
+                          <span className={`font-mono font-extrabold text-xs tracking-tight text-right ${
+                            isDarkMode ? "text-white" : "text-slate-900"
+                          }`}>
+                            {order.artworkWidthCm} × {order.artworkHeightCm} cm
                           </span>
-                        )}
-                      </div>
+                        </div>
 
-                      {/* 5- Dış Çerçeve */}
-                      <div className="flex items-baseline gap-1.5 truncate">
-                        <span className={`text-[11px] font-bold uppercase tracking-wider shrink-0 ${
-                          isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
-                        }`}>
-                          5- Dış Çerçeve:
-                        </span>
-                        {hasOuter ? (
-                          (() => {
-                            const name = cleanFrameName(order.outerFrameTitle) || "Dış Çerçeve";
-                            const width = order.outerFrameWidthCm ? ` (${order.outerFrameWidthCm} cm)` : "";
+                        {/* 2- 1. Çerçeve */}
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                            isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                          }`}>
+                            2- 1. Çerçeve:
+                          </span>
+                          {(() => {
+                            const name = cleanFrameName(order.innerFrameTitle) || "Standart Çerçeve";
+                            const width = order.frameWidthCm ? ` (${order.frameWidthCm} cm)` : "";
                             return (
                               <span 
-                                className={`text-[11px] font-medium truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}
+                                className={`text-xs font-bold truncate text-right ${isDarkMode ? "text-neutral-100" : "text-slate-900"}`}
                                 title={`${name}${width}`}
                               >
                                 {name}{width}
                               </span>
                             );
-                          })()
-                        ) : (
-                          <span className={`text-[11px] font-medium ${isDarkMode ? "text-white/70" : "text-slate-600"}`}>
-                            Çerçeve Yok
+                          })()}
+                        </div>
+
+                        {/* 3- İç Paspartu */}
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                            isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                          }`}>
+                            3- İç Paspartu:
                           </span>
-                        )}
+                          {hasMat ? (
+                            <span className={`text-xs font-semibold truncate text-right ${isDarkMode ? "text-neutral-200" : "text-slate-800"}`}>
+                              {order.matInfo}
+                            </span>
+                          ) : (
+                            <span className={`text-xs font-medium text-right ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>
+                              Paspartusuz
+                            </span>
+                          )}
+                        </div>
+
+                        {/* 4- Dış Paspartu */}
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                            isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                          }`}>
+                            4- Dış Paspartu:
+                          </span>
+                          {hasMiddleMat ? (
+                            <span className={`text-xs font-semibold truncate text-right ${isDarkMode ? "text-neutral-200" : "text-slate-800"}`}>
+                              {order.middleMatWidthCm} cm {order.outerMatColor && !order.outerMatColor.startsWith("#") ? `(${order.outerMatColor}) ` : ""}(3D)
+                            </span>
+                          ) : (
+                            <span className={`text-xs font-medium text-right ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>
+                              Yok
+                            </span>
+                          )}
+                        </div>
+
+                        {/* 5- Dış Çerçeve */}
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                            isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                          }`}>
+                            5- Dış Çerçeve:
+                          </span>
+                          {hasOuter ? (
+                            (() => {
+                              const name = cleanFrameName(order.outerFrameTitle) || "Dış Çerçeve";
+                              const width = order.outerFrameWidthCm ? ` (${order.outerFrameWidthCm} cm)` : "";
+                              return (
+                                <span 
+                                  className={`text-xs font-bold truncate text-right ${isDarkMode ? "text-neutral-100" : "text-slate-900"}`}
+                                  title={`${name}${width}`}
+                                >
+                                  {name}{width}
+                                </span>
+                              );
+                            })()
+                          ) : (
+                            <span className={`text-xs font-medium text-right ${isDarkMode ? "text-neutral-500" : "text-slate-400"}`}>
+                              Çerçeve Yok
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Sağ Kolon: 1 Fiyat, 2 Açılır Menü, 3 Simülatöre Aktar, 4 Sil */}
-                    <div className="md:col-span-3 flex flex-col md:items-end justify-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-dashed border-neutral-700/20 dark:border-white/10">
-                      {/* 1. Fiyat */}
+                    {/* 3. Sağ Kolon: Fiyat, Durum Seçici ve Aksiyon Butonları (3 Kolon) */}
+                    <div className="md:col-span-3 flex flex-col md:items-end justify-center gap-2.5 pt-3 md:pt-0 border-t md:border-t-0 border-dashed border-neutral-700/20 dark:border-white/10">
+                      {/* Genel Toplam Fiyat */}
                       <div className="text-right w-full md:w-auto">
-                        <div className={`font-mono font-black text-lg sm:text-xl leading-none ${
+                        <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${
+                          isDarkMode ? "text-neutral-400" : "text-slate-500"
+                        }`}>
+                          Genel Toplam
+                        </span>
+                        <div className={`font-mono font-black text-xl sm:text-2xl leading-none tracking-tight ${
                           isDarkMode ? "text-[#C5A059]" : "text-[#9E7728]"
                         }`}>
                           {order.currency}{order.totalAmount.toLocaleString("tr-TR")}
                         </div>
-                        {(order.quantity || 1) > 1 && (
-                          <div className={`text-[10px] font-mono mt-0.5 ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
-                            ({order.quantity} Adet Toplamı)
-                          </div>
-                        )}
-                        <div className={`text-[10px] font-medium flex items-center justify-end gap-1 mt-1 ${
-                          isDarkMode ? "text-neutral-400" : "text-slate-500"
-                        }`}>
-                          {order.deliveryMethod === "shipping" ? (
-                            <>
-                              <Truck className="w-3 h-3 text-sky-400" />
-                              <span>Kargo</span>
-                            </>
-                          ) : (
-                            <>
-                              <Building2 className="w-3 h-3 text-amber-500" />
-                              <span>Atölye Teslim</span>
-                            </>
-                          )}
-                        </div>
                       </div>
 
-                      {/* 2. Açılır Menü (Durum) */}
+                      {/* Durum Seçici / Rozeti */}
                       <div className="w-full md:w-auto">
                         {onUpdateStatus ? (
                           <div className="relative w-full md:w-auto">
@@ -480,16 +485,16 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                         )}
                       </div>
 
-                      {/* 3. Simülatöre Aktar & 4. Sil */}
-                      <div className="flex items-center gap-1.5 w-full md:w-auto">
-                        {/* 3. Simülatöre Aktar */}
+                      {/* Yeniden Düzenlenmiş Aksiyon Butonları (Tüm butonlar ikon + açık metin içerir) */}
+                      <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 w-full md:w-auto">
+                        {/* Simülatöre Aktar Butonu */}
                         <button
                           type="button"
                           onClick={() => {
                             onLoadOrderToWorkspace(order);
                           }}
                           title="Bu Siparişi Simülatöre Aktar & Düzenle"
-                          className={`flex-1 md:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xs active:scale-95 border ${
+                          className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xs active:scale-95 border ${
                             isDarkMode
                               ? "bg-[#C5A059] hover:bg-[#b59048] text-black border-[#C5A059]"
                               : "bg-[#B88E3A] hover:bg-[#a17a2b] text-white border-[#B88E3A]"
@@ -499,7 +504,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                           <span>Simülatöre Aktar</span>
                         </button>
 
-                        {/* 4. Sil */}
+                        {/* Sil Butonu - Artık yazısı da var */}
                         <button
                           type="button"
                           onClick={() => {
@@ -508,20 +513,44 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                             }
                           }}
                           title="Siparişi Sil"
-                          className={`p-1.5 rounded-xl border transition-colors cursor-pointer shrink-0 active:scale-95 ${
+                          className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs uppercase tracking-wider border transition-all cursor-pointer active:scale-95 ${
                             isDarkMode
                               ? "border-rose-500/30 text-rose-400 hover:bg-rose-500/20 bg-rose-500/10"
                               : "border-rose-200 text-rose-600 hover:bg-rose-50 bg-rose-50/50"
                           }`}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                          <span>Sil</span>
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Alt Bilgi Rozetleri: Sipariş Özellikleri (Minimal & Şık) */}
-                  <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-dashed border-neutral-700/20 dark:border-white/5">
+                  {/* Alt Bilgi Rozetleri: Teslimat Durumu İkonu ve Sipariş Özellikleri */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-2.5 border-t border-dashed border-neutral-700/20 dark:border-white/5">
+                    {/* Teslimat Durumu İkonu & Bilgisi (İstek doğrultusunda alt bölüme alındı) */}
+                    {order.deliveryMethod === "shipping" ? (
+                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono border flex items-center gap-1.5 ${
+                        isDarkMode
+                          ? "bg-sky-500/15 text-sky-300 border-sky-500/30"
+                          : "bg-sky-50 text-sky-700 border-sky-200"
+                      }`}>
+                        <Truck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                        <span>Kargo Teslimat</span>
+                        {order.deliveryDate && <span className="opacity-80 font-normal">({order.deliveryDate})</span>}
+                      </span>
+                    ) : (
+                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono border flex items-center gap-1.5 ${
+                        isDarkMode
+                          ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                          : "bg-amber-50 text-amber-800 border-amber-200"
+                      }`}>
+                        <Building2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>Atölye / Mağaza Teslim</span>
+                        {order.deliveryDate && <span className="opacity-80 font-normal">({order.deliveryDate})</span>}
+                      </span>
+                    )}
+
                     {/* Eser Türü */}
                     {flags.includeArtworkPrint ? (
                       <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono border ${
