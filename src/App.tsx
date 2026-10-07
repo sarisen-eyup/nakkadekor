@@ -4574,6 +4574,9 @@ ATÖLYE: ${companyProfile?.companyName || 'Nakka Dekor'}`;
         isOpen={isCropModalOpen}
         onClose={() => setIsCropModalOpen(false)}
         imageUrl={customPaintingUrl || ""}
+        isDarkMode={isDarkMode}
+        targetWidthCm={artworkWidth}
+        targetHeightCm={artworkHeight}
         onCropSave={async (croppedDataUrl) => {
           // Tarayıcı ekranında anında yansıt
           setCustomPaintingUrl(croppedDataUrl);

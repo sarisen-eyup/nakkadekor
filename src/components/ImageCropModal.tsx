@@ -63,10 +63,10 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
   // 4 Corner points in normalized coordinates (0..1)
   // 0: Top-Left, 1: Top-Right, 2: Bottom-Right, 3: Bottom-Left
   const [corners, setCorners] = useState<Point[]>([
-    { x: 0.02, y: 0.02 },
-    { x: 0.98, y: 0.02 },
-    { x: 0.98, y: 0.98 },
-    { x: 0.02, y: 0.98 },
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 1, y: 1 },
+    { x: 0, y: 1 },
   ]);
 
   // Active dragging state
@@ -94,23 +94,13 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
     img.src = imageUrl;
   }, [isOpen, imageUrl]);
 
-  // Reset corners to full bounding box with a small margin
+  // Reset corners to exact outer edges (0 and 1)
   const resetCorners = () => {
     setCorners([
-      { x: 0.02, y: 0.02 },
-      { x: 0.98, y: 0.02 },
-      { x: 0.98, y: 0.98 },
-      { x: 0.02, y: 0.98 },
-    ]);
-  };
-
-  // Preset to quickly isolate a horizontal frame profile moulding strip
-  const setCornersToHorizontalStrip = () => {
-    setCorners([
-      { x: 0.03, y: 0.30 },
-      { x: 0.97, y: 0.30 },
-      { x: 0.97, y: 0.70 },
-      { x: 0.03, y: 0.70 },
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 1, y: 1 },
+      { x: 0, y: 1 },
     ]);
   };
 
@@ -178,7 +168,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
     setImageOffset({ x: offsetX, y: offsetY });
 
     // 1. Clear background
-    ctx.fillStyle = "#121415";
+    ctx.fillStyle = isDarkMode ? "#121415" : "#e2e8f0";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // 2. Draw base image
@@ -191,7 +181,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
     }));
 
     // 3. Dark overlay outside selected quad
-    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.fillStyle = isDarkMode ? "rgba(0, 0, 0, 0.65)" : "rgba(15, 23, 42, 0.50)";
     ctx.beginPath();
     ctx.rect(0, 0, canvas.width, canvas.height);
     // Cutout quad (counter-clockwise)
@@ -204,7 +194,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
 
     // 4. Draw Quad Border & Grid lines (3x3 grid)
     ctx.lineWidth = 2;
-    ctx.strokeStyle = "#C5A059";
+    ctx.strokeStyle = isDarkMode ? "#C5A059" : "#B88E3A";
     ctx.beginPath();
     ctx.moveTo(displayPoints[0].x, displayPoints[0].y);
     ctx.lineTo(displayPoints[1].x, displayPoints[1].y);
@@ -215,7 +205,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
 
     // Internal 3x3 grid lines
     ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(197, 160, 89, 0.35)";
+    ctx.strokeStyle = isDarkMode ? "rgba(197, 160, 89, 0.35)" : "rgba(184, 142, 58, 0.45)";
     ctx.setLineDash([4, 4]);
 
     for (let i = 1; i <= 2; i++) {
@@ -255,7 +245,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
       // Outer ring
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, isActive ? 16 : isHover ? 14 : 11, 0, Math.PI * 2);
-      ctx.fillStyle = isActive ? "#E5C158" : "#C5A059";
+      ctx.fillStyle = isActive ? "#E5C158" : isDarkMode ? "#C5A059" : "#B88E3A";
       ctx.fill();
       ctx.lineWidth = 2.5;
       ctx.strokeStyle = "#FFFFFF";
@@ -264,14 +254,17 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
       // Inner dot
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
-      ctx.fillStyle = "#121415";
+      ctx.fillStyle = isDarkMode ? "#121415" : "#1e293b";
       ctx.fill();
 
       // Label text
       ctx.font = "bold 9px sans-serif";
-      ctx.fillStyle = "#FFFFFF";
       ctx.textAlign = "center";
       const offsetYText = idx < 2 ? -18 : 22;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = isDarkMode ? "rgba(0, 0, 0, 0.85)" : "rgba(255, 255, 255, 0.9)";
+      ctx.strokeText(handleLabels[idx], pt.x, pt.y + offsetYText);
+      ctx.fillStyle = isDarkMode ? "#FFFFFF" : "#0f172a";
       ctx.fillText(handleLabels[idx], pt.x, pt.y + offsetYText);
     });
 
@@ -290,7 +283,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
       ctx.clip();
 
       // Draw background
-      ctx.fillStyle = "#121415";
+      ctx.fillStyle = isDarkMode ? "#121415" : "#ffffff";
       ctx.fillRect(loupeX - loupeRadius, loupeY - loupeRadius, loupeRadius * 2, loupeRadius * 2);
 
       // Draw magnified portion of image (2.5x zoom)
@@ -309,7 +302,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
 
       // Loupe crosshair
       ctx.lineWidth = 1.5;
-      ctx.strokeStyle = "#C5A059";
+      ctx.strokeStyle = isDarkMode ? "#C5A059" : "#B88E3A";
       ctx.beginPath();
       ctx.moveTo(loupeX - 12, loupeY);
       ctx.lineTo(loupeX + 12, loupeY);
@@ -323,10 +316,10 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
       ctx.beginPath();
       ctx.arc(loupeX, loupeY, loupeRadius, 0, Math.PI * 2);
       ctx.lineWidth = 3;
-      ctx.strokeStyle = "#C5A059";
+      ctx.strokeStyle = isDarkMode ? "#C5A059" : "#B88E3A";
       ctx.stroke();
     }
-  }, [sourceImg, corners, activeCorner, hoveredCorner, dragPos, getTransformedCanvas]);
+  }, [sourceImg, corners, activeCorner, hoveredCorner, dragPos, getTransformedCanvas, isDarkMode]);
 
   // Re-render preview on change
   useEffect(() => {
@@ -612,18 +605,32 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className={`fixed inset-0 ${zIndexClass || "z-50"} flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-6 animate-fadeIn`}>
-      <div className="bg-[#1a1d1f] border border-[#C5A059]/40 rounded-lg shadow-2xl w-full max-w-5xl h-[92vh] flex flex-col overflow-hidden">
+    <div className={`fixed inset-0 ${zIndexClass || "z-50"} flex items-center justify-center p-3 sm:p-6 animate-fadeIn ${
+      isDarkMode ? "bg-black/85 backdrop-blur-md" : "bg-slate-900/60 backdrop-blur-sm"
+    }`}>
+      <div className={`border rounded-xl shadow-2xl w-full max-w-5xl h-[92vh] flex flex-col overflow-hidden transition-colors ${
+        isDarkMode 
+          ? "bg-[#1a1d1f] border-[#C5A059]/40 text-white" 
+          : "bg-white border-slate-200 text-slate-800 shadow-2xl"
+      }`}>
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#C5A059]/20 bg-[#121415] text-white">
+        <div className={`flex items-center justify-between px-5 py-3.5 border-b transition-colors ${
+          isDarkMode 
+            ? "border-[#C5A059]/20 bg-[#121415] text-white" 
+            : "border-slate-200 bg-slate-50 text-slate-900"
+        }`}>
           <div className="flex items-center gap-2.5">
-            <Scan className="w-5 h-5 text-[#C5A059]" />
+            <Scan className={`w-5 h-5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
             <div>
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-white">
+              <h3 className={`text-xs sm:text-sm font-bold uppercase tracking-wider ${
+                isDarkMode ? "text-white" : "text-slate-900"
+              }`}>
                 {title || "Görsel Kırpma & 90° Köşe Düzeltme (Tara)"}
               </h3>
-              <p className="text-[10px] text-neutral-400">
+              <p className={`text-[10px] ${
+                isDarkMode ? "text-neutral-400" : "text-slate-500"
+              }`}>
                 {subtitle || "Köşelerdeki altın noktaları sürükleyerek tablonun tam açılarını belirleyin"}
               </p>
             </div>
@@ -631,62 +638,86 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+            className={`p-1.5 rounded-full transition-colors cursor-pointer ${
+              isDarkMode 
+                ? "hover:bg-neutral-800 text-neutral-400 hover:text-white" 
+                : "hover:bg-slate-200 text-slate-500 hover:text-slate-800"
+            }`}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Toolbar Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-[#181b1c] border-b border-[#C5A059]/15 text-xs">
+        <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b text-xs transition-colors ${
+          isDarkMode 
+            ? "bg-[#181b1c] border-[#C5A059]/15" 
+            : "bg-slate-100/90 border-slate-200"
+        }`}>
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
               onClick={handleRotateLeft}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#222628] hover:bg-[#C5A059]/20 hover:border-[#C5A059] border border-neutral-700 text-neutral-200 rounded transition-all cursor-pointer text-[11px]"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg transition-all cursor-pointer text-[11px] font-medium ${
+                isDarkMode 
+                  ? "bg-[#222628] hover:bg-[#C5A059]/20 hover:border-[#C5A059] border-neutral-700 text-neutral-200" 
+                  : "bg-white hover:bg-amber-50 hover:border-[#B88E3A] border-slate-300 text-slate-700 shadow-2xs"
+              }`}
               title="90 Derece Sola Döndür"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-[#C5A059]" />
+              <RotateCcw className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
               <span>90° Sola</span>
             </button>
 
             <button
               type="button"
               onClick={handleRotateRight}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#222628] hover:bg-[#C5A059]/20 hover:border-[#C5A059] border border-neutral-700 text-neutral-200 rounded transition-all cursor-pointer text-[11px]"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg transition-all cursor-pointer text-[11px] font-medium ${
+                isDarkMode 
+                  ? "bg-[#222628] hover:bg-[#C5A059]/20 hover:border-[#C5A059] border-neutral-700 text-neutral-200" 
+                  : "bg-white hover:bg-amber-50 hover:border-[#B88E3A] border-slate-300 text-slate-700 shadow-2xs"
+              }`}
               title="90 Derece Sağa Döndür"
             >
-              <RotateCw className="w-3.5 h-3.5 text-[#C5A059]" />
+              <RotateCw className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
               <span>90° Sağa</span>
             </button>
 
-            <div className="w-px h-5 bg-neutral-800 my-auto" />
+            <div className={`w-px h-5 my-auto ${isDarkMode ? "bg-neutral-800" : "bg-slate-300"}`} />
 
             <button
               type="button"
               onClick={handleToggleFlipH}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded transition-all cursor-pointer text-[11px] ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg transition-all cursor-pointer text-[11px] font-medium ${
                 flipH
-                  ? "bg-[#C5A059]/30 border-[#C5A059] text-white"
-                  : "bg-[#222628] border-neutral-700 text-neutral-200 hover:bg-[#C5A059]/20"
+                  ? isDarkMode 
+                    ? "bg-[#C5A059]/30 border-[#C5A059] text-white" 
+                    : "bg-amber-100 border-[#B88E3A] text-amber-900 font-bold"
+                  : isDarkMode 
+                    ? "bg-[#222628] border-neutral-700 text-neutral-200 hover:bg-[#C5A059]/20" 
+                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 shadow-2xs"
               }`}
               title="Yatay Yansıt"
             >
-              <FlipHorizontal className="w-3.5 h-3.5 text-[#C5A059]" />
+              <FlipHorizontal className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
               <span>Yatay Çevir</span>
             </button>
 
             <button
               type="button"
               onClick={handleToggleFlipV}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded transition-all cursor-pointer text-[11px] ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 border rounded-lg transition-all cursor-pointer text-[11px] font-medium ${
                 flipV
-                  ? "bg-[#C5A059]/30 border-[#C5A059] text-white"
-                  : "bg-[#222628] border-neutral-700 text-neutral-200 hover:bg-[#C5A059]/20"
+                  ? isDarkMode 
+                    ? "bg-[#C5A059]/30 border-[#C5A059] text-white" 
+                    : "bg-amber-100 border-[#B88E3A] text-amber-900 font-bold"
+                  : isDarkMode 
+                    ? "bg-[#222628] border-neutral-700 text-neutral-200 hover:bg-[#C5A059]/20" 
+                    : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 shadow-2xs"
               }`}
               title="Dikey Yansıt"
             >
-              <FlipVertical className="w-3.5 h-3.5 text-[#C5A059]" />
+              <FlipVertical className={`w-3.5 h-3.5 ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
               <span>Dikey Çevir</span>
             </button>
           </div>
@@ -694,18 +725,12 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={setCornersToHorizontalStrip}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#222628] hover:bg-[#C5A059]/20 border border-neutral-700 hover:border-[#C5A059]/40 text-neutral-200 hover:text-[#C5A059] font-medium rounded transition-all cursor-pointer text-[11px]"
-              title="Çerçeve Çıtası için Yatay Şerit Seç"
-            >
-              <CropIcon className="w-3.5 h-3.5 text-[#C5A059]" />
-              <span>Yatay Şerit (Çıta)</span>
-            </button>
-
-            <button
-              type="button"
               onClick={resetCorners}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#222628] hover:bg-[#C5A059]/20 border border-[#C5A059]/30 text-[#C5A059] font-semibold rounded transition-all cursor-pointer text-[11px]"
+              className={`flex items-center gap-1.5 px-3 py-1.5 border font-bold rounded-lg transition-all cursor-pointer text-[11px] ${
+                isDarkMode 
+                  ? "bg-[#222628] hover:bg-[#C5A059]/20 border-[#C5A059]/40 text-[#C5A059]" 
+                  : "bg-white hover:bg-amber-50 border-[#B88E3A]/40 text-[#B88E3A] shadow-2xs"
+              }`}
               title="Köşeleri Tam Sınırlara Sıfırla"
             >
               <Maximize2 className="w-3.5 h-3.5" />
@@ -718,29 +743,39 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
         <div 
           ref={containerRef} 
           data-no-drag-scroll="true"
-          className="flex-grow relative bg-[#121415] overflow-hidden flex items-center justify-center select-none touch-none"
+          className={`flex-grow relative overflow-hidden flex items-center justify-center select-none touch-none ${
+            isDarkMode ? "bg-[#121415]" : "bg-slate-200/90"
+          }`}
           onMouseDown={handlePointerDown}
           onTouchStart={handlePointerDown}
         >
           <canvas ref={canvasRef} className="block cursor-crosshair max-w-full max-h-full" />
 
           {/* Floating Instructions Banner */}
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-[#1a1d1f]/90 border border-[#C5A059]/40 px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 pointer-events-none text-[11px] text-neutral-200 max-w-[90%] text-center">
-            <Sparkles className="w-3.5 h-3.5 text-[#C5A059] shrink-0 animate-pulse" />
-            <span>{instructionBannerText || "Köşe noktalarını tutarak yamuk çekilen fotoğrafları dikleştirebilirsiniz"}</span>
+          <div className={`absolute top-3 left-1/2 -translate-x-1/2 border px-3.5 py-1.5 rounded-full shadow-lg flex items-center gap-2 pointer-events-none text-[11px] max-w-[90%] text-center transition-colors ${
+            isDarkMode 
+              ? "bg-[#1a1d1f]/90 border-[#C5A059]/40 text-neutral-200" 
+              : "bg-white/95 border-amber-400 text-slate-700 shadow-md"
+          }`}>
+            <Sparkles className={`w-3.5 h-3.5 shrink-0 animate-pulse ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`} />
+            <span className="font-medium">{instructionBannerText || "Köşe noktalarını tutarak yamuk çekilen fotoğrafları dikleştirebilirsiniz"}</span>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-[#121415] border-t border-[#C5A059]/20 text-xs">
+        <div className={`flex items-center justify-between px-5 py-3.5 border-t text-xs transition-colors ${
+          isDarkMode 
+            ? "bg-[#121415] border-[#C5A059]/20" 
+            : "bg-slate-50 border-slate-200"
+        }`}>
           {!hideDimensions ? (
-            <div className="text-neutral-400 text-[11px] font-mono hidden sm:block">
+            <div className={`text-[11px] font-mono hidden sm:block ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
               {dimensionLabel ? dimensionLabel : (
-                <>Hedef Ölçü: <span className="text-[#C5A059] font-bold">{targetWidthCm} x {targetHeightCm} cm</span></>
+                <>Hedef Ölçü: <span className={`font-bold ${isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"}`}>{targetWidthCm} x {targetHeightCm} cm</span></>
               )}
             </div>
           ) : (
-            <div className="text-neutral-400 text-[11px] font-mono hidden sm:block">
+            <div className={`text-[11px] font-mono hidden sm:block ${isDarkMode ? "text-neutral-400" : "text-slate-600"}`}>
               {dimensionLabel || "Çerçeve Profil Dokusu Kırpma"}
             </div>
           )}
@@ -749,7 +784,11 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded bg-[#222628] hover:bg-neutral-700 text-neutral-300 font-bold transition-all cursor-pointer text-xs uppercase tracking-wider"
+              className={`px-4 py-2 rounded-lg font-bold transition-all cursor-pointer text-xs uppercase tracking-wider ${
+                isDarkMode 
+                  ? "bg-[#222628] hover:bg-neutral-700 text-neutral-300" 
+                  : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+              }`}
             >
               İptal
             </button>
@@ -757,7 +796,11 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
             <button
               type="button"
               onClick={handleApplyCrop}
-              className="flex items-center gap-2 px-5 py-2 rounded bg-[#C5A059] hover:bg-[#B28E46] text-black font-extrabold transition-all cursor-pointer shadow-lg active:scale-95 text-xs uppercase tracking-widest"
+              className={`flex items-center gap-2 px-5 py-2 rounded-lg font-extrabold transition-all cursor-pointer shadow-md active:scale-95 text-xs uppercase tracking-widest ${
+                isDarkMode 
+                  ? "bg-[#C5A059] hover:bg-[#B28E46] text-black" 
+                  : "bg-[#B88E3A] hover:bg-[#A37B2E] text-white"
+              }`}
             >
               <CropIcon className="w-4 h-4" />
               <span>{saveButtonText || "Kırp ve Tabloya Aktar"}</span>

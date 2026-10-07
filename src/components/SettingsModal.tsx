@@ -1406,6 +1406,17 @@ export function SettingsModal({
                         </button>
                       )}
 
+                      <div className={`p-2.5 rounded-xl border flex items-start gap-2 text-[11px] leading-snug ${
+                        isDarkMode 
+                          ? "bg-amber-950/25 border-amber-500/35 text-amber-200" 
+                          : "bg-amber-50 border-amber-300 text-amber-900"
+                      }`}>
+                        <AlertCircle className="w-4 h-4 text-[#C5A059] shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Önemli Not:</span> Çerçeve profili yüklerken/kırparken çerçevenin <strong>iç tarafı üstte</strong> olmalıdır.
+                        </div>
+                      </div>
+
                       <p className={`text-[11px] leading-relaxed ${isDarkMode ? "text-neutral-400" : "text-slate-500"}`}>
                         Çıtayı dik tutup düz açıdan fotoğraflayarak veya numune görselini yükleyerek doku oluşturabilirsiniz.
                       </p>
@@ -2098,11 +2109,11 @@ export function SettingsModal({
           onCropSave={handleCropSave}
           isDarkMode={isDarkMode}
           title={cropModalTitle}
-          subtitle="Telefon kamerasıyla çekilen çerçeve çıtasını 90° döndürebilir ve köşe noktalarını şerit boyunca hizalayabilirsiniz"
+          subtitle="Çerçevenin İÇ TARAFI ÜSTTE olacak şekilde 90° döndürebilir ve köşe noktalarını hizalayabilirsiniz"
           saveButtonText="Kırp ve Profile Aktar"
           hideDimensions={true}
           dimensionLabel={cropDimensionLabel}
-          instructionBannerText="Çıtayı yatay şerit halinde seçmek için 'Yatay Şerit (Çıta)' butonuna basabilir veya köşe noktalarını sürükleyebilirsiniz"
+          instructionBannerText="Önemli: Çerçeve profili kırparken çerçevenin İÇ TARAFI ÜSTTE olmalıdır."
           zIndexClass="z-[70]"
         />
       )}
