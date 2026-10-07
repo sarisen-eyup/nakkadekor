@@ -2763,10 +2763,10 @@ Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${re
         customPaintingFile,
         customFrameFile,
         customOuterFrameFile,
-        effectivePrice: costBreakdown.effectiveFinalPriceWithVat,
-        totalPrice: Math.round(costBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)),
+        effectivePrice: displayCostBreakdown.effectiveFinalPriceWithVat,
+        totalPrice: Math.round(displayCostBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)),
         deliveryMethod,
-        shippingCost: costBreakdown.shippingCost,
+        shippingCost: displayCostBreakdown.shippingCost,
         qrDataUrl,
         flags: effectiveInclusionFlags,
         companyProfile: companyProfile.includeInQuotes ? {
@@ -2898,15 +2898,15 @@ Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${re
           innerFrameTitle: activeInnerProfile ? `${activeInnerProfile.code} - ${activeInnerProfile.name}` : customFrameFile,
           outerFrameTitle: outerFrameWidth > 0 ? (activeOuterProfile ? `${activeOuterProfile.code} - ${activeOuterProfile.name}` : customOuterFrameFile) : "Yok",
           matInfo: matWidth > 0 ? `${matWidth} cm ${getPaspartuColorName(innerMatColor)}` : "Paspartusuz",
-          effectivePrice: costBreakdown.effectiveFinalPriceWithVat,
+          effectivePrice: displayCostBreakdown.effectiveFinalPriceWithVat,
           quantity: Math.max(1, orderQuantity),
           companyProfile: companyProfile.includeInQuotes ? companyProfile : undefined,
           authorUser: activeUser?.fullName
         });
       } else if (action === "cost") {
         triggerCostBreakdownPrintWindow({
-          breakdown: costBreakdown,
-          settings: unitPricesSettings,
+          breakdown: displayCostBreakdown,
+          settings: displayUnitPricesSettings,
           artworkWidthCm: artworkWidth,
           artworkHeightCm: artworkHeight,
           orderNumber,
@@ -3020,9 +3020,7 @@ Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${re
       setActiveOrderId(null);
       setActiveOrderCreatedAt(null);
 
-      // Kural 3: Güncel malzeme fiyatlarıyla yeni bir 'Genel Toplam' hesaplat (Eski manuel override sıfırlanır)
-      effectiveOverridePrice = null;
-      setCustomOverridePrice(null);
+      // Kullanıcının simülatörde belirlediği özel iskonto / anlaşmalı fiyat korunur (effectiveOverridePrice = customOverridePrice)
 
       // Kural 4: Otomatik Referans Notu
       const autoRefNote = `Sistem Notu: Revize edilen referans sipariş no: ${oldReferencedOrderNum}`;
@@ -3057,6 +3055,7 @@ Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${re
     if (asNewOrder) {
       // Kural 4: Yeni Fiyatlara Geçiş (Sadece Revizyonda):
       // Eski snapshot'ı sil, sistemdeki en güncel (zamlı) malzeme birim fiyatlarını çekerek yepyeni maliyet tablosu ve yeni snapshot oluştur.
+      // Varsa kullanıcının simülatörde belirlediği iskonto / özel fiyat korunur.
       const freshCostBreakdown = calculateCostsAndPricing({
         artworkWidthCm: artworkWidth,
         artworkHeightCm: artworkHeight,
@@ -3070,7 +3069,7 @@ Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${re
         selectedOuterProfileMeterPrice: activeOuterProfile?.unitPricePerMeter,
         innerRabbetDepthMm: activeInnerRabbetMm,
         outerRabbetDepthMm: activeOuterRabbetMm,
-        customOverridePrice: null, // Revizyonda eski manuel override sıfırlanır
+        customOverridePrice: effectiveOverridePrice, // Kullanıcının uyguladığı güncel iskonto korunur
         deliveryMethod: deliveryMethod,
         settings: unitPricesSettings, // En güncel birim fiyatlar
         flags: effectiveInclusionFlags
@@ -3136,7 +3135,7 @@ Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${re
     const finalTotalAmount = isUpdate && existingOrder && !isCostAffectingModified
       ? (existingOrder.totalAmount ?? (finalCostBreakdownForOrder.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)))
       : (asNewOrder
-          ? (finalCostBreakdownForOrder.calculatedPriceWithVat * Math.max(1, orderQuantity))
+          ? (finalCostBreakdownForOrder.effectiveFinalPriceWithVat * Math.max(1, orderQuantity))
           : (displayCostBreakdown.effectiveFinalPriceWithVat * Math.max(1, orderQuantity)));
 
     const finalCustomOverride = isUpdate && existingOrder && !isCostAffectingModified
