@@ -14,7 +14,9 @@ import {
   Building2,
   Sliders,
   ChevronDown,
-  Layers
+  Layers,
+  Image,
+  Maximize2
 } from "lucide-react";
 import { OrderArchiveItem, OrderStatus, CompanyProfile, FrameProfileItem } from "../types/pricing";
 
@@ -35,12 +37,23 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
   onClose,
   isDarkMode,
   orders,
+  profiles = [],
   onDeleteOrder,
   onLoadOrderToWorkspace,
   onUpdateStatus
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string } | null>(null);
+
+  const formatDeliveryDate = (d?: string) => {
+    if (!d || d.trim() === "") return "Belirtilmedi";
+    if (/^\d{4}-\d{2}-\d{2}/.test(d)) {
+      const [y, m, day] = d.split("T")[0].split("-");
+      return `${day}.${m}.${y}`;
+    }
+    return d;
+  };
 
   const resolveOrderFlags = (order: OrderArchiveItem) => {
     const flags = order.inclusionFlags || order.simulatorConfig?.flags || order.simulatorConfig?.inclusionFlags;
@@ -259,6 +272,18 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
               const hasMat = Boolean(flags.includeInnerMat && order.matInfo && !order.matInfo.toLowerCase().includes("paspartusuz"));
               const hasMiddleMat = Boolean(flags.includeMiddleMat && order.middleMatWidthCm && order.middleMatWidthCm > 0);
 
+              const thumbnailImage = 
+                order.renderedFrameDataUrl || 
+                order.customPaintingUrl || 
+                order.simulatorConfig?.customPaintingUrl || 
+                order.simulatorConfig?.renderedFrameDataUrl;
+
+              const innerProfile = profiles.find(p => 
+                p.id === order.simulatorConfig?.innerProfileId || 
+                cleanFrameName(p.name).toLowerCase() === cleanFrameName(order.innerFrameTitle).toLowerCase()
+              );
+              const profileTexture = innerProfile?.imageUrl || innerProfile?.textureUrl;
+
               return (
                 <div
                   key={order.id}
@@ -268,9 +293,9 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                       : "bg-white border-slate-200 hover:border-[#B88E3A]/50 hover:shadow-md"
                   }`}
                 >
-                  {/* Ana Bilgi Satırı: Sipariş No & Müşteri | Malzeme Listesi | Fiyat & Aksiyonlar */}
+                  {/* Ana Bilgi Satırı: Sipariş No & Müşteri | Tasarım Thumbnail & Malzeme Listesi | Fiyat & Aksiyonlar */}
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                    {/* 1. Sol Kolon: Sipariş No, Adet, Tarih & Müşteri Bilgisi (4 Kolon) */}
+                    {/* 1. Sol Kolon: Sipariş No, Adet, Müşteri, İletişim, Kayıt ve Teslim Tarihi (4 Kolon) */}
                     <div className="md:col-span-4 min-w-0 space-y-2.5">
                       {/* Üst Sıra: Sipariş No & Yüksek Görünürlüklü TEK Adet Rozeti */}
                       <div className="flex items-center gap-2 flex-wrap">
@@ -309,8 +334,8 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                         </div>
                       </div>
 
-                      {/* İletişim & Kayıt Tarihi - Başlık & Açıklama */}
-                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-dashed border-neutral-700/20 dark:border-white/5">
+                      {/* İletişim, Kayıt Tarihi & Teslim Tarihi (3 Bilgi Alanı) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1.5 border-t border-dashed border-neutral-700/20 dark:border-white/5">
                         <div>
                           <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${
                             isDarkMode ? "text-neutral-500" : "text-slate-400"
@@ -321,7 +346,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                             isDarkMode ? "text-neutral-300" : "text-slate-700"
                           }`}>
                             <Phone className="w-3 h-3 shrink-0 opacity-60" />
-                            <span>{order.customerPhone || "—"}</span>
+                            <span className="truncate">{order.customerPhone || "—"}</span>
                           </div>
                         </div>
 
@@ -337,12 +362,69 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                             {order.createdAt}
                           </div>
                         </div>
+
+                        <div>
+                          <span className={`text-[9px] font-bold uppercase tracking-wider block mb-0.5 ${
+                            isDarkMode ? "text-[#C5A059]" : "text-[#B88E3A]"
+                          }`}>
+                            Teslim Tarihi
+                          </span>
+                          <div className={`text-xs font-mono font-extrabold truncate flex items-center gap-1 ${
+                            order.deliveryDate 
+                              ? (isDarkMode ? "text-amber-400" : "text-amber-800")
+                              : (isDarkMode ? "text-neutral-500" : "text-slate-400")
+                          }`}>
+                            <Calendar className="w-3 h-3 shrink-0 text-[#C5A059]" />
+                            <span>{formatDeliveryDate(order.deliveryDate)}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* 2. Orta Kolon: Malzeme Listesi (5 Kolon - Başlık ve Açıklama Ayrımı) */}
-                    <div className="md:col-span-5 min-w-0">
-                      <div className={`p-3 rounded-xl border space-y-2 ${
+                    {/* 2. Orta Kolon: Tasarım Thumbnail + Malzeme Listesi (5 Kolon) */}
+                    <div className="md:col-span-5 min-w-0 flex flex-col sm:flex-row items-center sm:items-stretch gap-2.5">
+                      {/* Küçük Tasarım Thumbnail */}
+                      <div 
+                        onClick={() => thumbnailImage && setLightboxImage({ url: thumbnailImage, title: `${order.orderNumber} • ${order.customerName}` })}
+                        className={`w-22 h-22 sm:w-24 sm:h-auto md:w-26 md:min-h-[105px] shrink-0 rounded-xl border flex flex-col items-center justify-center relative overflow-hidden transition-all group ${
+                          thumbnailImage ? "cursor-pointer hover:border-[#C5A059] hover:shadow-md" : ""
+                        } ${
+                          isDarkMode ? "bg-[#11141a] border-white/10" : "bg-slate-100 border-slate-200"
+                        }`}
+                        title={thumbnailImage ? "Tasarımı tam boyutta incelemek için tıklayın" : "Tasarım Önizleme"}
+                      >
+                        {thumbnailImage ? (
+                          <>
+                            <img 
+                              src={thumbnailImage} 
+                              alt={`Tasarım - ${order.orderNumber}`}
+                              className="w-full h-full object-contain p-1 transition-transform duration-200 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                              <Maximize2 className="w-4 h-4 text-white drop-shadow-md" />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center p-2 text-center select-none">
+                            {profileTexture ? (
+                              <div className="w-10 h-10 rounded-lg border border-[#C5A059]/40 relative overflow-hidden mb-1 flex items-center justify-center bg-stone-100 dark:bg-stone-900 shadow-xs">
+                                <img src={profileTexture} alt="Profil" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                                <Image className="w-3.5 h-3.5 text-[#C5A059] relative z-10 drop-shadow-xs" />
+                              </div>
+                            ) : (
+                              <Image className="w-5 h-5 text-[#C5A059]/70 mb-1" />
+                            )}
+                            <span className={`text-[9px] font-mono font-bold leading-tight ${
+                              isDarkMode ? "text-neutral-400" : "text-slate-600"
+                            }`}>
+                              {order.artworkWidthCm}×{order.artworkHeightCm}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Malzeme Listesi (Daraltılmış & Düzenli) */}
+                      <div className={`flex-1 min-w-0 p-2.5 sm:p-3 rounded-xl border space-y-1.5 ${
                         isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-slate-50 border-slate-200/80"
                       }`}>
                         {/* 1- Tablo Ölçü */}
@@ -660,6 +742,42 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Tasarım Lightbox / Büyütme Modalı */}
+      {lightboxImage && (
+        <div 
+          onClick={() => setLightboxImage(null)}
+          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer animate-fadeIn"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className={`relative max-w-2xl w-full rounded-2xl border p-4 shadow-2xl overflow-hidden cursor-default ${
+              isDarkMode ? "bg-[#181c24] border-white/15" : "bg-white border-slate-300"
+            }`}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-700/20 dark:border-white/10 mb-3">
+              <h4 className="text-xs font-bold font-mono uppercase tracking-wider text-[#C5A059]">
+                {lightboxImage.title}
+              </h4>
+              <button
+                type="button"
+                onClick={() => setLightboxImage(null)}
+                className="p-1 rounded-lg hover:bg-neutral-500/20 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                title="Kapat"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="w-full max-h-[70vh] flex items-center justify-center bg-black/40 rounded-xl overflow-hidden p-3">
+              <img 
+                src={lightboxImage.url} 
+                alt={lightboxImage.title}
+                className="max-w-full max-h-[65vh] object-contain rounded-lg shadow-lg select-none" 
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
