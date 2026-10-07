@@ -134,6 +134,8 @@ import {
   saveSubscriptionToStorage,
   deductSubscriptionCredit,
   loadOrdersArchiveFromStorage,
+  saveArchiveOrdersToStorage,
+  resolveOrderQuantity,
   addOrderToArchive,
   deleteOrderFromArchive,
   loadAuthSession,
@@ -486,6 +488,13 @@ function SimulatorMain() {
   const [subscriptionData, setSubscriptionData] = useState<SubscriptionData>(() => loadSubscriptionFromStorage());
   const [archiveOrders, setArchiveOrders] = useState<OrderArchiveItem[]>(() => loadOrdersArchiveFromStorage());
   const [pendingAutoPrint, setPendingAutoPrint] = useState<"order_form" | "cutting_list" | "label" | "cost" | null>(null);
+
+  // Arşiv siparişleri güncellendiğinde yerel depolamayı her zaman güncel tut
+  useEffect(() => {
+    if (archiveOrders) {
+      saveArchiveOrdersToStorage(archiveOrders);
+    }
+  }, [archiveOrders]);
   
   // Derived state: Is the current order saved/created in archive or Supabase?
   const isOrderCreated = Boolean(activeOrderId || archiveOrders.some(o => o.orderNumber === orderNumber));
@@ -1326,13 +1335,17 @@ function SimulatorMain() {
       setActiveOrderCreatedAt(order.createdAt);
     }
 
-    // Arşiv listesinde mevcut siparişin id ve numarasını senkronize et (isOrderCreated garantisi)
+    // Sipariş Adedini yükle (En yüksek doğruluklu çözümleyici ile)
+    const loadedQty = resolveOrderQuantity(order);
+    setOrderQuantity(loadedQty);
+
+    // Arşiv listesinde mevcut siparişin id, numara ve çözülen adedini senkronize et (isOrderCreated garantisi)
     setArchiveOrders(prev => {
       const exists = prev.some(o => o.orderNumber === order.orderNumber || o.id === resolvedId);
       if (exists) {
-        return prev.map(o => (o.orderNumber === order.orderNumber || o.id === resolvedId) ? { ...o, ...order, id: resolvedId } : o);
+        return prev.map(o => (o.orderNumber === order.orderNumber || o.id === resolvedId) ? { ...o, ...order, id: resolvedId, quantity: loadedQty } : o);
       }
-      return [{ ...order, id: resolvedId }, ...prev];
+      return [{ ...order, id: resolvedId, quantity: loadedQty }, ...prev];
     });
 
     // 2. Müşteri ve Teslimat Bilgilerini yükle
@@ -1356,10 +1369,6 @@ function SimulatorMain() {
 
     const resolvedDeliveryMethod = order.deliveryMethod === "pickup" ? "store" : (order.deliveryMethod || "store");
     setDeliveryMethod(resolvedDeliveryMethod);
-
-    // Sipariş Adedini yükle (Varsayılan 1)
-    const loadedQty = Math.max(1, Number(order.quantity || order.simulatorConfig?.quantity) || 1);
-    setOrderQuantity(loadedQty);
 
     // 3. Eser Ölçülerini yükle
     const resolvedArtW = order.artworkWidthCm || 50;
@@ -2808,7 +2817,9 @@ Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${re
         customPaintingUrl: customPaintingUrl,
         customPaintingFile: customPaintingFile,
         flags: effectiveInclusionFlags,
-        customOverridePrice: customOverridePrice
+        customOverridePrice: customOverridePrice,
+        quantity: Math.max(1, orderQuantity),
+        orderQuantity: Math.max(1, orderQuantity)
       }
     };
 

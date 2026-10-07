@@ -19,6 +19,7 @@ import {
   Maximize2
 } from "lucide-react";
 import { OrderArchiveItem, OrderStatus, CompanyProfile, FrameProfileItem } from "../types/pricing";
+import { resolveOrderQuantity } from "../utils/pricing";
 
 interface OrderArchiveModalProps {
   isOpen: boolean;
@@ -283,6 +284,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                 cleanFrameName(p.name).toLowerCase() === cleanFrameName(order.innerFrameTitle).toLowerCase()
               );
               const profileTexture = innerProfile?.imageUrl || innerProfile?.textureUrl;
+              const itemQuantity = resolveOrderQuantity(order);
 
               return (
                 <div
@@ -315,7 +317,7 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                             : "bg-amber-100 text-amber-900 border-amber-300 shadow-amber-200/50"
                         }`}>
                           <Layers className="w-3.5 h-3.5 text-[#C5A059] shrink-0" />
-                          <span>{order.quantity || 1} ADET</span>
+                          <span>{itemQuantity} ADET</span>
                         </div>
                       </div>
 
@@ -547,7 +549,15 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          onLoadOrderToWorkspace(order);
+                          onLoadOrderToWorkspace({
+                            ...order,
+                            quantity: itemQuantity,
+                            simulatorConfig: {
+                              ...(order.simulatorConfig || {}),
+                              quantity: itemQuantity,
+                              orderQuantity: itemQuantity
+                            }
+                          });
                         }}
                         title="Bu Siparişi Simülatöre Aktar & Düzenle"
                         className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xs active:scale-95 border ${

@@ -11,6 +11,7 @@ import {
   sanitizeUnitPricesSettings,
   isUUID
 } from "../types/pricing";
+import { resolveOrderQuantity } from "../utils/pricing";
 import { compressImage } from "../utils/imageCompressor";
 
 /**
@@ -923,6 +924,22 @@ export async function fetchOrdersFromSupabase(): Promise<{ data: OrderArchiveIte
         }
       }
 
+      const resolvedCostBreakdown = row.cost_breakdown || simulatorConfig?.cost_breakdown || (row.price_snapshot || simulatorConfig?.price_snapshot)?.costBreakdown;
+      
+      const resolvedQty = resolveOrderQuantity({
+        ...row,
+        quantity: row.quantity,
+        totalAmount: Number(row.grand_total ?? row.total_amount ?? 0),
+        cost_breakdown: resolvedCostBreakdown,
+        simulatorConfig,
+        notes: typeof row.notes === "string" ? row.notes : undefined
+      });
+
+      if (simulatorConfig) {
+        simulatorConfig.quantity = resolvedQty;
+        simulatorConfig.orderQuantity = resolvedQty;
+      }
+
       return {
         id: String(row.id),
         orderNumber: row.order_number,
@@ -936,6 +953,7 @@ export async function fetchOrdersFromSupabase(): Promise<{ data: OrderArchiveIte
         outerFrameTitle: row.outer_frame_title || "Yok",
         matInfo: row.mat_info || "Paspartusuz",
         totalAmount: Number(row.grand_total ?? row.total_amount ?? 0),
+        quantity: resolvedQty,
         currency: row.currency || "₺",
         status: (row.status as OrderStatus) || "quote",
         deliveryMethod: row.delivery_method === "store" ? "pickup" : (row.delivery_method || "pickup"),
@@ -1061,8 +1079,12 @@ export async function createOrderInSupabase(
     await ensureFrameProfileExistsInDb(order.outerProfileId, tenantId);
   }
 
+  const resolvedQty = resolveOrderQuantity(order);
+
   const simulatorSnapshot = {
     ...(order.simulatorConfig || {}),
+    quantity: resolvedQty,
+    orderQuantity: resolvedQty,
     innerProfileId: order.innerProfileId,
     outerProfileId: order.outerProfileId,
     matWidthCm: order.matWidthCm,
@@ -1091,6 +1113,7 @@ export async function createOrderInSupabase(
     inner_frame_title: order.innerFrameTitle || null,
     outer_frame_title: order.outerFrameTitle || null,
     mat_info: order.matInfo || null,
+    quantity: resolvedQty,
     grand_total: order.totalAmount || 0,
     subtotal: order.totalAmount || 0,
     currency: order.currency || "₺",
@@ -1160,9 +1183,10 @@ export async function createOrderInSupabase(
 
       // Eksik sütun toleransı (PGRST204 veya 42703)
       if (error && (error.code === "PGRST204" || error.code === "42703")) {
-        console.warn("Retrying order update without delivery_date_str:", error.message);
+        console.warn("Retrying order update without delivery_date_str or quantity column:", error.message);
         const safeUpdatePayload = { ...updatePayload };
         delete safeUpdatePayload.delivery_date_str;
+        delete safeUpdatePayload.quantity;
 
         const retryUpdate = await supabase
           .from("quotes_orders")
@@ -1209,9 +1233,10 @@ export async function createOrderInSupabase(
 
       // Eksik sütun toleransı (PGRST204 veya 42703)
       if (error && (error.code === "PGRST204" || error.code === "42703")) {
-        console.warn("Retrying order insert without delivery_date_str or legacy columns:", error.message);
+        console.warn("Retrying order insert without delivery_date_str or quantity columns:", error.message);
         const safePayload = { ...primaryPayload };
         delete safePayload.delivery_date_str;
+        delete safePayload.quantity;
 
         const retryRes = await supabase
           .from("quotes_orders")

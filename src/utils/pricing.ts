@@ -600,6 +600,112 @@ export function calculateCostsAndPricing(params: CalculateCostParams): CostCalcu
   };
 }
 
+/**
+ * Sipariş adedini (quantity) en yüksek doğrulukla çözer:
+ * 1. Simülatör yapılandırmasındaki açık adet (Kullanıcının simülatörde seçtiği kesin değer)
+ * 2. Doğrudan order.quantity değeri (> 1)
+ * 3. Sipariş notları / açıklamalarındaki adet metinleri ("3 Adet", "Adet: 5" vb.)
+ * 4. Finansal oran analizi (Genel Toplam / Birim Fiyat oranı ve iskonto toleransı)
+ * 5. Varsayılan 1
+ */
+export function resolveOrderQuantity(order?: Partial<OrderArchiveItem> | null): number {
+  if (!order) return 1;
+
+  // 1. Simülatör yapılandırmasındaki açık adet (Kullanıcının simülatörde seçtiği kesin değer)
+  const simQty = Number(
+    order.simulatorConfig?.quantity ?? 
+    order.simulatorConfig?.orderQuantity ?? 
+    (order as any)?.orderQuantity ?? 
+    (order as any)?.order_quantity ?? 
+    (order as any)?.item_count
+  );
+  if (!isNaN(simQty) && simQty > 1) {
+    return Math.floor(simQty);
+  }
+
+  // 2. Doğrudan order.quantity değeri (> 1)
+  const directQty = Number(order.quantity);
+  if (!isNaN(directQty) && directQty > 1) {
+    return Math.floor(directQty);
+  }
+
+  // 3. Notlarda veya metinlerde belirtilen adet bilgisi ("3 Adet", "Adet: 5", "Miktar: 4", "5 adet" vb.)
+  const notesStr = [
+    order.notes, 
+    order.revisionNote, 
+    (order as any)?.notes_text, 
+    (order as any)?.orderNotes
+  ].filter(Boolean).join(" ");
+  if (notesStr) {
+    const match = notesStr.match(/(?:^|\s|[(\[])(\d+)\s*(?:adet|parça|tane|qty|quantity)(?:\s|[)\]]|$)/i);
+    if (match) {
+      const parsed = parseInt(match[1], 10);
+      if (!isNaN(parsed) && parsed > 1) {
+        return parsed;
+      }
+    }
+  }
+
+  // 4. Finansal Oran Analizi: Genel Toplam / Birim Fiyat
+  const totalAmount = Number(order.totalAmount ?? (order as any)?.grand_total ?? (order as any)?.total_amount ?? 0);
+  if (totalAmount > 0) {
+    const snapshot = order.price_snapshot || order.simulatorConfig?.price_snapshot;
+    const breakdown = order.cost_breakdown || order.simulatorConfig?.cost_breakdown || snapshot?.costBreakdown;
+
+    let unitPrice = 0;
+    if (breakdown) {
+      unitPrice = breakdown.effectiveFinalPriceWithVat || breakdown.calculatedPriceWithVat || 0;
+    }
+
+    // Snapshot/breakdown yoksa, ölçü ve malzemelerden dinamik olarak hesapla
+    if (unitPrice <= 0 && order.artworkWidthCm && order.artworkHeightCm) {
+      try {
+        const dummyBreakdown = calculateCostsAndPricing({
+          artworkWidthCm: order.artworkWidthCm,
+          artworkHeightCm: order.artworkHeightCm,
+          matWidthCm: order.matWidthCm ?? 0,
+          frameWidthCm: order.frameWidthCm ?? 4.0,
+          middleMatWidthCm: order.middleMatWidthCm ?? 0,
+          outerFrameWidthCm: order.outerFrameWidthCm ?? 0,
+          innerMatColor: order.innerMatColor ?? "#FAF9F5",
+          outerMatColor: order.outerMatColor ?? "#FAF9F5",
+          customOverridePrice: order.customOverridePrice ?? null,
+          deliveryMethod: order.deliveryMethod === "shipping" ? "shipping" : "store",
+          flags: order.inclusionFlags
+        });
+        unitPrice = dummyBreakdown.effectiveFinalPriceWithVat || dummyBreakdown.calculatedPriceWithVat || 0;
+      } catch {
+        // Hata durumunda devam et
+      }
+    }
+
+    if (unitPrice > 0) {
+      const ratio = totalAmount / unitPrice;
+      if (ratio >= 1.45) {
+        const estimated = Math.round(ratio);
+        if (estimated >= 2) {
+          const ratioDiff = Math.abs(ratio - estimated);
+          const discountRatio = ratio / estimated;
+          // Tam katı veya mantıklı bir iskonto aralığı (%40'a varan iskonto toleransı)
+          if (ratioDiff < 0.28 || (discountRatio >= 0.60 && discountRatio <= 1.05)) {
+            return estimated;
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Doğrudan veya simülatör adedi 1 ise ve yukarıdaki analizler çoklu adet göstermediyse 1 döndür
+  if (!isNaN(directQty) && directQty >= 1) {
+    return Math.floor(directQty);
+  }
+  if (!isNaN(simQty) && simQty >= 1) {
+    return Math.floor(simQty);
+  }
+
+  return 1;
+}
+
 export function generateCutList(params: {
   orderNumber?: string;
   artworkWidthCm: number;
