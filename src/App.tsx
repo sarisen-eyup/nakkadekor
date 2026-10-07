@@ -154,6 +154,7 @@ import {
   triggerCuttingListPrintWindow, 
   triggerCostBreakdownPrintWindow 
 } from "./utils/printHelper";
+import { renderFramedCompositeToDataUrl } from "./utils/frameCanvasRenderer";
 
 const NakkaLogo = ({ size = 36 }: { size?: number }) => (
   <img 
@@ -3121,14 +3122,31 @@ Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${re
 
     const resolvedId = (!asNewOrder && (activeOrderId || existingOrder?.id)) || ("ord_" + Date.now());
 
-    const canvas = document.querySelector(".canvas-container canvas") as HTMLCanvasElement;
     let currentPreviewDataUrl: string | undefined = undefined;
-    if (canvas) {
-      try {
-        currentPreviewDataUrl = canvas.toDataURL("image/png");
-      } catch (e) {
-        console.warn("Could not capture canvas preview:", e);
-      }
+    try {
+      currentPreviewDataUrl = await renderFramedCompositeToDataUrl({
+        canvasWidth: 360,
+        canvasHeight: 360,
+        artworkUrl: customPaintingUrl,
+        artworkWidthCm: artworkWidth,
+        artworkHeightCm: artworkHeight,
+        innerFrameTextureUrl: customFrameUrl,
+        innerFrameWidthCm: effectiveInclusionFlags.includeInnerFrame ? frameWidth : 0,
+        innerFrameLayoutMode: frameLayoutMode,
+        outerFrameTextureUrl: customOuterFrameUrl,
+        outerFrameWidthCm: effectiveInclusionFlags.includeOuterFrame ? outerFrameWidth : 0,
+        outerFrameLayoutMode: outerFrameLayoutMode,
+        matWidthCm: effectiveInclusionFlags.includeInnerMat ? matWidth : 0,
+        innerMatColor: innerMatColor,
+        middleMatWidthCm: effectiveInclusionFlags.includeMiddleMat ? middleMatWidth : 0,
+        outerMatColor: outerMatColor,
+        includeInnerFrame: effectiveInclusionFlags.includeInnerFrame,
+        includeOuterFrame: effectiveInclusionFlags.includeOuterFrame,
+        includeInnerMat: effectiveInclusionFlags.includeInnerMat,
+        includeMiddleMat: effectiveInclusionFlags.includeMiddleMat
+      }, 0.85);
+    } catch (e) {
+      console.warn("Could not generate framed thumbnail preview:", e);
     }
 
     // Kural 2 & 3: Teklif/Onaylandı durumunda sadece maliyeti etkilemeyen alanlar güncellendiğinde eski fiyat korunur

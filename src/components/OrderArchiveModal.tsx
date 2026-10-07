@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { OrderArchiveItem, OrderStatus, CompanyProfile, FrameProfileItem } from "../types/pricing";
 import { resolveOrderQuantity } from "../utils/pricing";
+import { FramedOrderThumbnail } from "./FramedOrderThumbnail";
 
 interface OrderArchiveModalProps {
   isOpen: boolean;
@@ -354,46 +355,14 @@ export const OrderArchiveModal: React.FC<OrderArchiveModalProps> = ({
                       </div>
                     </div>
 
-                    {/* 2. Thumbnail Kolonu (Yatayda Genişletilmiş: 2 Kolon) */}
+                    {/* 2. Thumbnail Kolonu (Yatayda Genişletilmiş: 2 Kolon - Çerçeveli Son Hal) */}
                     <div className="md:col-span-2 min-w-0 flex items-center justify-center">
-                      <div 
-                        onClick={() => thumbnailImage && setLightboxImage({ url: thumbnailImage, title: `${order.orderNumber} • ${order.customerName}` })}
-                        className={`w-24 h-24 sm:w-28 sm:h-28 md:w-full md:max-w-[125px] md:aspect-square shrink-0 rounded-2xl border flex flex-col items-center justify-center relative overflow-hidden transition-all group ${
-                          thumbnailImage ? "cursor-pointer hover:border-[#C5A059] hover:shadow-md" : ""
-                        } ${
-                          isDarkMode ? "bg-[#11141a] border-white/10" : "bg-slate-100 border-slate-200"
-                        }`}
-                        title={thumbnailImage ? "Tasarımı tam boyutta incelemek için tıklayın" : "Tasarım Önizleme"}
-                      >
-                        {thumbnailImage ? (
-                          <>
-                            <img 
-                              src={thumbnailImage} 
-                              alt={`Tasarım - ${order.orderNumber}`}
-                              className="w-full h-full object-contain p-1.5 transition-transform duration-200 group-hover:scale-105"
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                              <Maximize2 className="w-4 h-4 text-white drop-shadow-md" />
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center p-2 text-center select-none">
-                            {profileTexture ? (
-                              <div className="w-10 h-10 rounded-xl border border-[#C5A059]/40 relative overflow-hidden mb-1 flex items-center justify-center bg-stone-100 dark:bg-stone-900 shadow-xs">
-                                <img src={profileTexture} alt="Profil" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-                                <Image className="w-4 h-4 text-[#C5A059] relative z-10 drop-shadow-xs" />
-                              </div>
-                            ) : (
-                              <Image className="w-6 h-6 text-[#C5A059]/70 mb-1" />
-                            )}
-                            <span className={`text-[10px] font-mono font-bold leading-tight ${
-                              isDarkMode ? "text-neutral-400" : "text-slate-600"
-                            }`}>
-                              {order.artworkWidthCm}×{order.artworkHeightCm}
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                      <FramedOrderThumbnail
+                        order={order}
+                        profiles={profiles}
+                        isDarkMode={isDarkMode}
+                        onOpenLightbox={(url, title) => setLightboxImage({ url, title })}
+                      />
                     </div>
 
                     {/* 3. Detay Kolonu (Yatayda Genişletilmiş: 4 Kolon) */}

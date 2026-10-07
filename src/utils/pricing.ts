@@ -275,13 +275,17 @@ export function saveArchiveOrdersToStorage(orders: OrderArchiveItem[], tenantId?
   if (typeof window === "undefined" || !Array.isArray(orders)) return;
   try {
     const key = getScopedKey(ARCHIVE_STORAGE_KEY, tenantId);
-    // QuotaExceededError önlemek için büyük base64 data url'leri yerel önbelleğe yazılmaz, sadece kritik veriler tutulur
+    // QuotaExceededError önlemek için aşırı büyük base64 data url'leri yerel önbelleğe yazılmaz, kompakt çerçeveli görseller tutulur
     const lightweightOrders = orders.slice(0, 50).map(o => {
-      const { renderedFrameDataUrl, ...rest } = o;
-      // customPaintingUrl data URL ise ve 50KB'dan büyükse temizle
-      const safePainting = rest.customPaintingUrl && rest.customPaintingUrl.length > 50000 ? "" : rest.customPaintingUrl;
+      // 150KB'dan küçük kompakt çerçeveli önizleme görsellerini yerel önbellekte koru
+      const safeRendered = o.renderedFrameDataUrl && o.renderedFrameDataUrl.length <= 150000
+        ? o.renderedFrameDataUrl
+        : "";
+      // customPaintingUrl data URL ise ve 80KB'dan büyükse temizle
+      const safePainting = o.customPaintingUrl && o.customPaintingUrl.length > 80000 ? "" : o.customPaintingUrl;
       return {
-        ...rest,
+        ...o,
+        renderedFrameDataUrl: safeRendered,
         customPaintingUrl: safePainting
       };
     });
