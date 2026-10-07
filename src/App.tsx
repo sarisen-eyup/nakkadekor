@@ -1176,8 +1176,17 @@ function SimulatorMain() {
   const isNonCostModified = useMemo(() => {
     if (!loadedOrderSnapshot) return false;
     if (customerName.trim() !== loadedOrderSnapshot.customerName.trim()) return true;
-    if (customerPhone.trim() !== loadedOrderSnapshot.customerPhone.trim()) return true;
-    if ((deliveryDate || "") !== (loadedOrderSnapshot.deliveryDate || "")) return true;
+
+    // Telefon karşılaştırması: format farklarını (+90, 0, boşluk, parantez) temizleyip saf rakamları karşılaştır
+    const cleanCurPhone = (customerPhone || "").replace(/\D/g, "").replace(/^(90|0)/, "");
+    const cleanSnapPhone = (loadedOrderSnapshot.customerPhone || "").replace(/\D/g, "").replace(/^(90|0)/, "");
+    if (cleanCurPhone !== cleanSnapPhone) return true;
+
+    // Tarih karşılaştırması: format farklarını (ISO vs DD.MM.YYYY) normalize edip karşılaştır
+    const normCurDate = normalizeDateToIso(deliveryDate) || (deliveryDate || "").trim();
+    const normSnapDate = normalizeDateToIso(loadedOrderSnapshot.deliveryDate) || (loadedOrderSnapshot.deliveryDate || "").trim();
+    if (normCurDate !== normSnapDate) return true;
+
     if (deliveryMethod !== loadedOrderSnapshot.deliveryMethod) return true;
     return false;
   }, [
@@ -1350,7 +1359,8 @@ function SimulatorMain() {
 
     // 2. Müşteri ve Teslimat Bilgilerini yükle
     const resolvedCustomerName = order.customerName || "";
-    const resolvedCustomerPhone = order.customerPhone || "";
+    const cleanPhoneForInput = formatTrPhone(order.customerPhone || "");
+    const resolvedCustomerPhone = cleanPhoneForInput || (order.customerPhone || "");
     setCustomerName(resolvedCustomerName);
     setCustomerPhone(resolvedCustomerPhone);
     
@@ -2967,12 +2977,13 @@ Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${re
       return;
     }
 
-    const fullPhone = customerPhone.trim().startsWith('+90') 
-      ? customerPhone.trim() 
-      : `+90 ${customerPhone.trim()}`;
+    const trimmedPhone = formatTrPhone(customerPhone) || customerPhone.trim();
+    const fullPhone = trimmedPhone.startsWith('+90') 
+      ? trimmedPhone 
+      : `+90 ${trimmedPhone}`;
 
     // Standardize ISO date (YYYY-MM-DD) for PostgreSQL
-    const isoDeliveryDate = normalizeDateToIso(deliveryDate);
+    const isoDeliveryDate = normalizeDateToIso(deliveryDate) || deliveryDate.trim();
 
     const asNewOrder = options?.asNewOrder === true;
 
@@ -3214,13 +3225,19 @@ Durum: Onaylandi / Uretime Hazir${referencedOrderNumber ? `\nRevizyon Ref: #${re
       toast.success("Sipariş başarıyla oluşturuldu.");
     }
 
+    // Form state'lerini normalize edilmiş değerlerle senkronize et
+    setCustomerPhone(trimmedPhone);
+    if (isoDeliveryDate) {
+      setDeliveryDate(isoDeliveryDate);
+    }
+
     // Sipariş kaydedildiğinde/güncellendiğinde snapshot senkronize edilir (Madde 2)
     setLoadedOrderSnapshot({
       orderNumber: currentOrderNum,
       orderId: resolvedId,
       customerName: customerName.trim(),
       customerPhone: fullPhone,
-      deliveryDate: isoDeliveryDate || "",
+      deliveryDate: isoDeliveryDate || (deliveryDate || "").trim(),
       deliveryMethod: deliveryMethod,
       orderQuantity: Math.max(1, orderQuantity),
       artworkWidth: artworkWidth,
